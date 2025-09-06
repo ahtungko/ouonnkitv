@@ -108,7 +108,7 @@ function App() {
               </div>
             </motion.div>
             <motion.p layoutId="logo-text" className="font-bold text-inherit">
-              OUONNKI TV
+              xkaTV
             </motion.p>
           </motion.div>
           <motion.div

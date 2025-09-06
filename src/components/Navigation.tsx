@@ -36,7 +36,7 @@ export default function Navigation() {
                 <OkiLogo />
               </motion.div>
               <motion.p layoutId="logo-text" className="text-lg font-bold text-inherit">
-                OUONNKI TV
+                xkaTV
               </motion.p>
             </motion.div>
           </NavLink>
