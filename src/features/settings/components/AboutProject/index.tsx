@@ -1,6 +1,6 @@
 import { OkiLogo } from '@/shared/components/icons'
 import { Badge } from '@/shared/components/ui/badge'
-import { Github, History, Sparkles } from 'lucide-react'
+import { History, Sparkles } from 'lucide-react'
 import { useVersionStore } from '@/shared/store/versionStore'
 import { SettingsPageShell, SettingsSection } from '../common'
 
