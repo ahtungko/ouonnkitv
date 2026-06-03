@@ -102,7 +102,7 @@ export default function SideBar({
             <div>
               <OkiLogo />
             </div>
-            <p className="text-accent-foreground text-lg font-bold">OUONNKI TV</p>
+            <p className="text-accent-foreground text-lg font-bold">xkaTV</p>
           </div>
         </NavLink>
       </SidebarHeader>

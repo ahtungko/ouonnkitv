@@ -133,7 +133,7 @@ export default function AuthGuard({ children }: AuthGuardProps) {
               className="flex flex-col items-center gap-3"
             >
               <OkiLogo size={80} />
-              <div className="text-xl font-bold tracking-widest">OUONNKI TV</div>
+              <div className="text-xl font-bold tracking-widest">xkaTV</div>
             </motion.div>
 
             <motion.p

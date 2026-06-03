@@ -25,7 +25,7 @@ export default function AboutProject() {
                 <OkiLogo size={56} className="drop-shadow-sm" />
               </div>
               <div className="space-y-1">
-                <h2 className="text-xl font-semibold tracking-tight md:text-2xl">Ouonnki TV</h2>
+                <h2 className="text-xl font-semibold tracking-tight md:text-2xl">xkaTV</h2>
                 <p className="text-muted-foreground text-sm">
                   面向高频观影场景的流媒体聚合应用，强调连续性与模块化体验。
                 </p>
@@ -59,23 +59,6 @@ export default function AboutProject() {
 
       <SettingsSection title="项目资源" description="查看仓库代码与版本更新记录。" tone="violet">
         <div className="grid gap-3 md:grid-cols-2">
-          <a
-            href="https://github.com/ouonnki/OuonnkiTV"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="border-border/70 bg-muted/35 hover:bg-muted/55 rounded-xl border px-4 py-4 transition-colors"
-          >
-            <div className="flex items-center gap-3">
-              <div className="bg-background flex size-10 items-center justify-center rounded-lg">
-                <Github className="size-5" />
-              </div>
-              <div className="space-y-0.5">
-                <p className="text-sm font-semibold">项目仓库</p>
-                <p className="text-muted-foreground text-xs">查看源码与开发进展，欢迎点个 Star 支持</p>
-              </div>
-            </div>
-          </a>
-
           <button
             type="button"
             onClick={() => setShowUpdateModal(true)}
@@ -107,7 +90,7 @@ export default function AboutProject() {
       </SettingsSection>
 
       <footer className="border-border/70 text-muted-foreground mt-1 border-t pt-4 text-center text-sm">
-        © {currentYear} Ouonnki TV
+        © {currentYear} xkaTV
       </footer>
     </SettingsPageShell>
   )
