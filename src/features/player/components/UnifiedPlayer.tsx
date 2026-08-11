@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom'
 import Artplayer from 'artplayer'
 import type Hls from 'hls.js'
 import type { HlsConfig } from 'hls.js'
-import { ChevronDown, X } from 'lucide-react'
+import { Check, ChevronDown, Clipboard, X } from 'lucide-react'
 import { type DetailResult } from '@ouonnki/cms-core'
 import { createM3u8Processor, createHlsLoaderClass } from '@ouonnki/cms-core/m3u8'
 import { Button } from '@/shared/components/ui/button'
@@ -15,6 +15,7 @@ import {
 } from '@/shared/components/ui/collapsible'
 import { ScrollArea } from '@/shared/components/ui/scroll-area'
 import { Spinner } from '@/shared/components/ui/spinner'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/shared/components/ui/tooltip'
 import { useApiStore } from '@/shared/store/apiStore'
 import { useViewingHistoryStore } from '@/shared/store/viewingHistoryStore'
 import { useSettingStore } from '@/shared/store/settingStore'
@@ -142,6 +143,27 @@ const stripHtmlTags = (value: string) => {
   return stripped
 }
 
+const copyTextToClipboard = async (value: string) => {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(value)
+    return
+  }
+
+  const textarea = document.createElement('textarea')
+  textarea.value = value
+  textarea.setAttribute('readonly', '')
+  textarea.style.position = 'fixed'
+  textarea.style.left = '-9999px'
+  document.body.appendChild(textarea)
+  textarea.select()
+
+  try {
+    document.execCommand('copy')
+  } finally {
+    document.body.removeChild(textarea)
+  }
+}
+
 const matchesTmdbHistory = (
   item: ViewingHistoryItem,
   mediaType: TmdbMediaType,
@@ -234,6 +256,8 @@ export default function UnifiedPlayer() {
   const betterNoticeTimerRef = useRef<number | null>(null)
   const betterNoticeAnimationFrameRef = useRef<number | null>(null)
   const gestureVolumeTimerRef = useRef<number | null>(null)
+  const copyFeedbackTimerRef = useRef<number | null>(null)
+  const [copiedVideoUrl, setCopiedVideoUrl] = useState(false)
 
   useEffect(() => {
     detailRef.current = detail
@@ -286,6 +310,9 @@ export default function UnifiedPlayer() {
       }
       if (gestureVolumeTimerRef.current) {
         window.clearTimeout(gestureVolumeTimerRef.current)
+      }
+      if (copyFeedbackTimerRef.current) {
+        window.clearTimeout(copyFeedbackTimerRef.current)
       }
     }
   }, [])
@@ -1382,6 +1409,32 @@ export default function UnifiedPlayer() {
       ? tmdbPlayback.tmdbRichDetail?.number_of_episodes || detail?.episodes.length
       : undefined
   const hasSeasonPanel = !isCmsRoute && tmdbPlayback.seasonOptions.length > 0
+  const currentVideoUrl = detail?.episodes[selectedEpisode] || ''
+
+  const handleCopyCurrentVideoUrl = useCallback(async () => {
+    if (!currentVideoUrl) {
+      toast.error('当前集数没有可复制的播放链接')
+      return
+    }
+
+    try {
+      await copyTextToClipboard(currentVideoUrl)
+      setCopiedVideoUrl(true)
+      toast.success('已复制视频链接')
+
+      if (copyFeedbackTimerRef.current) {
+        window.clearTimeout(copyFeedbackTimerRef.current)
+      }
+
+      copyFeedbackTimerRef.current = window.setTimeout(() => {
+        setCopiedVideoUrl(false)
+        copyFeedbackTimerRef.current = null
+      }, 1600)
+    } catch (copyError) {
+      console.error('Copy video URL error:', copyError)
+      toast.error('复制失败，请手动复制')
+    }
+  }, [currentVideoUrl])
 
   const modeLabel = isTmdbRoute ? 'TMDB 播放模式' : 'CMS 直连模式'
   const collapsibleContentClassName =
@@ -1524,6 +1577,30 @@ export default function UnifiedPlayer() {
               {error}
             </div>
           )}
+
+          <div className="flex min-w-0 items-center justify-between gap-3 rounded-lg border border-border/60 bg-card/55 px-3 py-2.5">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium">{episodes[selectedEpisode] || `第 ${selectedEpisode + 1} 集`}</p>
+              <p className="mt-0.5 truncate text-xs text-muted-foreground">{sourceName}</p>
+            </div>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  className="shrink-0 rounded-full"
+                  onClick={handleCopyCurrentVideoUrl}
+                  disabled={!currentVideoUrl}
+                  aria-label="复制当前视频链接"
+                >
+                  {copiedVideoUrl ? <Check className="size-4" /> : <Clipboard className="size-4" />}
+                  <span className="hidden sm:inline">{copiedVideoUrl ? '已复制' : '复制链接'}</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>复制当前视频链接</TooltipContent>
+            </Tooltip>
+          </div>
 
           <section className="relative overflow-hidden rounded-lg border border-border/60 bg-black/95 shadow-lg">
             <div
