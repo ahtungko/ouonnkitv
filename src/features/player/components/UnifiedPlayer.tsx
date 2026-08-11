@@ -1578,31 +1578,33 @@ export default function UnifiedPlayer() {
             </div>
           )}
 
-          <div className="flex min-w-0 items-center justify-between gap-3 rounded-lg border border-border/60 bg-card/55 px-3 py-2.5">
-            <div className="min-w-0">
-              <p className="truncate text-sm font-medium">{episodes[selectedEpisode] || `第 ${selectedEpisode + 1} 集`}</p>
-              <p className="mt-0.5 truncate text-xs text-muted-foreground">{sourceName}</p>
-            </div>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="secondary"
-                  className="shrink-0 rounded-full"
-                  onClick={handleCopyCurrentVideoUrl}
-                  disabled={!currentVideoUrl}
-                  aria-label="复制当前视频链接"
-                >
-                  {copiedVideoUrl ? <Check className="size-4" /> : <Clipboard className="size-4" />}
-                  <span className="hidden sm:inline">{copiedVideoUrl ? '已复制' : '复制链接'}</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>复制当前视频链接</TooltipContent>
-            </Tooltip>
-          </div>
-
           <section className="relative overflow-hidden rounded-lg border border-border/60 bg-black/95 shadow-lg">
+            <div className="flex min-h-11 min-w-0 items-center justify-between gap-3 border-b border-white/10 bg-background/95 px-3 py-2 text-foreground">
+              <div className="flex min-w-0 items-baseline gap-2">
+                <p className="truncate text-sm font-medium">
+                  {episodes[selectedEpisode] || `第 ${selectedEpisode + 1} 集`}
+                </p>
+                <span className="text-muted-foreground hidden shrink-0 text-xs sm:inline">·</span>
+                <p className="text-muted-foreground truncate text-xs">{sourceName}</p>
+              </div>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="size-8 shrink-0 rounded-full px-0 sm:w-auto sm:px-3"
+                    onClick={handleCopyCurrentVideoUrl}
+                    disabled={!currentVideoUrl}
+                    aria-label="复制当前视频链接"
+                  >
+                    {copiedVideoUrl ? <Check className="size-4" /> : <Clipboard className="size-4" />}
+                    <span className="hidden sm:inline">{copiedVideoUrl ? '已复制' : '复制链接'}</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>复制当前视频链接</TooltipContent>
+              </Tooltip>
+            </div>
             <div
               id="player"
               ref={containerRef}
