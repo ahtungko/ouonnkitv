@@ -41,17 +41,19 @@ export function parsePlayUrl(vodPlayUrl: string, vodPlayFrom?: string): ParsedEp
   const mainSource = playSources[sourceIndex]
   const episodeList = mainSource.split('#')
 
-  const urls = episodeList
-    .map(ep => {
+  const parsed = episodeList
+    .map((ep, index) => {
       const parts = ep.split('$')
-      return parts.length > 1 ? parts[1] : ''
+      return {
+        url: parts.length > 1 ? parts[1] : '',
+        name: parts.length > 1 ? parts[0] : `第${index + 1}集`,
+      }
     })
-    .filter(url => url && (url.startsWith('http://') || url.startsWith('https://')))
+    .filter(ep => ep.url && (ep.url.startsWith('http://') || ep.url.startsWith('https://')))
 
-  const names = episodeList.map((ep, index) => {
-    const parts = ep.split('$')
-    return parts.length > 1 ? parts[0] : `第${index + 1}集`
-  })
+  // 占位集可能没有播放地址，名称必须与过滤后的 URL 一起移动。
+  const urls = parsed.map(ep => ep.url)
+  const names = parsed.map(ep => ep.name)
 
   return { urls, names }
 }

@@ -12,6 +12,7 @@ import type { TmdbFavoriteItem } from '@/features/favorites/types/favorites'
 import type { TmdbMediaType } from '@/shared/types/tmdb'
 import { FeaturedCarousel } from '../components/FeaturedCarousel'
 import { ContinueWatching } from '../components/ContinueWatching'
+import { SeriesUpdates } from '../components/SeriesUpdates'
 import { MediaCarousel } from '../components/MediaCarousel'
 import { CmsHomeContent } from '../components/CmsHomeContent'
 import { useMemo } from 'react'
@@ -69,6 +70,7 @@ function TmdbHomeContent() {
       <FeaturedCarousel items={trending} loading={loading.trending} />
       {/* 继续观看 */}
       <ContinueWatching />
+      <SeriesUpdates />
       {/* 猜你喜欢 */}
       <MediaCarousel title="猜你喜欢" items={recommendations} loading={recommendationsLoading} />
       {/* 正在热映 */}

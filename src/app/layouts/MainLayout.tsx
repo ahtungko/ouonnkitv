@@ -13,6 +13,7 @@ import { useSubscriptionAutoRefresh } from '@/shared/hooks/useSubscriptionAutoRe
 import { useScrollChromeVisibility } from '@/shared/hooks'
 import { useLocation } from 'react-router'
 import { getInitialContentConfigId } from '@/shared/config/runtimeEnv'
+import { useSeriesUpdateChecker } from '@/features/favorites/hooks/useSeriesUpdateChecker'
 
 const UpdateModal = lazy(() => import('@/shared/components/UpdateModal'))
 
@@ -31,6 +32,7 @@ export default function MainLayout() {
 
   // 订阅源自动刷新
   useSubscriptionAutoRefresh()
+  useSeriesUpdateChecker()
 
   // 初始化逻辑 (从 MyRouter 迁移)
   useEffect(() => {

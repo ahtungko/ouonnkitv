@@ -2,6 +2,7 @@ import { useApiStore } from '@/shared/store/apiStore'
 import { useCmsVideoList } from '@/shared/hooks/useCmsCore'
 import type { VideoSource } from '@ouonnki/cms-core'
 import { ContinueWatching } from './ContinueWatching'
+import { SeriesUpdates } from './SeriesUpdates'
 import { CmsMediaCarousel } from './CmsMediaCarousel'
 import { NavLink } from 'react-router'
 import { Settings, Plus } from 'lucide-react'
@@ -59,6 +60,7 @@ export function CmsHomeContent() {
     <div className="flex flex-col gap-6">
       {/* 继续观看 */}
       <ContinueWatching />
+      <SeriesUpdates />
       {/* 各视频源推荐列表 */}
       {videoAPIs.length > 0 ? (
         videoAPIs.map(source => (

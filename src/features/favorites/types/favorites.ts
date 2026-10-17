@@ -1,6 +1,12 @@
 /** 收藏项数据来源类型 */
 export type FavoriteSourceType = 'tmdb' | 'cms'
 
+/** 追更偏好随收藏同步；视频源检查结果仅缓存在本机。 */
+export interface SeriesTracking {
+  enabled: boolean
+  seasonNumber?: number
+}
+
 /**
  * 收藏项观看状态
  */
@@ -17,6 +23,7 @@ export enum FavoriteWatchStatus {
  * TMDB 收藏项
  */
 export interface TmdbFavoriteItem {
+  tracking?: SeriesTracking
   /** 唯一标识符，格式: tmdb_{mediaType}_{id} */
   id: string
   /** 添加时间戳 */
@@ -50,6 +57,7 @@ export interface TmdbFavoriteItem {
  * CMS 收藏项
  */
 export interface CmsFavoriteItem {
+  tracking?: SeriesTracking
   /** 唯一标识符，格式: cms_{base64(sourceCode::vodId)} */
   id: string
   /** 添加时间戳 */

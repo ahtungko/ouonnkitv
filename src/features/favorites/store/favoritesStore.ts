@@ -3,7 +3,7 @@ import { devtools, persist } from 'zustand/middleware'
 import { immer } from 'zustand/middleware/immer'
 import type { FavoriteItem, FavoriteList, FavoriteFilterOptions, FavoriteStats } from '../types/favorites'
 import { FavoriteWatchStatus } from '../types/favorites'
-import type { TmdbFavoriteItem, CmsFavoriteItem } from '../types/favorites'
+import type { TmdbFavoriteItem, CmsFavoriteItem, SeriesTracking } from '../types/favorites'
 import type { TmdbMediaItem } from '@/shared/types/tmdb'
 import type { VideoItem } from '@/shared/types/video'
 
@@ -19,6 +19,8 @@ interface FavoritesState {
 }
 
 interface FavoritesActions {
+  /** 设置追更开关与季数 */
+  setTracking: (id: string, tracking: SeriesTracking) => void
   // === 基础 CRUD ===
 
   /** 添加 TMDB 媒体到收藏 */
@@ -203,6 +205,20 @@ export const useFavoritesStore = create<FavoritesStore>()(
         },
         filteredFavorites: [],
         selectedIds: new Set<string>(),
+
+        setTracking: (id, tracking) => {
+          if (
+            tracking.seasonNumber !== undefined &&
+            (!Number.isInteger(tracking.seasonNumber) || tracking.seasonNumber < 1 || tracking.seasonNumber > 99)
+          ) return
+          set(state => {
+            const item = state.favorites.find(favorite => favorite.id === id)
+            if (!item || (item.sourceType === 'tmdb' && item.media.mediaType !== 'tv')) return
+            item.tracking = tracking
+            item.updatedAt = Date.now()
+          })
+          get()._applyFilters()
+        },
 
         // === 基础 CRUD 实现 ===
 

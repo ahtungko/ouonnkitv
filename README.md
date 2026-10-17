@@ -21,6 +21,16 @@
 
 聚合搜索 · 流畅播放· TMDB 智能匹配 · 收藏管理 · 视频源订阅 · 观看历史 · 响应式设计 · 高性能· 多端适配· 出色的UI/UX
 
+### 追剧更新
+
+- 在收藏卡片点击「开启追更」，首页「追剧更新」会集中显示更新集数、待看集数和继续观看入口。
+- 没有开启追更时首页自动隐藏该区域，收藏页提供开启引导；海报和剧名始终可点击，即使检查失败也能进入 TMDB 详情或 CMS 播放页。
+- TMDB 剧集可选择追更季数，默认沿用最近观看的季；CMS 收藏直接检查原视频源。
+- 打开网站时自动检查，30 分钟内复用同配置的成功结果，也可点击「检查更新」立即刷新。
+- 集数来自视频源详情中的正片播放地址，不使用 TMDB 的计划播出集数；检查失败会保留上次成功结果。
+- 待看集数按连续观看进度估算，当前集看完至少 90% 才算完成。关闭观看记录或清除历史后，估算可能不完整。
+- 追更开关和季数随收藏云同步；检查结果仅缓存在当前设备，网站关闭期间不发送通知。
+
 ## 🚀 快速开始
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/Ouonnki/OuonnkiTV&build-command=pnpm%20build&install-command=pnpm%20install&output-directory=dist)

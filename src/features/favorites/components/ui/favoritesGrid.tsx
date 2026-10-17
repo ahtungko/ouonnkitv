@@ -31,6 +31,7 @@ import { getSourceColorScheme } from '@/shared/lib/source-colors'
 import { getPosterUrl } from '@/shared/lib/tmdb'
 import { buildCmsPlayPath, buildTmdbDetailPath } from '@/shared/lib/routes'
 import { toast } from 'sonner'
+import { TrackingControl } from '../TrackingControl'
 
 /** 观看状态配置 */
 const watchStatusOptions = [
@@ -168,6 +169,8 @@ export function FavoritesGrid({
                       <MediaPosterCard {...cardProps} />
                     </div>
                   </div>
+
+                  {!selectionMode && <TrackingControl item={item} />}
 
                   {/* 选中状态的边框高亮 */}
                   {isSelected && (

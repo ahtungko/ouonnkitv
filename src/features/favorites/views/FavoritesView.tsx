@@ -9,6 +9,7 @@ import { usePortalToSidebarInset } from '@/shared/hooks/usePortalToSidebarInset'
 import { useTmdbEnabled } from '@/shared/hooks/useTmdbMode'
 import { FavoriteWatchStatus } from '../types/favorites'
 import { NoResultIcon } from '@/shared/components/icons'
+import { canTrackFavorite } from '../lib/seriesTracking'
 import {
   DEFAULT_FAVORITE_SORT_VALUE,
   FAVORITE_SORT_OPTIONS,
@@ -153,6 +154,11 @@ export default function FavoritesView() {
         <div className="mb-4 flex items-center">
           <FavoritesSortControl value={activeSortValue} onChange={handleSortChange} />
         </div>
+        {displayFavorites.some(canTrackFavorite) && !displayFavorites.some(item => item.tracking?.enabled) && (
+          <p className="text-muted-foreground mb-4 text-sm">
+            在卡片上开启追更，即可在首页查看剧集更新和待看进度；TMDB 剧集支持选择追更季数。
+          </p>
+        )}
         {!hasContent ? (
           <div className="flex flex-col items-center justify-center py-32">
             <NoResultIcon size={128} className="text-muted-foreground/30" />

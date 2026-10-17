@@ -79,6 +79,7 @@ const calcDiceSimilarity = (a: string, b: string): number => {
 const parseChineseNumber = (value: string): number | null => {
   const normalized = value.replace(/\s+/g, '')
   if (!normalized) return null
+  if (/^\d+$/.test(normalized)) return Number.parseInt(normalized, 10)
 
   const map: Record<string, number> = {
     零: 0,

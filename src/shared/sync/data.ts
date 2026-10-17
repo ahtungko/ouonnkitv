@@ -15,6 +15,12 @@ const favoriteBase = {
   tags: z.array(z.string()),
   notes: z.string().nullable().optional(),
   rating: z.number().nullable().optional(),
+  tracking: z
+    .object({
+      enabled: z.boolean(),
+      seasonNumber: z.number().int().min(1).max(99).optional(),
+    })
+    .optional(),
 }
 const favoriteSchema = z.discriminatedUnion('sourceType', [
   z.object({
