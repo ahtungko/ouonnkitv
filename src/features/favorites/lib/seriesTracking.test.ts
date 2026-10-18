@@ -163,19 +163,25 @@ describe('视频源实际更新检查', () => {
     ).rejects.toThrow('超时')
   })
 
-  it('TMDB 匹配拒绝相似标题与其他季，支持阿拉伯数字季数', async () => {
+  it.each([2, 100])('TMDB 第 %i 季匹配拒绝相似标题与其他季', async seasonNumber => {
     const client = {
       search: vi.fn().mockResolvedValue({
         success: true,
         items: [
-          { vod_id: 'wrong-title', vod_name: '测试剧外传第2季' },
+          { vod_id: 'wrong-title', vod_name: `测试剧外传第${seasonNumber}季` },
           { vod_id: 'wrong-season', vod_name: '测试剧第1季' },
-          { vod_id: 'correct', vod_name: '测试剧第2季' },
+          { vod_id: 'correct', vod_name: `测试剧第${seasonNumber}季` },
         ],
       }),
       getDetail: vi.fn().mockResolvedValue(detail),
     }
-    const result = await checkSeriesUpdates(tv, client, [source], [], new AbortController().signal)
+    const result = await checkSeriesUpdates(
+      { ...tv, tracking: { enabled: true, seasonNumber } },
+      client,
+      [source],
+      [],
+      new AbortController().signal,
+    )
     expect(client.getDetail).toHaveBeenCalledTimes(1)
     expect(client.getDetail).toHaveBeenCalledWith('correct', source)
     expect(result.episodes).toHaveLength(2)

@@ -18,7 +18,7 @@ const favoriteBase = {
   tracking: z
     .object({
       enabled: z.boolean(),
-      seasonNumber: z.number().int().min(1).max(99).optional(),
+      seasonNumber: z.number().int().positive().optional(),
     })
     .optional(),
 }

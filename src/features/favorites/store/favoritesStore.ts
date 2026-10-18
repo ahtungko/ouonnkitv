@@ -209,7 +209,7 @@ export const useFavoritesStore = create<FavoritesStore>()(
         setTracking: (id, tracking) => {
           if (
             tracking.seasonNumber !== undefined &&
-            (!Number.isInteger(tracking.seasonNumber) || tracking.seasonNumber < 1 || tracking.seasonNumber > 99)
+            (!Number.isSafeInteger(tracking.seasonNumber) || tracking.seasonNumber < 1)
           ) return
           set(state => {
             const item = state.favorites.find(favorite => favorite.id === id)

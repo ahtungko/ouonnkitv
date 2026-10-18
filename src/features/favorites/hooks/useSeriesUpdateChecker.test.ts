@@ -14,7 +14,20 @@ import { accountSchema } from '../../../../shared/account-rules'
 import { TrackingControl } from '../components/TrackingControl'
 import { SeriesUpdates } from '@/features/home/components/SeriesUpdates'
 
-const mocks = vi.hoisted(() => ({ getDetail: vi.fn(), search: vi.fn(), destroy: vi.fn() }))
+const mocks = vi.hoisted(() => {
+  const tmdbDetails = vi.fn()
+  return {
+    getDetail: vi.fn(),
+    search: vi.fn(),
+    destroy: vi.fn(),
+    tmdbDetails,
+    tmdbClient: { tvShows: { details: tmdbDetails } },
+  }
+})
+vi.mock('@/shared/lib/tmdb', async importOriginal => ({
+  ...(await importOriginal<typeof import('@/shared/lib/tmdb')>()),
+  getTmdbClient: () => mocks.tmdbClient,
+}))
 vi.mock('@ouonnki/cms-core', async importOriginal => ({
   ...(await importOriginal<typeof import('@ouonnki/cms-core')>()),
   createCmsClient: () => mocks,
@@ -69,6 +82,14 @@ beforeEach(() => {
   localStorage.clear()
   mocks.getDetail.mockReset().mockResolvedValue(detail)
   mocks.search.mockReset().mockResolvedValue({ success: true, items: [] })
+  mocks.tmdbClient = { tvShows: { details: mocks.tmdbDetails } }
+  mocks.tmdbDetails.mockReset().mockResolvedValue({
+    seasons: [
+      { season_number: 0, name: '特别篇' },
+      { season_number: 1, name: '第 1 季' },
+      { season_number: 2, name: '重逢篇' },
+    ],
+  })
   useSettingStore.getState().setSystemSettings({ tmdbEnabled: true })
   useFavoritesStore.setState({ favorites: [], filteredFavorites: [] })
   useFavoritesStore
@@ -112,6 +133,96 @@ const clickRefresh = async () => {
 }
 
 describe('追更交互与后台检查', () => {
+  it('按需加载实际季列表，不补齐缺失的季，也不包含特别篇', async () => {
+    setTmdbFavorite()
+    mocks.tmdbDetails.mockResolvedValue({
+      seasons: [
+        { season_number: 0, name: '特别篇' },
+        { season_number: 3, name: '归来篇' },
+        { season_number: 100, name: '终章' },
+      ],
+    })
+    await mount()
+    expect(mocks.tmdbDetails).not.toHaveBeenCalled()
+    await act(async () =>
+      host.querySelector<HTMLButtonElement>('[aria-label="开启追更：测试剧"]')!.click(),
+    )
+    expect(mocks.tmdbDetails).toHaveBeenCalledTimes(1)
+    const select = host.querySelector<HTMLSelectElement>('select')!
+    expect([...select.options].map(option => option.value)).toEqual(['3', '100'])
+    expect(select.textContent).toContain('归来篇')
+    expect(select.value).toBe('3')
+    await act(async () => {
+      select.value = '100'
+      select.dispatchEvent(new Event('change', { bubbles: true }))
+    })
+    expect(useFavoritesStore.getState().favorites[0].tracking?.seasonNumber).toBe(100)
+    // 重新开启时沿用已保存季数，元数据请求复用缓存。
+    await act(async () =>
+      host.querySelector<HTMLButtonElement>('[aria-label="取消追更：测试剧"]')!.click(),
+    )
+    await act(async () =>
+      host.querySelector<HTMLButtonElement>('[aria-label="开启追更：测试剧"]')!.click(),
+    )
+    expect(useFavoritesStore.getState().favorites[0].tracking?.seasonNumber).toBe(100)
+    expect(mocks.tmdbDetails).toHaveBeenCalledTimes(1)
+  })
+
+  it('季信息失败时不猜季数，重试成功后才开启追更', async () => {
+    setTmdbFavorite()
+    mocks.tmdbDetails.mockRejectedValueOnce(new Error('offline'))
+    await mount()
+    await act(async () =>
+      host.querySelector<HTMLButtonElement>('[aria-label="开启追更：测试剧"]')!.click(),
+    )
+    expect(host.textContent).toContain('季信息加载失败')
+    expect(useFavoritesStore.getState().favorites[0].tracking).toBeUndefined()
+    await act(async () =>
+      host.querySelector<HTMLButtonElement>('[aria-label="开启追更：测试剧"]')!.click(),
+    )
+    expect(useFavoritesStore.getState().favorites[0].tracking).toEqual({
+      enabled: true,
+      seasonNumber: 1,
+    })
+    expect(mocks.tmdbDetails).toHaveBeenCalledTimes(2)
+  })
+
+  it('空季列表不编造第1季；已保存但暂缺资料的季不会自动改写', async () => {
+    setTmdbFavorite()
+    mocks.tmdbDetails.mockResolvedValueOnce({ seasons: [] })
+    await mount()
+    await act(async () =>
+      host.querySelector<HTMLButtonElement>('[aria-label="开启追更：测试剧"]')!.click(),
+    )
+    expect(useFavoritesStore.getState().favorites[0].tracking).toBeUndefined()
+    expect(host.textContent).toContain('暂无可追更的正片季')
+    await act(async () =>
+      useFavoritesStore.getState().setTracking('tmdb_tv_1', { enabled: true, seasonNumber: 9 }),
+    )
+    expect(host.querySelector<HTMLSelectElement>('select')?.value).toBe('9')
+    expect(host.querySelector('select')?.textContent).toContain('已保存，待确认')
+    expect(useFavoritesStore.getState().favorites[0].tracking?.seasonNumber).toBe(9)
+  })
+
+  it('季信息返回前取消挂载，不会开启追更', async () => {
+    setTmdbFavorite()
+    let resolve!: (value: { seasons: { season_number: number; name: string }[] }) => void
+    mocks.tmdbDetails.mockImplementationOnce(
+      () =>
+        new Promise(done => {
+          resolve = done
+        }),
+    )
+    await mount()
+    await act(async () =>
+      host.querySelector<HTMLButtonElement>('[aria-label="开启追更：测试剧"]')!.click(),
+    )
+    expect(host.textContent).toContain('加载季信息')
+    await act(async () => root.render(null))
+    await act(async () => resolve({ seasons: [{ season_number: 1, name: '第1季' }] }))
+    expect(useFavoritesStore.getState().favorites[0].tracking).toBeUndefined()
+  })
+
   it.each(['cms', 'tmdb'] as const)('%s 检查前和检查失败后，海报与标题仍可跳转', async type => {
     if (type === 'tmdb') setTmdbFavorite()
     const item = useFavoritesStore.getState().favorites[0]

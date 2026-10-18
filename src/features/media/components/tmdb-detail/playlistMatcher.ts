@@ -118,7 +118,7 @@ const extractSeasonHints = (item: VideoItem): number[] => {
   const text = `${item.vod_name || ''} ${item.vod_remarks || ''} ${item.type_name || ''}`
   const hints = new Set<number>()
 
-  const seasonRegex = /(?:第\s*([0-9一二两三四五六七八九十〇零]{1,3})\s*[季部篇])|(?:\bS(?:EASON)?\s*0*([0-9]{1,2})\b)|(?:\b([0-9]{1,2})\s*季\b)/gi
+  const seasonRegex = /(?:第\s*([0-9一二两三四五六七八九十〇零]+)\s*[季部篇])|(?:\bS(?:EASON)?\s*0*([0-9]+)\b)|(?:\b([0-9]+)\s*季\b)/gi
 
   let match: RegExpExecArray | null = seasonRegex.exec(text)
   while (match) {
@@ -130,7 +130,7 @@ const extractSeasonHints = (item: VideoItem): number[] => {
         ? parseChineseNumber(cnValue)
         : null
 
-    if (seasonNumber && Number.isFinite(seasonNumber) && seasonNumber > 0 && seasonNumber < 100) {
+    if (seasonNumber && Number.isSafeInteger(seasonNumber) && seasonNumber > 0) {
       hints.add(seasonNumber)
     }
 

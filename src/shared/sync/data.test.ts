@@ -11,6 +11,7 @@ describe('cloud payload compatibility', () => {
         media: { vodId: 'x', vodName: 'X', sourceCode: 's', sourceName: 'S' } },
     }
     expect(validPayload(row)).toBe(true)
+    expect(validPayload({ ...row, value: { ...row.value, tracking: { enabled: true, seasonNumber: 100 } } })).toBe(true)
     applyJournal({ favorite: { ...row, pending: false } })
     expect(useFavoritesStore.getState().favorites[0].tracking).toEqual({ enabled: true, seasonNumber: 2 })
     expect(validPayload({ ...row, value: { ...row.value, tracking: { enabled: true, seasonNumber: 0 } } })).toBe(false)
