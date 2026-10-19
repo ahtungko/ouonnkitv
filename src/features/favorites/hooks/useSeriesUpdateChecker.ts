@@ -16,6 +16,13 @@ import { canTrackFavorite, trackingKey } from '../lib/seriesTracking'
 import { checkSeriesUpdates } from '../lib/checkSeriesUpdates'
 
 const CHECK_INTERVAL = 30 * 60 * 1000
+const fingerprint = (value: string) =>
+  String(
+    Array.from(value).reduce(
+      (hash, character) => (Math.imul(hash, 31) + character.charCodeAt(0)) | 0,
+      0,
+    ),
+  )
 
 export function useSeriesUpdateChecker() {
   const ownerId = useAuthStore(state => state.account?.id)
@@ -49,12 +56,7 @@ export function useSeriesUpdateChecker() {
     const force = refreshToken !== lastRefresh.current
     lastRefresh.current = refreshToken
     // 缓存只记录配置指纹，不额外保存代理地址或视频源凭据。
-    const configuration = String(
-      Array.from(sourceSignature + networkSignature).reduce(
-        (hash, character) => (Math.imul(hash, 31) + character.charCodeAt(0)) | 0,
-        0,
-      ),
-    )
+    const configuration = fingerprint(sourceSignature + networkSignature)
     const items = useFavoritesStore
       .getState()
       .favorites.filter(
@@ -115,10 +117,12 @@ export function useSeriesUpdateChecker() {
               useViewingHistoryStore.getState().viewingHistory,
               controller.signal,
             )
+            const source = enabledSources.find(source => source.id === result.sourceCode)
+            const resourceSignature = fingerprint(JSON.stringify([source?.url, source?.detailUrl]))
             if (!controller.signal.aborted && useAuthStore.getState().account?.id === ownerId)
               useSeriesUpdatesStore
                 .getState()
-                .saveResult(ownerId, key, { ...result, configuration })
+                .saveResult(ownerId, key, { ...result, configuration, resourceSignature })
           } catch (error) {
             if (controller.signal.aborted || useAuthStore.getState().account?.id !== ownerId) return
             useSeriesUpdatesStore.getState().saveResult(ownerId, key, {

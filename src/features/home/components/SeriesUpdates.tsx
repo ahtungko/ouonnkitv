@@ -8,6 +8,7 @@ import {
   trackingProgress,
   trackingPlayPath,
   canTrackFavorite,
+  unreadEpisodeNumbers,
 } from '@/features/favorites/lib/seriesTracking'
 import { useViewingHistoryStore } from '@/shared/store/viewingHistoryStore'
 import { useAuthStore } from '@/shared/store/authStore'
@@ -29,7 +30,7 @@ export function SeriesUpdates() {
   const favorites = useFavoritesStore(state => state.favorites)
   const history = useViewingHistoryStore(state => state.viewingHistory)
   const ownerId = useAuthStore(state => state.account?.id)
-  const { ownerId: cacheOwner, entries, checking, refresh } = useSeriesUpdatesStore()
+  const { ownerId: cacheOwner, entries, checking, refresh, markRead } = useSeriesUpdatesStore()
   const sources = useApiStore(state => state.videoAPIs)
   const tmdbEnabled = useTmdbEnabled()
   const tracked = favorites.filter(
@@ -47,23 +48,30 @@ export function SeriesUpdates() {
         update && sources.some(source => source.isEnabled && source.id === update.sourceCode)
           ? trackingPlayPath(item, update, nextIndex)
           : null
-      return { item, update, progress, path }
+      return { item, update, progress, path, newCount: unreadEpisodeNumbers(update).length }
     })
     .sort(
       (a, b) =>
+        Number(b.newCount > 0) - Number(a.newCount > 0) ||
         Number(b.progress.pendingCount > 0) - Number(a.progress.pendingCount > 0) ||
         (b.update?.checkedAt ?? 0) - (a.update?.checkedAt ?? 0),
     )
   const pendingSeries = rows.filter(row => row.progress.pendingCount > 0).length
+  const updatedSeries = rows.filter(row => row.newCount > 0).length
 
   if (!rows.length) return null
 
   return (
     <section aria-label="追剧更新" className="border-border rounded-xl border p-3 md:p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Bell className="text-primary size-5" />
           <h2 className="text-primary text-xl font-semibold">追剧更新</h2>
+          {updatedSeries > 0 && (
+            <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-xs text-amber-700 dark:text-amber-400">
+              {updatedSeries} 部有更新
+            </span>
+          )}
           {pendingSeries > 0 && (
             <span className="bg-primary/10 text-primary rounded-full px-2 py-0.5 text-xs">
               {pendingSeries} 部待看
@@ -81,10 +89,10 @@ export function SeriesUpdates() {
         </div>
       </div>
       <p className="text-muted-foreground mt-1 text-xs">
-        打开网站时检查视频源更新；待看集数按观看进度估算，当前未看完的一集也计入。
+        首次追更只显示待看，之后的新集单独提醒；待看集数按观看进度估算，当前未看完的一集也计入。
       </p>
       <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3" aria-live="polite">
-        {rows.map(({ item, update, progress, path }) => {
+        {rows.map(({ item, update, progress, path, newCount }) => {
           const title = item.sourceType === 'tmdb' ? item.media.title : item.media.vodName
           const detailPath =
             item.sourceType === 'tmdb'
@@ -123,6 +131,11 @@ export function SeriesUpdates() {
                 {update?.checkedAt ? (
                   <>
                     <p className="text-xs">
+                      {newCount > 0 && (
+                        <span className="mr-2 font-semibold text-amber-700 dark:text-amber-400">
+                          新增 {newCount} 集
+                        </span>
+                      )}
                       更新至第 {progress.latestEpisode} 集
                       {progress.pendingCount > 0 ? (
                         <span className="text-primary ml-2 font-medium">
@@ -168,6 +181,19 @@ export function SeriesUpdates() {
                     </Button>
                   )}
                   <TrackingProgressControl item={item} update={update} />
+                  {newCount > 0 && update && ownerId && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 px-1.5 text-xs"
+                      aria-label={`标记${title}更新提醒为已读`}
+                      title="清除新集提醒，保留待看进度"
+                      onClick={() => markRead(ownerId, trackingKey(item), update)}
+                    >
+                      标记已读
+                    </Button>
+                  )}
                 </div>
               </div>
             </article>

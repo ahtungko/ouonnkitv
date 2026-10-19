@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { SeriesUpdate } from '../lib/seriesTracking'
+import { mergeSeriesUpdate, unreadEpisodeNumbers, type SeriesUpdate } from '../lib/seriesTracking'
 
 interface SeriesUpdatesStore {
   ownerId: string | null
@@ -9,6 +9,7 @@ interface SeriesUpdatesStore {
   refreshToken: number
   configure: (ownerId: string, keys: string[]) => void
   saveResult: (ownerId: string, key: string, result: SeriesUpdate) => void
+  markRead: (ownerId: string, key: string, displayedUpdate: SeriesUpdate) => void
   refresh: () => void
 }
 
@@ -31,8 +32,40 @@ export const useSeriesUpdatesStore = create<SeriesUpdatesStore>()(
         })),
       saveResult: (ownerId, key, result) =>
         set(state =>
-          state.ownerId === ownerId ? { entries: { ...state.entries, [key]: result } } : state,
+          state.ownerId === ownerId
+            ? {
+                entries: { ...state.entries, [key]: mergeSeriesUpdate(state.entries[key], result) },
+              }
+            : state,
         ),
+      markRead: (ownerId, key, displayedUpdate) =>
+        set(state => {
+          const current = state.entries[key]
+          if (
+            state.ownerId !== ownerId ||
+            !current?.notification ||
+            current.sourceCode !== displayedUpdate.sourceCode ||
+            current.vodId !== displayedUpdate.vodId ||
+            current.resourceSignature !== displayedUpdate.resourceSignature
+          )
+            return state
+          // 只确认按钮显示时已看到的提醒，并保留点击前刚到达的新集。
+          const read = new Set(unreadEpisodeNumbers(displayedUpdate))
+          return {
+            entries: {
+              ...state.entries,
+              [key]: {
+                ...current,
+                notification: {
+                  ...current.notification,
+                  unreadEpisodes: current.notification.unreadEpisodes.filter(
+                    number => !read.has(number),
+                  ),
+                },
+              },
+            },
+          }
+        }),
       refresh: () => set(state => ({ refreshToken: state.refreshToken + 1 })),
     }),
     {

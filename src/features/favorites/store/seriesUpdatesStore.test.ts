@@ -1,5 +1,16 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useSeriesUpdatesStore } from './seriesUpdatesStore'
+import { unreadEpisodeNumbers, type SeriesUpdate } from '../lib/seriesTracking'
+
+const result = (numbers: number[], overrides: Partial<SeriesUpdate> = {}): SeriesUpdate => ({
+  attemptedAt: 1,
+  checkedAt: 1,
+  sourceCode: 's',
+  vodId: 'v',
+  resourceSignature: 'endpoint-a',
+  episodes: numbers.map((number, index) => ({ number, index })),
+  ...overrides,
+})
 
 describe('追更缓存账号隔离', () => {
   beforeEach(() =>
@@ -28,4 +39,60 @@ describe('追更缓存账号隔离', () => {
     store.configure('alice', ['b'])
     expect(Object.keys(useSeriesUpdatesStore.getState().entries)).toEqual(['b'])
   })
+
+  it('首次成功检查只建基准，后续新增集数累计为未读且不重复计算', () => {
+    const store = useSeriesUpdatesStore.getState()
+    store.configure('alice', ['a'])
+    store.saveResult('alice', 'a', { attemptedAt: 1, error: 'offline' })
+    store.saveResult('alice', 'a', result([1, 2]))
+    expect(unreadEpisodeNumbers(useSeriesUpdatesStore.getState().entries.a)).toEqual([])
+    store.saveResult('alice', 'a', result([1, 2, 3, 4]))
+    store.saveResult('alice', 'a', result([1, 2, 3, 4]))
+    expect(unreadEpisodeNumbers(useSeriesUpdatesStore.getState().entries.a)).toEqual([3, 4])
+    expect(localStorage.getItem('ouonnki-tv-series-updates')).toContain('unreadEpisodes')
+  })
+
+  it('点击旧快照仅确认已展示集数，检查成功或失败都不会恢复已读提醒', () => {
+    const store = useSeriesUpdatesStore.getState()
+    store.configure('alice', ['a'])
+    store.saveResult('alice', 'a', result([1, 2]))
+    store.saveResult('alice', 'a', result([1, 2, 3]))
+    const displayed = useSeriesUpdatesStore.getState().entries.a
+    store.saveResult('alice', 'a', result([1, 2, 3, 4]))
+    store.markRead('alice', 'a', displayed)
+    expect(unreadEpisodeNumbers(useSeriesUpdatesStore.getState().entries.a)).toEqual([4])
+    store.saveResult('alice', 'a', { ...displayed, attemptedAt: 2, error: 'offline' })
+    expect(unreadEpisodeNumbers(useSeriesUpdatesStore.getState().entries.a)).toEqual([4])
+    store.saveResult('alice', 'a', result([1, 2, 3, 4]))
+    expect(unreadEpisodeNumbers(useSeriesUpdatesStore.getState().entries.a)).toEqual([4])
+  })
+
+  it('已确认的集数短暂下架再恢复，不重复提示新增', () => {
+    const store = useSeriesUpdatesStore.getState()
+    store.configure('alice', ['a'])
+    store.saveResult('alice', 'a', result([1, 2]))
+    store.saveResult('alice', 'a', result([1, 2, 3]))
+    store.markRead('alice', 'a', useSeriesUpdatesStore.getState().entries.a)
+    store.saveResult('alice', 'a', result([1, 2]))
+    store.saveResult('alice', 'a', result([1, 2, 3, 4]))
+    expect(unreadEpisodeNumbers(useSeriesUpdatesStore.getState().entries.a)).toEqual([4])
+  })
+
+  it.each([{ sourceCode: 's2' }, { vodId: 'v2' }, { resourceSignature: 'endpoint-b' }])(
+    '切换资源 %j 重新建基准，旧资源的已读操作不影响新资源',
+    overrides => {
+      const store = useSeriesUpdatesStore.getState()
+      store.configure('alice', ['a'])
+      store.saveResult('alice', 'a', result([1, 2]))
+      store.saveResult('alice', 'a', result([1, 2, 3]))
+      const displayed = useSeriesUpdatesStore.getState().entries.a
+      store.saveResult('alice', 'a', result([1, 2, 3, 4], overrides))
+      expect(unreadEpisodeNumbers(useSeriesUpdatesStore.getState().entries.a)).toEqual([])
+      store.saveResult('alice', 'a', result([1, 2, 3, 4, 5], overrides))
+      store.markRead('alice', 'a', displayed)
+      expect(unreadEpisodeNumbers(useSeriesUpdatesStore.getState().entries.a)).toEqual([5])
+      store.markRead('bob', 'a', useSeriesUpdatesStore.getState().entries.a)
+      expect(unreadEpisodeNumbers(useSeriesUpdatesStore.getState().entries.a)).toEqual([5])
+    },
+  )
 })

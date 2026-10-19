@@ -5,7 +5,12 @@ import { useAuthStore } from '@/shared/store/authStore'
 import { useFavoritesStore } from '../store/favoritesStore'
 import { useSeriesUpdatesStore } from '../store/seriesUpdatesStore'
 import type { FavoriteItem } from '../types/favorites'
-import { canTrackFavorite, trackingKey, trackingProgress } from '../lib/seriesTracking'
+import {
+  canTrackFavorite,
+  trackingKey,
+  trackingProgress,
+  unreadEpisodeNumbers,
+} from '../lib/seriesTracking'
 import { useTrackingSeasons } from '../hooks/useTrackingSeasons'
 import { TrackingProgressControl } from './TrackingProgressControl'
 
@@ -22,6 +27,7 @@ export function TrackingControl({ item }: { item: FavoriteItem }) {
   const { seasons, loading, error, load } = useTrackingSeasons(tmdbId, enabled)
   if (!canTrackFavorite(item)) return null
   const { pendingCount, latestEpisode } = trackingProgress(item, update, history)
+  const newCount = unreadEpisodeNumbers(update).length
   const selectedSeason = item.tracking?.seasonNumber
   const missingSeason =
     selectedSeason !== undefined && !seasons.some(season => season.number === selectedSeason)
@@ -64,9 +70,9 @@ export function TrackingControl({ item }: { item: FavoriteItem }) {
       >
         {enabled ? <Bell className="size-3.5" /> : <BellOff className="size-3.5" />}
         {enabled ? '追更中' : loading ? '加载季信息…' : error ? '重试开启追更' : '开启追更'}
-        {enabled && pendingCount > 0 && (
+        {enabled && (newCount > 0 || pendingCount > 0) && (
           <span className="bg-primary text-primary-foreground ml-auto rounded-full px-1.5 text-[10px]">
-            {pendingCount} 集待看
+            {newCount > 0 ? `新增 ${newCount} 集` : `${pendingCount} 集待看`}
           </span>
         )}
       </Button>

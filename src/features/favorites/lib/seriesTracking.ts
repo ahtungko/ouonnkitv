@@ -10,6 +10,7 @@ export interface TrackedEpisode {
 
 export interface SeriesUpdate {
   configuration?: string
+  resourceSignature?: string
   checkedAt?: number
   attemptedAt: number
   sourceCode?: string
@@ -17,6 +18,47 @@ export interface SeriesUpdate {
   vodId?: string
   episodes?: TrackedEpisode[]
   error?: string
+  notification?: { knownEpisodes: number[]; unreadEpisodes: number[] }
+}
+
+/** 仅显示当前播放列表中仍可用的新集提醒。 */
+export function unreadEpisodeNumbers(update: SeriesUpdate | undefined): number[] {
+  const available = new Set(update?.episodes?.map(episode => episode.number) ?? [])
+  return (update?.notification?.unreadEpisodes ?? []).filter(number => available.has(number))
+}
+
+export function mergeSeriesUpdate(
+  previous: SeriesUpdate | undefined,
+  result: SeriesUpdate,
+): SeriesUpdate {
+  // 用提交时的最新状态保留已读操作，避免请求开始时的旧快照恢复提醒。
+  if (result.error) return { ...previous, attemptedAt: result.attemptedAt, error: result.error }
+  if (!result.checkedAt || !result.episodes) return result
+  const current = [...new Set(result.episodes.map(episode => episode.number))]
+  const sameResource =
+    !!previous?.checkedAt &&
+    !!result.sourceCode &&
+    !!result.vodId &&
+    previous.sourceCode === result.sourceCode &&
+    previous.vodId === result.vodId &&
+    previous.resourceSignature === result.resourceSignature
+  if (!sameResource)
+    return { ...result, notification: { knownEpisodes: current, unreadEpisodes: [] } }
+  const known = new Set(
+    previous.notification?.knownEpisodes ?? previous.episodes?.map(episode => episode.number) ?? [],
+  )
+  const unread = new Set(previous.notification?.unreadEpisodes ?? [])
+  for (const number of current) {
+    if (!known.has(number)) unread.add(number)
+    known.add(number)
+  }
+  return {
+    ...result,
+    notification: {
+      knownEpisodes: [...known].sort((a, b) => a - b),
+      unreadEpisodes: [...unread].sort((a, b) => a - b),
+    },
+  }
 }
 
 export function canTrackFavorite(item: FavoriteItem): boolean {

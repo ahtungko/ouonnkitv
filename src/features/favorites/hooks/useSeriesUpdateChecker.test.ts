@@ -149,6 +149,79 @@ const progressButton = (text: string) =>
 const clickProgressButton = (text: string) => act(async () => progressButton(text).click())
 
 describe('追更交互与后台检查', () => {
+  it('首次检查只有待看，后续新增单独提醒；标记已读保留观看进度与待看数', async () => {
+    const id = useFavoritesStore.getState().favorites[0].id
+    useFavoritesStore.getState().setTracking(id, { enabled: true })
+    await mount()
+    await settle()
+    expect(host.querySelector('article')?.textContent).toContain('2 集待看')
+    expect(host.querySelector('article')?.textContent).not.toContain('新增')
+    mocks.getDetail.mockResolvedValueOnce({
+      ...detail,
+      episodes: [...detail.episodes, 'https://x/3', 'https://x/4'],
+      videoInfo: { ...detail.videoInfo, episodes_names: ['第01集', '第02集', '第03集', '第04集'] },
+    })
+    await clickRefresh()
+    expect(host.querySelector('article')?.textContent).toContain('新增 2 集')
+    expect(host.querySelector('article')?.textContent).toContain('4 集待看')
+    expect(host.textContent).toContain('1 部有更新')
+    const favorite = useFavoritesStore.getState().favorites[0]
+    const history = useViewingHistoryStore.getState().viewingHistory
+    await act(async () =>
+      host.querySelector<HTMLButtonElement>('[aria-label="标记测试剧更新提醒为已读"]')!.click(),
+    )
+    expect(host.querySelector('article')?.textContent).not.toContain('新增')
+    expect(host.querySelector('article')?.textContent).toContain('4 集待看')
+    expect(host.textContent).not.toContain('部有更新')
+    expect(useFavoritesStore.getState().favorites[0]).toBe(favorite)
+    expect(useViewingHistoryStore.getState().viewingHistory).toBe(history)
+    await settle()
+    expect(mocks.getDetail).toHaveBeenCalledTimes(2)
+  })
+
+  it('同一源ID的地址变更只重建基准，不把更多旧集误报为新增', async () => {
+    useFavoritesStore
+      .getState()
+      .setTracking(useFavoritesStore.getState().favorites[0].id, { enabled: true })
+    await mount()
+    await settle()
+    mocks.getDetail.mockResolvedValue({
+      ...detail,
+      episodes: [...detail.episodes, 'https://x/3'],
+      videoInfo: { ...detail.videoInfo, episodes_names: ['第01集', '第02集', '第03集'] },
+    })
+    await act(async () =>
+      useApiStore.setState({
+        videoAPIs: [{ id: 's', name: '源', url: 'https://new-source/api', isEnabled: true }],
+      }),
+    )
+    await settle()
+    expect(host.querySelector('article')?.textContent).toContain('3 集待看')
+    expect(host.querySelector('article')?.textContent).not.toContain('新增')
+  })
+
+  it('有新集的剧优先于仅待看的剧展示', async () => {
+    const store = useFavoritesStore.getState()
+    const id = store.favorites[0].id
+    store.setTracking(id, { enabled: true })
+    store.addCmsFavorite({ vod_id: 'b', vod_name: '旧剧', source_code: 's', source_name: '源' })
+    store.setTracking(useFavoritesStore.getState().favorites[0].id, { enabled: true })
+    await mount()
+    await settle()
+    const ownerId = useAuthStore.getState().account!.id
+    const key = `${id}::cms`
+    const previous = useSeriesUpdatesStore.getState().entries[key]
+    await act(async () =>
+      useSeriesUpdatesStore.getState().saveResult(ownerId, key, {
+        ...previous,
+        checkedAt: 1,
+        episodes: [...previous.episodes!, { index: 2, number: 3 }],
+      }),
+    )
+    expect(host.querySelector('article h3')?.textContent).toBe('测试剧')
+    expect(host.querySelector('article')?.textContent).toContain('新增 1 集')
+  })
+
   it('校准立即更新待看数与续播入口，可改回0或恢复历史自动计算，且不重复查源', async () => {
     const id = useFavoritesStore.getState().favorites[0].id
     useFavoritesStore.getState().setTracking(id, { enabled: true })
