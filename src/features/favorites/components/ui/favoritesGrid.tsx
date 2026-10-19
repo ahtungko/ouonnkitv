@@ -32,6 +32,7 @@ import { getPosterUrl } from '@/shared/lib/tmdb'
 import { buildCmsPlayPath, buildTmdbDetailPath } from '@/shared/lib/routes'
 import { toast } from 'sonner'
 import { TrackingControl } from '../TrackingControl'
+import { trackingBinding } from '../../lib/seriesTracking'
 
 /** 观看状态配置 */
 const watchStatusOptions = [
@@ -72,13 +73,14 @@ function favoriteToPosterCard(item: FavoriteItem) {
     }
   } else {
     const { media } = item
+    const binding = trackingBinding(item)
     return {
-      to: buildCmsPlayPath(media.sourceCode, media.vodId),
+      to: buildCmsPlayPath(binding?.sourceCode ?? media.sourceCode, binding?.vodId ?? media.vodId),
       posterUrl: media.vodPic || null,
       title: media.vodName,
       year: media.vodYear,
-      topRightLabel: media.sourceName,
-      topRightLabelColorScheme: getSourceColorScheme(media.sourceCode),
+      topRightLabel: binding?.sourceName ?? media.sourceName,
+      topRightLabelColorScheme: getSourceColorScheme(binding?.sourceCode ?? media.sourceCode),
     }
   }
 }

@@ -212,6 +212,67 @@ describe('追更集数与进度', () => {
 })
 
 describe('视频源实际更新检查', () => {
+  it.each([cms, tv])('手动绑定优先于原源、历史和自动搜索：$sourceType', async item => {
+    const fixed = {
+      sourceCode: 'fixed',
+      sourceName: '固定源',
+      vodId: 'manual',
+      title: '手动选择的版本',
+    }
+    const key = item.sourceType === 'cms' ? 'cms' : '2'
+    const client = { search: vi.fn(), getDetail: vi.fn().mockResolvedValue(detail) }
+    const selectedSource = { ...source, id: 'fixed' }
+    const result = await checkSeriesUpdates(
+      { ...item, tracking: { ...item.tracking!, bindings: { [key]: fixed } } },
+      client,
+      [source, selectedSource],
+      [record()],
+      new AbortController().signal,
+    )
+    expect(result.vodId).toBe('manual')
+    expect(client.getDetail).toHaveBeenCalledTimes(1)
+    expect(client.getDetail).toHaveBeenCalledWith('manual', selectedSource)
+    expect(client.search).not.toHaveBeenCalled()
+  })
+
+  it('绑定源失效时明确报错，不静默回退到其他资源', async () => {
+    const item = {
+      ...cms,
+      tracking: {
+        enabled: true,
+        bindings: {
+          cms: {
+            sourceCode: 'fixed',
+            sourceName: '固定源',
+            vodId: 'manual',
+            title: '剧',
+          },
+        },
+      },
+    }
+    const client = {
+      search: vi.fn(),
+      getDetail: vi
+        .fn()
+        .mockResolvedValue({ success: false, episodes: [], error: '固定资源已下架' }),
+    }
+    await expect(
+      checkSeriesUpdates(item, client, [source], [], new AbortController().signal),
+    ).rejects.toThrow('绑定的视频源未启用')
+    expect(client.getDetail).not.toHaveBeenCalled()
+    await expect(
+      checkSeriesUpdates(
+        item,
+        client,
+        [{ ...source, id: 'fixed' }, source],
+        [],
+        new AbortController().signal,
+      ),
+    ).rejects.toThrow('已下架')
+    expect(client.getDetail).toHaveBeenCalledTimes(1)
+    expect(client.search).not.toHaveBeenCalled()
+  })
+
   it('CMS 收藏直接读取原源详情，不采用 TMDB 或备注中的计划集数', async () => {
     const client = { search: vi.fn(), getDetail: vi.fn().mockResolvedValue(detail) }
     const result = await checkSeriesUpdates(cms, client, [source], [], new AbortController().signal)

@@ -10,15 +10,19 @@ import {
   trackingKey,
   trackingProgress,
   unreadEpisodeNumbers,
+  matchingTrackingUpdate,
 } from '../lib/seriesTracking'
 import { useTrackingSeasons } from '../hooks/useTrackingSeasons'
 import { TrackingProgressControl } from './TrackingProgressControl'
+import { TrackingSourceControl } from './TrackingSourceControl'
 
 export function TrackingControl({ item }: { item: FavoriteItem }) {
   const setTracking = useFavoritesStore(state => state.setTracking)
   const ownerId = useAuthStore(state => state.account?.id)
   const update = useSeriesUpdatesStore(state =>
-    state.ownerId === ownerId ? state.entries[trackingKey(item)] : undefined,
+    state.ownerId === ownerId
+      ? matchingTrackingUpdate(item, state.entries[trackingKey(item)])
+      : undefined,
   )
   const history = useViewingHistoryStore(state => state.viewingHistory)
   const enabled = item.tracking?.enabled ?? false
@@ -124,8 +128,9 @@ export function TrackingControl({ item }: { item: FavoriteItem }) {
         </div>
       )}
       {enabled && (
-        <div className="flex justify-center">
+        <div className="flex flex-wrap justify-center gap-1">
           <TrackingProgressControl item={item} update={update} />
+          <TrackingSourceControl item={item} />
         </div>
       )}
       {enabled && (

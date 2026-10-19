@@ -19,6 +19,17 @@ const favoriteBase = {
     .object({
       enabled: z.boolean(),
       seasonNumber: z.number().int().positive().optional(),
+      bindings: z
+        .record(
+          z.string().regex(/^(?:cms|[1-9]\d*)$/),
+          z.object({
+            sourceCode: z.string().min(1),
+            sourceName: z.string().min(1),
+            vodId: z.string().regex(/^[\w-]+$/),
+            title: z.string().min(1),
+          }),
+        )
+        .optional(),
       progress: z
         .record(
           z.string().regex(/^(?:cms|[1-9]\d*)$/),

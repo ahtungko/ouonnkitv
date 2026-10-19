@@ -3,7 +3,7 @@ import { devtools, persist } from 'zustand/middleware'
 import { immer } from 'zustand/middleware/immer'
 import type { FavoriteItem, FavoriteList, FavoriteFilterOptions, FavoriteStats } from '../types/favorites'
 import { FavoriteWatchStatus } from '../types/favorites'
-import type { TmdbFavoriteItem, CmsFavoriteItem, SeriesTracking } from '../types/favorites'
+import type { TmdbFavoriteItem, CmsFavoriteItem, SeriesTracking, TrackingBinding } from '../types/favorites'
 import type { TmdbMediaItem } from '@/shared/types/tmdb'
 import type { VideoItem } from '@/shared/types/video'
 import { canTrackFavorite, trackingSeasonKey } from '../lib/seriesTracking'
@@ -24,6 +24,13 @@ interface FavoritesActions {
   setTracking: (id: string, tracking: Pick<SeriesTracking, 'enabled' | 'seasonNumber'>) => void
   /** null 恢复当前季的自动进度，0 表示从头开始。 */
   setTrackingProgress: (id: string, completedEpisode: number | null, expectedSeasonKey: string) => boolean
+  /** null 恢复默认选源；切换前保存当前季已看集数。 */
+  setTrackingBinding: (
+    id: string,
+    binding: TrackingBinding | null,
+    expectedSeasonKey: string,
+    completedEpisode: number,
+  ) => boolean
   // === 基础 CRUD ===
 
   /** 添加 TMDB 媒体到收藏 */
@@ -248,6 +255,46 @@ export const useFavoritesStore = create<FavoritesStore>()(
               item.tracking.progress ??= {}
               item.tracking.progress[expectedSeasonKey] = { completedEpisode, calibratedAt: Date.now() }
             }
+            item.updatedAt = Date.now()
+            saved = true
+          })
+          if (saved) get()._applyFilters()
+          return saved
+        },
+
+        setTrackingBinding: (id, binding, expectedSeasonKey, completedEpisode) => {
+          if (
+            !Number.isSafeInteger(completedEpisode) ||
+            completedEpisode < 0 ||
+            (binding &&
+              (!binding.sourceCode.trim() ||
+                !binding.sourceName.trim() ||
+                !binding.title.trim() ||
+                !/^[\w-]+$/.test(binding.vodId)))
+          ) return false
+          let saved = false
+          set(state => {
+            const item = state.favorites.find(favorite => favorite.id === id)
+            if (
+              !item?.tracking?.enabled ||
+              !canTrackFavorite(item) ||
+              trackingSeasonKey(item) !== expectedSeasonKey
+            ) return
+            if (binding) {
+              item.tracking.bindings ??= {}
+              item.tracking.bindings[expectedSeasonKey] = {
+                sourceCode: binding.sourceCode,
+                sourceName: binding.sourceName,
+                vodId: binding.vodId,
+                title: binding.title,
+              }
+            } else if (item.tracking.bindings) {
+              delete item.tracking.bindings[expectedSeasonKey]
+              if (!Object.keys(item.tracking.bindings).length) delete item.tracking.bindings
+            }
+            // 在切换资源前保存已看集数，后续只合并新播放记录。
+            item.tracking.progress ??= {}
+            item.tracking.progress[expectedSeasonKey] = { completedEpisode, calibratedAt: Date.now() }
             item.updatedAt = Date.now()
             saved = true
           })

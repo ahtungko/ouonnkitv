@@ -117,4 +117,22 @@ describe('favoritesStore cms id encoding', () => {
     store.setTracking(id, { enabled: false })
     expect(store.setTrackingProgress(id, 9, 'cms')).toBe(false)
   })
+  it('绑定与恢复原源保留已看集数，并拒绝过期季数与非法资源', () => {
+    const store = useFavoritesStore.getState()
+    store.addCmsFavorite(createCmsVideo())
+    const id = useFavoritesStore.getState().favorites[0].id
+    store.setTracking(id, { enabled: true })
+    const binding = { sourceCode: 's2', sourceName: '源2', vodId: 'b', title: '新版' }
+    expect(store.setTrackingBinding(id, binding, '2', 9)).toBe(false)
+    expect(store.setTrackingBinding(id, { ...binding, vodId: 'https://x/a' }, 'cms', 9)).toBe(false)
+    expect(store.setTrackingBinding(id, binding, 'cms', 9)).toBe(true)
+    expect(useFavoritesStore.getState().favorites[0].tracking?.bindings?.cms).toEqual(binding)
+    expect(useFavoritesStore.getState().favorites[0].tracking?.progress?.cms.completedEpisode).toBe(9)
+    store.setTracking(id, { enabled: false })
+    store.setTracking(id, { enabled: true })
+    expect(useFavoritesStore.getState().favorites[0].tracking?.bindings?.cms).toEqual(binding)
+    expect(store.setTrackingBinding(id, null, 'cms', 10)).toBe(true)
+    expect(useFavoritesStore.getState().favorites[0].tracking?.bindings).toBeUndefined()
+    expect(useFavoritesStore.getState().favorites[0].tracking?.progress?.cms.completedEpisode).toBe(10)
+  })
 })

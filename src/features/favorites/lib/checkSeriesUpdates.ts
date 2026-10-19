@@ -2,7 +2,7 @@ import type { CmsClient, VideoSource } from '@ouonnki/cms-core'
 import type { FavoriteItem } from '../types/favorites'
 import type { ViewingHistoryItem } from '@/shared/types/video'
 import { buildPlaylistMatches } from '@/features/media/components/tmdb-detail/playlistMatcher'
-import { favoriteHistory, playableEpisodes, type SeriesUpdate } from './seriesTracking'
+import { favoriteHistory, playableEpisodes, trackingBinding, type SeriesUpdate } from './seriesTracking'
 
 const normalizeTitle = (title: string) =>
   title
@@ -35,6 +35,12 @@ export async function checkSeriesUpdates(
     }
   }
 
+  const binding = trackingBinding(item)
+  if (binding) {
+    const source = sources.find(source => source.id === binding.sourceCode)
+    if (!source) throw new Error('绑定的视频源未启用，请启用该源、重新绑定或恢复默认选源')
+    return read(source, binding.vodId)
+  }
   if (item.sourceType === 'cms') {
     const source = sources.find(source => source.id === item.media.sourceCode)
     if (!source) throw new Error('收藏的视频源未启用，请到设置中启用后刷新')
@@ -109,6 +115,6 @@ export async function checkSeriesUpdates(
   throw new Error(
     sourceFailed
       ? '部分视频源检查失败，暂时无法确认更新，请稍后刷新'
-      : `未找到可确认的第 ${seasonNumber} 季资源；播放一次该季后可沿用播放源`,
+      : `未找到可确认的第 ${seasonNumber} 季资源；可手动绑定资源，或播放一次该季后沿用播放源`,
   )
 }

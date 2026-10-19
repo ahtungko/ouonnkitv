@@ -11,6 +11,7 @@ export interface TrackedEpisode {
 export interface SeriesUpdate {
   configuration?: string
   resourceSignature?: string
+  bindingKey?: string
   checkedAt?: number
   attemptedAt: number
   sourceCode?: string
@@ -32,7 +33,13 @@ export function mergeSeriesUpdate(
   result: SeriesUpdate,
 ): SeriesUpdate {
   // 用提交时的最新状态保留已读操作，避免请求开始时的旧快照恢复提醒。
-  if (result.error) return { ...previous, attemptedAt: result.attemptedAt, error: result.error }
+  if (result.error)
+    return {
+      ...((previous?.bindingKey ?? 'auto') === (result.bindingKey ?? 'auto') ? previous : {}),
+      attemptedAt: result.attemptedAt,
+      error: result.error,
+      bindingKey: result.bindingKey,
+    }
   if (!result.checkedAt || !result.episodes) return result
   const current = [...new Set(result.episodes.map(episode => episode.number))]
   const sameResource =
@@ -41,6 +48,7 @@ export function mergeSeriesUpdate(
     !!result.vodId &&
     previous.sourceCode === result.sourceCode &&
     previous.vodId === result.vodId &&
+    (previous.bindingKey ?? 'auto') === (result.bindingKey ?? 'auto') &&
     previous.resourceSignature === result.resourceSignature
   if (!sameResource)
     return { ...result, notification: { knownEpisodes: current, unreadEpisodes: [] } }
@@ -74,6 +82,19 @@ export function trackingKey(item: FavoriteItem): string {
   return `${item.id}::${trackingSeasonKey(item)}`
 }
 
+export function trackingBinding(item: FavoriteItem) {
+  return item.tracking?.bindings?.[trackingSeasonKey(item)]
+}
+
+export function trackingBindingKey(item: FavoriteItem): string {
+  const binding = trackingBinding(item)
+  return binding ? JSON.stringify([binding.sourceCode, binding.vodId]) : 'auto'
+}
+
+export function matchingTrackingUpdate(item: FavoriteItem, update: SeriesUpdate | undefined) {
+  return (update?.bindingKey ?? 'auto') === trackingBindingKey(item) ? update : undefined
+}
+
 export function episodeNumber(name: string | undefined): number | null {
   if (!name || /预告|花絮|特辑|特典|彩蛋|解说|片段|trailer|special|preview/i.test(name)) return null
   const match =
@@ -102,7 +123,11 @@ export function playableEpisodes(detail: DetailResult): TrackedEpisode[] {
 export function favoriteHistory(item: FavoriteItem, history: ViewingHistoryItem[]) {
   return history.filter(record => {
     if (item.sourceType === 'cms') {
-      return record.sourceCode === item.media.sourceCode && record.vodId === item.media.vodId
+      const binding = trackingBinding(item)
+      return (
+        (record.sourceCode === item.media.sourceCode && record.vodId === item.media.vodId) ||
+        (!!binding && record.sourceCode === binding.sourceCode && record.vodId === binding.vodId)
+      )
     }
     return (
       record.recordType === 'tmdb' &&

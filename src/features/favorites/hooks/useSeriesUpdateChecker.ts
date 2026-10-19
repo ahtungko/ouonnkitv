@@ -12,7 +12,7 @@ import { useSettingStore } from '@/shared/store/settingStore'
 import { useViewingHistoryStore } from '@/shared/store/viewingHistoryStore'
 import { useFavoritesStore } from '../store/favoritesStore'
 import { useSeriesUpdatesStore } from '../store/seriesUpdatesStore'
-import { canTrackFavorite, trackingKey } from '../lib/seriesTracking'
+import { canTrackFavorite, trackingKey, trackingBindingKey } from '../lib/seriesTracking'
 import { checkSeriesUpdates } from '../lib/checkSeriesUpdates'
 
 const CHECK_INTERVAL = 30 * 60 * 1000
@@ -45,7 +45,11 @@ export function useSeriesUpdateChecker() {
         id: item.id,
         sourceType: item.sourceType,
         media: item.media,
-        tracking: { enabled: item.tracking?.enabled, seasonNumber: item.tracking?.seasonNumber },
+        tracking: {
+          enabled: item.tracking?.enabled,
+          seasonNumber: item.tracking?.seasonNumber,
+          bindingKey: trackingBindingKey(item),
+        },
       })),
   )
   const sourceSignature = JSON.stringify(sources.filter(source => source.isEnabled))
@@ -98,6 +102,7 @@ export function useSeriesUpdateChecker() {
         while (queue.length && !controller.signal.aborted) {
           const item = queue.shift()!
           const key = trackingKey(item)
+          const bindingKey = trackingBindingKey(item)
           const previous = useSeriesUpdatesStore.getState().entries[key]
           // 手动刷新总会检查；自动检查在同一轮打开网站时复用最近结果。
           if (
@@ -105,6 +110,7 @@ export function useSeriesUpdateChecker() {
             previous &&
             !previous.error &&
             previous.configuration === configuration &&
+            (previous.bindingKey ?? 'auto') === bindingKey &&
             enabledSources.some(source => source.id === previous.sourceCode) &&
             Date.now() - previous.attemptedAt < CHECK_INTERVAL
           )
@@ -122,12 +128,13 @@ export function useSeriesUpdateChecker() {
             if (!controller.signal.aborted && useAuthStore.getState().account?.id === ownerId)
               useSeriesUpdatesStore
                 .getState()
-                .saveResult(ownerId, key, { ...result, configuration, resourceSignature })
+                .saveResult(ownerId, key, { ...result, configuration, resourceSignature, bindingKey })
           } catch (error) {
             if (controller.signal.aborted || useAuthStore.getState().account?.id !== ownerId) return
             useSeriesUpdatesStore.getState().saveResult(ownerId, key, {
               ...previous,
               attemptedAt: Date.now(),
+              bindingKey,
               error: error instanceof Error ? error.message : '检查失败，请稍后刷新',
             })
           }

@@ -77,6 +77,20 @@ describe('追更缓存账号隔离', () => {
     store.saveResult('alice', 'a', result([1, 2, 3, 4]))
     expect(unreadEpisodeNumbers(useSeriesUpdatesStore.getState().entries.a)).toEqual([4])
   })
+  it('绑定模式变化清除旧资源结果，失败后不显示旧集数，成功后重新建基准', () => {
+    const store = useSeriesUpdatesStore.getState()
+    store.configure('alice', ['a'])
+    store.saveResult('alice', 'a', result([1, 2]))
+    store.saveResult('alice', 'a', result([1, 2, 3]))
+    const old = useSeriesUpdatesStore.getState().entries.a
+    store.saveResult('alice', 'a', { ...old, bindingKey: 'fixed', attemptedAt: 2, error: 'offline' })
+    expect(useSeriesUpdatesStore.getState().entries.a.episodes).toBeUndefined()
+    store.saveResult('alice', 'a', result([1, 2, 3, 4], { bindingKey: 'fixed' }))
+    expect(unreadEpisodeNumbers(useSeriesUpdatesStore.getState().entries.a)).toEqual([])
+    store.saveResult('alice', 'a', result([1, 2, 3, 4, 5], { bindingKey: 'fixed' }))
+    store.markRead('alice', 'a', old)
+    expect(unreadEpisodeNumbers(useSeriesUpdatesStore.getState().entries.a)).toEqual([5])
+  })
 
   it.each([{ sourceCode: 's2' }, { vodId: 'v2' }, { resourceSignature: 'endpoint-b' }])(
     '切换资源 %j 重新建基准，旧资源的已读操作不影响新资源',

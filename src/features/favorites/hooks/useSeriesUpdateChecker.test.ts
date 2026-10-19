@@ -147,8 +147,168 @@ const progressButton = (text: string) =>
     button => button.textContent === text,
   )!
 const clickProgressButton = (text: string) => act(async () => progressButton(text).click())
+const openSource = () =>
+  act(async () => host.querySelector<HTMLButtonElement>('[aria-label="绑定测试剧追更源"]')!.click())
 
 describe('追更交互与后台检查', () => {
+  it('搜索预览后绑定固定源，绕过旧缓存并保留已看进度，恢复原源后重新检查', async () => {
+    const id = useFavoritesStore.getState().favorites[0].id
+    useFavoritesStore.getState().setTracking(id, { enabled: true })
+    useApiStore.setState({
+      videoAPIs: [
+        ...useApiStore.getState().videoAPIs,
+        { id: 't', name: '新源', url: 'https://t/api', isEnabled: true },
+      ],
+    })
+    useViewingHistoryStore.setState({
+      viewingHistory: [
+        {
+          recordType: 'cms',
+          title: '测试剧',
+          imageUrl: '',
+          sourceCode: 's',
+          sourceName: '源',
+          vodId: 'a',
+          episodeIndex: 0,
+          episodeName: '第01集',
+          timestamp: 1,
+          playbackPosition: 95,
+          duration: 100,
+        },
+      ],
+    })
+    await mount()
+    await settle()
+    const newDetail = {
+      ...detail,
+      episodes: [...detail.episodes, 'https://t/3'],
+      videoInfo: { title: '测试剧另一个版本', episodes_names: ['第01集', '第02集', '第03集'] },
+    }
+    mocks.search.mockResolvedValue({
+      success: true,
+      items: [{ vod_id: 'b', vod_name: '测试剧另一个版本', vod_year: '2024' }],
+    })
+    mocks.getDetail.mockResolvedValue(newDetail)
+    await openSource()
+    await act(async () => {
+      const select = document.querySelector<HTMLSelectElement>('[role="dialog"] select')!
+      select.value = 't'
+      select.dispatchEvent(new Event('change', { bubbles: true }))
+    })
+    await clickProgressButton('搜索资源')
+    await act(async () =>
+      document
+        .querySelector<HTMLButtonElement>('[aria-label="选择资源：测试剧另一个版本"]')!
+        .click(),
+    )
+    expect(document.querySelector('[role="dialog"]')?.textContent).toContain('可看 3 集')
+    await clickProgressButton('确认绑定')
+    expect(useFavoritesStore.getState().favorites[0].tracking?.bindings?.cms.vodId).toBe('b')
+    expect(useFavoritesStore.getState().favorites[0].tracking?.progress?.cms.completedEpisode).toBe(
+      1,
+    )
+    expect(host.querySelector('a[href="/play/cms/s/a?ep=1"]')).toBeNull()
+    await settle()
+    expect(host.querySelector('article')?.textContent).toContain('2 集待看')
+    expect(host.querySelector('article')?.textContent).not.toContain('新增')
+    expect(host.querySelector('a[href="/play/cms/t/b?ep=1"]')).not.toBeNull()
+    expect(host.querySelector('a[aria-label="打开测试剧"]')?.getAttribute('href')).toBe(
+      '/play/cms/t/b',
+    )
+    expect(
+      mocks.getDetail.mock.calls.some(([vodId, source]) => vodId === 'b' && source.id === 't'),
+    ).toBe(true)
+    await act(async () =>
+      useViewingHistoryStore.setState({
+        viewingHistory: [
+          {
+            recordType: 'cms',
+            title: '测试剧',
+            imageUrl: '',
+            sourceCode: 't',
+            sourceName: '新源',
+            vodId: 'b',
+            episodeIndex: 1,
+            episodeName: '第02集',
+            timestamp: Date.now() + 1,
+            playbackPosition: 95,
+            duration: 100,
+          },
+        ],
+      }),
+    )
+    expect(host.querySelector('article')?.textContent).toContain('1 集待看')
+    mocks.getDetail.mockResolvedValue(detail)
+    await openSource()
+    await clickProgressButton('恢复原源')
+    await settle()
+    expect(useFavoritesStore.getState().favorites[0].tracking?.bindings).toBeUndefined()
+    expect(useFavoritesStore.getState().favorites[0].tracking?.progress?.cms.completedEpisode).toBe(
+      2,
+    )
+    expect(host.querySelector('article')?.textContent).toContain('已追平')
+  })
+
+  it('没有正片的资源不能绑定；关闭弹窗后迟到的搜索结果不会生效', async () => {
+    useFavoritesStore
+      .getState()
+      .setTracking(useFavoritesStore.getState().favorites[0].id, { enabled: true })
+    await mount()
+    await settle()
+    mocks.search.mockResolvedValue({ success: true, items: [{ vod_id: 'b', vod_name: '空资源' }] })
+    mocks.getDetail.mockResolvedValueOnce({
+      success: true,
+      episodes: [],
+      videoInfo: { title: '空资源' },
+    })
+    await openSource()
+    await clickProgressButton('搜索资源')
+    await act(async () =>
+      document.querySelector<HTMLButtonElement>('[aria-label="选择资源：空资源"]')!.click(),
+    )
+    expect(document.querySelector('[role="dialog"]')?.textContent).toContain('暂无可播放')
+    expect(progressButton('确认绑定').disabled).toBe(true)
+    let resolve!: (result: unknown) => void
+    mocks.search.mockImplementationOnce(
+      () =>
+        new Promise(done => {
+          resolve = done
+        }),
+    )
+    await clickProgressButton('搜索资源')
+    await clickProgressButton('取消')
+    await act(async () =>
+      resolve({ success: true, items: [{ vod_id: 'late', vod_name: '迟到结果' }] }),
+    )
+    expect(document.querySelector('[role="dialog"]')).toBeNull()
+    expect(useFavoritesStore.getState().favorites[0].tracking?.bindings).toBeUndefined()
+  })
+
+  it('TMDB 绑定按季隔离，绑定失效时显示错误并隐藏旧资源续播链接', async () => {
+    setTmdbFavorite()
+    const store = useFavoritesStore.getState()
+    store.setTracking('tmdb_tv_1', { enabled: true, seasonNumber: 2 })
+    await mount()
+    await settle()
+    const binding = { sourceCode: 's', sourceName: '源', vodId: 'manual', title: '第2季固定版本' }
+    mocks.getDetail.mockResolvedValue(detail)
+    await act(async () => store.setTrackingBinding('tmdb_tv_1', binding, '2', 9))
+    await settle()
+    expect(host.querySelector('a[href*="id=manual"]')).not.toBeNull()
+    await act(async () => store.setTracking('tmdb_tv_1', { enabled: true, seasonNumber: 1 }))
+    await settle()
+    expect(host.querySelector('a[href*="id=manual"]')).toBeNull()
+    expect(useFavoritesStore.getState().favorites[0].tracking?.bindings?.['2']).toEqual(binding)
+    mocks.getDetail.mockResolvedValue({ success: false, episodes: [], error: '固定资源已下架' })
+    await act(async () => store.setTracking('tmdb_tv_1', { enabled: true, seasonNumber: 2 }))
+    await settle()
+    expect(host.querySelector('article')?.textContent).toContain('固定资源已下架')
+    expect(host.querySelector('a[href*="id=manual"]')).toBeNull()
+    expect(
+      useFavoritesStore.getState().favorites[0].tracking?.progress?.['2'].completedEpisode,
+    ).toBe(9)
+  })
+
   it('首次检查只有待看，后续新增单独提醒；标记已读保留观看进度与待看数', async () => {
     const id = useFavoritesStore.getState().favorites[0].id
     useFavoritesStore.getState().setTracking(id, { enabled: true })

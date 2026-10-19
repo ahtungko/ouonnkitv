@@ -55,4 +55,16 @@ describe('cloud payload compatibility', () => {
       }),
     ).toBe(true)
   })
+  it('追更绑定按季同步，资源地址不能充当视频ID', () => {
+    const binding = { sourceCode: '源1', sourceName: '源名称', vodId: 'video-1', title: '手动绑定的剧' }
+    const row = { kind: 'favorite' as const, item_key: 'cms_x', modified_at: 1, mutation_id: 'binding', deleted: false,
+      value: { id: 'cms_x', addedAt: 1, updatedAt: 1, sourceType: 'cms', watchStatus: 'watching', tags: [],
+        tracking: { enabled: true, bindings: { cms: binding } },
+        media: { vodId: 'x', vodName: 'X', sourceCode: 's', sourceName: 'S' } } }
+    expect(validPayload(row)).toBe(true)
+    applyJournal({ favorite: { ...row, pending: false } })
+    expect(useFavoritesStore.getState().favorites[0].tracking?.bindings?.cms).toEqual(binding)
+    expect(validPayload({ ...row, value: { ...row.value, tracking: { enabled: true, bindings: { cms: { ...binding, vodId: 'https://x/v' } } } } })).toBe(false)
+    expect(validPayload({ ...row, value: { ...row.value, tracking: { enabled: true, bindings: { '0': binding } } } })).toBe(false)
+  })
 })

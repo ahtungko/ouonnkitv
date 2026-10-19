@@ -9,6 +9,8 @@ import {
   trackingPlayPath,
   canTrackFavorite,
   unreadEpisodeNumbers,
+  matchingTrackingUpdate,
+  trackingBinding,
 } from '@/features/favorites/lib/seriesTracking'
 import { useViewingHistoryStore } from '@/shared/store/viewingHistoryStore'
 import { useAuthStore } from '@/shared/store/authStore'
@@ -17,6 +19,7 @@ import { useTmdbEnabled } from '@/shared/hooks/useTmdbMode'
 import { getPosterUrl } from '@/shared/lib/tmdb'
 import { buildCmsPlayPath, buildTmdbDetailPath } from '@/shared/lib/routes'
 import { TrackingProgressControl } from '@/features/favorites/components/TrackingProgressControl'
+import { TrackingSourceControl } from '@/features/favorites/components/TrackingSourceControl'
 
 const formatCheckedAt = (time: number) =>
   new Date(time).toLocaleString('zh-CN', {
@@ -41,7 +44,10 @@ export function SeriesUpdates() {
   )
   const rows = tracked
     .map(item => {
-      const update = ownerId === cacheOwner ? entries[trackingKey(item)] : undefined
+      const update =
+        ownerId === cacheOwner
+          ? matchingTrackingUpdate(item, entries[trackingKey(item)])
+          : undefined
       const progress = trackingProgress(item, update, history)
       const nextIndex = progress.nextEpisode?.index ?? update?.episodes?.[0]?.index ?? 0
       const path =
@@ -97,7 +103,10 @@ export function SeriesUpdates() {
           const detailPath =
             item.sourceType === 'tmdb'
               ? buildTmdbDetailPath('tv', item.media.id)
-              : buildCmsPlayPath(item.media.sourceCode, item.media.vodId)
+              : buildCmsPlayPath(
+                  trackingBinding(item)?.sourceCode ?? item.media.sourceCode,
+                  trackingBinding(item)?.vodId ?? item.media.vodId,
+                )
           const poster =
             item.sourceType === 'tmdb'
               ? getPosterUrl(item.media.posterPath, 'w342')
@@ -181,6 +190,7 @@ export function SeriesUpdates() {
                     </Button>
                   )}
                   <TrackingProgressControl item={item} update={update} />
+                  <TrackingSourceControl item={item} />
                   {newCount > 0 && update && ownerId && (
                     <Button
                       type="button"

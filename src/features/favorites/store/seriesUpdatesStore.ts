@@ -46,6 +46,7 @@ export const useSeriesUpdatesStore = create<SeriesUpdatesStore>()(
             !current?.notification ||
             current.sourceCode !== displayedUpdate.sourceCode ||
             current.vodId !== displayedUpdate.vodId ||
+            (current.bindingKey ?? 'auto') !== (displayedUpdate.bindingKey ?? 'auto') ||
             current.resourceSignature !== displayedUpdate.resourceSignature
           )
             return state

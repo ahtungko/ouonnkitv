@@ -1,12 +1,20 @@
 /** 收藏项数据来源类型 */
 export type FavoriteSourceType = 'tmdb' | 'cms'
 
+export interface TrackingBinding {
+  sourceCode: string
+  sourceName: string
+  vodId: string
+  title: string
+}
+
 /** 追更偏好随收藏同步；视频源检查结果仅缓存在本机。 */
 export interface SeriesTracking {
   enabled: boolean
   seasonNumber?: number
   /** 按季保存的手动校准点，cms 表示直连收藏。 */
   progress?: Record<string, { completedEpisode: number; calibratedAt: number }>
+  bindings?: Record<string, TrackingBinding>
 }
 
 /**
