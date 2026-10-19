@@ -18,9 +18,34 @@ describe('追更缓存账号隔离', () => {
       ownerId: null,
       entries: {},
       checking: false,
+      checkingKeys: [],
+      activeKeys: [],
       refreshToken: 0,
+      refreshTarget: null,
     }),
   )
+
+  it('只接受当前账号有效追更项的重查，忽略重复或过期请求', () => {
+    const store = useSeriesUpdatesStore.getState()
+    store.configure('alice', ['a', 'b'])
+    store.refreshOne('bob', 'a', 'auto')
+    store.refreshOne('alice', 'missing', 'auto')
+    expect(useSeriesUpdatesStore.getState().refreshToken).toBe(0)
+    store.refreshOne('alice', 'a', 'fixed')
+    expect(useSeriesUpdatesStore.getState().refreshTarget).toEqual({
+      key: 'a',
+      bindingKey: 'fixed',
+    })
+    useSeriesUpdatesStore.setState({ checking: true, checkingKeys: ['a'] })
+    store.refreshOne('alice', 'a', 'fixed')
+    expect(useSeriesUpdatesStore.getState().refreshToken).toBe(1)
+    store.configure('bob', ['b'])
+    expect(useSeriesUpdatesStore.getState().checkingKeys).toEqual([])
+    expect(useSeriesUpdatesStore.getState().checking).toBe(false)
+    expect(useSeriesUpdatesStore.getState().refreshTarget).toBeNull()
+    const persisted = JSON.parse(localStorage.getItem('ouonnki-tv-series-updates')!).state
+    expect(Object.keys(persisted).sort()).toEqual(['entries', 'ownerId'])
+  })
 
   it('切换账号清除旧结果，旧账号的迟到请求不能写入新账号', () => {
     const store = useSeriesUpdatesStore.getState()
@@ -83,7 +108,12 @@ describe('追更缓存账号隔离', () => {
     store.saveResult('alice', 'a', result([1, 2]))
     store.saveResult('alice', 'a', result([1, 2, 3]))
     const old = useSeriesUpdatesStore.getState().entries.a
-    store.saveResult('alice', 'a', { ...old, bindingKey: 'fixed', attemptedAt: 2, error: 'offline' })
+    store.saveResult('alice', 'a', {
+      ...old,
+      bindingKey: 'fixed',
+      attemptedAt: 2,
+      error: 'offline',
+    })
     expect(useSeriesUpdatesStore.getState().entries.a.episodes).toBeUndefined()
     store.saveResult('alice', 'a', result([1, 2, 3, 4], { bindingKey: 'fixed' }))
     expect(unreadEpisodeNumbers(useSeriesUpdatesStore.getState().entries.a)).toEqual([])

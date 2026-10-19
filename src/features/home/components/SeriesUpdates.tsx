@@ -21,6 +21,7 @@ import { getPosterUrl } from '@/shared/lib/tmdb'
 import { buildCmsPlayPath, buildTmdbDetailPath } from '@/shared/lib/routes'
 import { TrackingProgressControl } from '@/features/favorites/components/TrackingProgressControl'
 import { TrackingSourceControl } from '@/features/favorites/components/TrackingSourceControl'
+import { TrackingRefreshControl } from '@/features/favorites/components/TrackingRefreshControl'
 
 const FILTERS = [
   { value: 'all', label: '全部', empty: '暂无追更剧集。' },
@@ -43,7 +44,14 @@ export function SeriesUpdates() {
   const favorites = useFavoritesStore(state => state.favorites)
   const history = useViewingHistoryStore(state => state.viewingHistory)
   const ownerId = useAuthStore(state => state.account?.id)
-  const { ownerId: cacheOwner, entries, checking, refresh, markRead } = useSeriesUpdatesStore()
+  const {
+    ownerId: cacheOwner,
+    entries,
+    checking,
+    checkingKeys,
+    refresh,
+    markRead,
+  } = useSeriesUpdatesStore()
   const sources = useApiStore(state => state.videoAPIs)
   const tmdbEnabled = useTmdbEnabled()
   const listId = useId()
@@ -86,6 +94,7 @@ export function SeriesUpdates() {
         path,
         error,
         newCount,
+        isChecking: ownerId === cacheOwner && checkingKeys.includes(trackingKey(item)),
         matches: {
           all: true,
           new: newCount > 0,
@@ -179,7 +188,7 @@ export function SeriesUpdates() {
             </Button>
           </div>
         )}
-        {visibleRows.map(({ item, update, progress, path, error, newCount }) => {
+        {visibleRows.map(({ item, update, progress, path, error, newCount, isChecking }) => {
           const title = item.sourceType === 'tmdb' ? item.media.title : item.media.vodName
           const detailPath =
             item.sourceType === 'tmdb'
@@ -247,7 +256,7 @@ export function SeriesUpdates() {
                   </>
                 ) : (
                   <p className="text-muted-foreground text-xs">
-                    {checking ? '正在检查视频源…' : '尚无检查结果'}
+                    {isChecking ? '正在检查视频源…' : '尚无检查结果'}
                   </p>
                 )}
                 {error && (
@@ -272,6 +281,7 @@ export function SeriesUpdates() {
                   )}
                   <TrackingProgressControl item={item} update={update} />
                   <TrackingSourceControl item={item} />
+                  <TrackingRefreshControl item={item} />
                   {newCount > 0 && update && ownerId && (
                     <Button
                       type="button"

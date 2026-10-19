@@ -13,6 +13,7 @@ import { useSettingStore } from '@/shared/store/settingStore'
 import { accountSchema } from '../../../../shared/account-rules'
 import { TrackingControl } from '../components/TrackingControl'
 import { SeriesUpdates } from '@/features/home/components/SeriesUpdates'
+import { trackingBindingKey, trackingKey, unreadEpisodeNumbers } from '../lib/seriesTracking'
 
 const mocks = vi.hoisted(() => {
   const tmdbDetails = vi.fn()
@@ -95,7 +96,15 @@ beforeEach(() => {
   useFavoritesStore
     .getState()
     .addCmsFavorite({ vod_id: 'a', vod_name: '测试剧', source_code: 's', source_name: '源' })
-  useSeriesUpdatesStore.setState({ ownerId: null, entries: {}, checking: false, refreshToken: 0 })
+  useSeriesUpdatesStore.setState({
+    ownerId: null,
+    entries: {},
+    checking: false,
+    checkingKeys: [],
+    activeKeys: [],
+    refreshToken: 0,
+    refreshTarget: null,
+  })
   useViewingHistoryStore.setState({ viewingHistory: [] })
   useApiStore.setState({
     videoAPIs: [{ id: 's', name: '源', url: 'https://x/api', isEnabled: true }],
@@ -149,8 +158,219 @@ const progressButton = (text: string) =>
 const clickProgressButton = (text: string) => act(async () => progressButton(text).click())
 const openSource = () =>
   act(async () => host.querySelector<HTMLButtonElement>('[aria-label="绑定测试剧追更源"]')!.click())
+const retry = (title = '测试剧') =>
+  act(async () =>
+    host.querySelector<HTMLButtonElement>(`[aria-label="重新检查${title}更新"]`)!.click(),
+  )
+const addTrackedShow = (vodId: string, title: string) => {
+  useFavoritesStore
+    .getState()
+    .addCmsFavorite({ vod_id: vodId, vod_name: title, source_code: 's', source_name: '源' })
+  const item = useFavoritesStore.getState().favorites[0]
+  useFavoritesStore.getState().setTracking(item.id, { enabled: true })
+  return item
+}
 
 describe('追更交互与后台检查', () => {
+  it('单部重查绕过30分钟缓存，只刷新目标剧集，首页与收藏入口共用状态', async () => {
+    const original = useFavoritesStore.getState().favorites[0]
+    useFavoritesStore.getState().setTracking(original.id, { enabled: true })
+    const other = addTrackedShow('b', '另一部剧')
+    await mount()
+    await settle()
+    const otherResult = useSeriesUpdatesStore.getState().entries[trackingKey(other)]
+    mocks.getDetail.mockClear()
+    let finish!: (result: DetailResult) => void
+    mocks.getDetail.mockImplementationOnce(
+      () =>
+        new Promise<DetailResult>(resolve => {
+          finish = resolve
+        }),
+    )
+    await retry('另一部剧')
+    const buttons = Array.from(
+      host.querySelectorAll<HTMLButtonElement>('[aria-label="重新检查另一部剧更新"]'),
+    )
+    expect(buttons).toHaveLength(2)
+    expect(
+      buttons.every(button => button.disabled && button.getAttribute('aria-busy') === 'true'),
+    ).toBe(true)
+    expect(
+      host.querySelector<HTMLButtonElement>('[aria-label="重新检查测试剧更新"]')!.disabled,
+    ).toBe(false)
+    expect(mocks.getDetail).toHaveBeenCalledTimes(1)
+    expect(mocks.getDetail.mock.calls[0][0]).toBe('b')
+    await act(async () => finish({ ...detail, episodes: [...detail.episodes, 'https://x/3'] }))
+    expect(useSeriesUpdatesStore.getState().entries[trackingKey(original)].episodes).toHaveLength(2)
+    expect(useSeriesUpdatesStore.getState().entries[trackingKey(other)].episodes).toHaveLength(3)
+    expect(useSeriesUpdatesStore.getState().entries[trackingKey(other)]).not.toBe(otherResult)
+    expect(buttons.every(button => !button.disabled)).toBe(true)
+    expect(useSeriesUpdatesStore.getState().checkingKeys).toEqual([])
+  })
+
+  it('单部与全量重查共用两个并发名额，不重复排队或中断其他请求', async () => {
+    useFavoritesStore
+      .getState()
+      .setTracking(useFavoritesStore.getState().favorites[0].id, { enabled: true })
+    addTrackedShow('b', '第二部剧')
+    addTrackedShow('c', '第三部剧')
+    await mount()
+    await settle()
+    mocks.getDetail.mockClear()
+    mocks.destroy.mockClear()
+    const finish: Record<string, (result: DetailResult) => void> = {}
+    let active = 0
+    let peak = 0
+    mocks.getDetail.mockImplementation((id: string) => {
+      active++
+      peak = Math.max(peak, active)
+      return new Promise<DetailResult>(resolve => {
+        finish[id] = resolve
+      }).finally(() => {
+        active--
+      })
+    })
+    await retry()
+    await retry('第二部剧')
+    await retry('第三部剧')
+    await act(async () => {
+      const store = useSeriesUpdatesStore.getState()
+      const item = useFavoritesStore
+        .getState()
+        .favorites.find(item => item.sourceType === 'cms' && item.media.vodId === 'a')!
+      store.refreshOne(store.ownerId!, trackingKey(item), trackingBindingKey(item))
+      store.refresh()
+    })
+    expect(mocks.getDetail.mock.calls.map(call => call[0])).toEqual(['a', 'b'])
+    expect(useSeriesUpdatesStore.getState().checkingKeys).toHaveLength(3)
+    expect(
+      host.querySelector<HTMLButtonElement>('[aria-label="重新检查第三部剧更新"]')!.disabled,
+    ).toBe(true)
+    await act(async () => finish.a(detail))
+    expect(mocks.getDetail.mock.calls.map(call => call[0])).toEqual(['a', 'b', 'c'])
+    expect(active).toBe(2)
+    expect(useSeriesUpdatesStore.getState().checking).toBe(true)
+    await act(async () => {
+      finish.b(detail)
+      finish.c(detail)
+    })
+    expect(peak).toBe(2)
+    expect(mocks.destroy).not.toHaveBeenCalled()
+    expect(useSeriesUpdatesStore.getState().checking).toBe(false)
+    expect(useSeriesUpdatesStore.getState().checkingKeys).toEqual([])
+    await settle()
+    expect(mocks.getDetail).toHaveBeenCalledTimes(3)
+  })
+
+  it('单部检查失败保留成功结果和未读提醒，再次重试成功后清除错误', async () => {
+    const item = useFavoritesStore.getState().favorites[0]
+    const key = trackingKey(item)
+    useFavoritesStore.getState().setTracking(item.id, { enabled: true })
+    await mount()
+    await settle()
+    mocks.getDetail.mockResolvedValueOnce({
+      ...detail,
+      episodes: [...detail.episodes, 'https://x/3'],
+    })
+    await retry()
+    const successful = useSeriesUpdatesStore.getState().entries[key]
+    expect(unreadEpisodeNumbers(successful)).toEqual([3])
+    mocks.getDetail.mockRejectedValueOnce(new Error('单部超时'))
+    await retry()
+    const failed = useSeriesUpdatesStore.getState().entries[key]
+    expect(failed.episodes).toEqual(successful.episodes)
+    expect(failed.checkedAt).toBe(successful.checkedAt)
+    expect(unreadEpisodeNumbers(failed)).toEqual([3])
+    expect(host.querySelector('article')?.textContent).toContain('单部超时（显示上次成功结果）')
+    expect(useSeriesUpdatesStore.getState().checking).toBe(false)
+    mocks.getDetail.mockResolvedValueOnce({
+      ...detail,
+      episodes: [...detail.episodes, 'https://x/3', 'https://x/4'],
+    })
+    await retry()
+    expect(useSeriesUpdatesStore.getState().entries[key].error).toBeUndefined()
+    expect(unreadEpisodeNumbers(useSeriesUpdatesStore.getState().entries[key])).toEqual([3, 4])
+    expect(host.querySelector('article')?.textContent).not.toContain('单部超时')
+  })
+
+  it('过期绑定的单部重查被忽略，切换绑定后迟到的旧请求不能覆盖新结果', async () => {
+    const item = useFavoritesStore.getState().favorites[0]
+    const key = trackingKey(item)
+    useFavoritesStore.getState().setTracking(item.id, { enabled: true })
+    await mount()
+    await settle()
+    mocks.getDetail.mockClear()
+    await act(async () =>
+      useSeriesUpdatesStore
+        .getState()
+        .refreshOne(useSeriesUpdatesStore.getState().ownerId!, key, 'stale-binding'),
+    )
+    expect(mocks.getDetail).not.toHaveBeenCalled()
+    let finish!: (result: DetailResult) => void
+    mocks.getDetail.mockImplementationOnce(
+      () =>
+        new Promise<DetailResult>(resolve => {
+          finish = resolve
+        }),
+    )
+    await retry()
+    await act(async () =>
+      useFavoritesStore.getState().setTrackingBinding(
+        item.id,
+        {
+          sourceCode: 's',
+          sourceName: '源',
+          vodId: 'new-resource',
+          title: '新资源',
+        },
+        'cms',
+        1,
+      ),
+    )
+    await settle()
+    const newResult = useSeriesUpdatesStore.getState().entries[key]
+    expect(newResult.vodId).toBe('new-resource')
+    await act(async () => finish({ ...detail, episodes: [...detail.episodes, 'https://x/3'] }))
+    expect(useSeriesUpdatesStore.getState().entries[key]).toBe(newResult)
+    expect(useSeriesUpdatesStore.getState().checkingKeys).toEqual([])
+  })
+
+  it('账号切换清理检查状态，旧账号单部请求的迟到结果不能写入新缓存', async () => {
+    const item = useFavoritesStore.getState().favorites[0]
+    useFavoritesStore.getState().setTracking(item.id, { enabled: true })
+    await mount()
+    await settle()
+    const oldOwner = useAuthStore.getState().account!.id
+    let finish!: (result: DetailResult) => void
+    mocks.getDetail.mockImplementationOnce(
+      () =>
+        new Promise<DetailResult>(resolve => {
+          finish = resolve
+        }),
+    )
+    await retry()
+    expect(useSeriesUpdatesStore.getState().checkingKeys).toHaveLength(1)
+    await act(async () =>
+      useAuthStore.setState({
+        account: {
+          ...useAuthStore.getState().account!,
+          id: '00000000-0000-4000-8000-000000000002',
+        },
+      }),
+    )
+    expect(useSeriesUpdatesStore.getState().entries).toEqual({})
+    expect(useSeriesUpdatesStore.getState().checkingKeys).toEqual([])
+    const token = useSeriesUpdatesStore.getState().refreshToken
+    await act(async () =>
+      useSeriesUpdatesStore.getState().refreshOne(oldOwner, trackingKey(item), 'auto'),
+    )
+    expect(useSeriesUpdatesStore.getState().refreshToken).toBe(token)
+    await settle()
+    const currentResult = useSeriesUpdatesStore.getState().entries[trackingKey(item)]
+    await act(async () => finish({ ...detail, episodes: [...detail.episodes, 'https://x/3'] }))
+    expect(useSeriesUpdatesStore.getState().entries[trackingKey(item)]).toBe(currentResult)
+  })
+
   it('切换首页筛选仅改变展示，不重复请求视频源或更改追更设置', async () => {
     const id = useFavoritesStore.getState().favorites[0].id
     useFavoritesStore.getState().setTracking(id, { enabled: true })

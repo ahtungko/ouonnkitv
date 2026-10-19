@@ -15,6 +15,7 @@ import {
 import { useTrackingSeasons } from '../hooks/useTrackingSeasons'
 import { TrackingProgressControl } from './TrackingProgressControl'
 import { TrackingSourceControl } from './TrackingSourceControl'
+import { TrackingRefreshControl } from './TrackingRefreshControl'
 
 export function TrackingControl({ item }: { item: FavoriteItem }) {
   const setTracking = useFavoritesStore(state => state.setTracking)
@@ -131,6 +132,7 @@ export function TrackingControl({ item }: { item: FavoriteItem }) {
         <div className="flex flex-wrap justify-center gap-1">
           <TrackingProgressControl item={item} update={update} />
           <TrackingSourceControl item={item} />
+          <TrackingRefreshControl item={item} />
         </div>
       )}
       {enabled && (

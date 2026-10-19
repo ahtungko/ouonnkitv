@@ -95,7 +95,15 @@ beforeEach(() => {
   )
   entries[trackingKey(favorites[0])].notification!.unreadEpisodes = [2]
   entries[trackingKey(favorites[3])].error = '网络错误'
-  useSeriesUpdatesStore.setState({ ownerId, entries, checking: false, refreshToken: 0 })
+  useSeriesUpdatesStore.setState({
+    ownerId,
+    entries,
+    checking: false,
+    checkingKeys: [],
+    activeKeys: favorites.map(trackingKey),
+    refreshToken: 0,
+    refreshTarget: null,
+  })
   host = document.createElement('div')
   document.body.appendChild(host)
   root = createRoot(host)

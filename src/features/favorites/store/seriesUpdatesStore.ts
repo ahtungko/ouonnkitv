@@ -6,11 +6,15 @@ interface SeriesUpdatesStore {
   ownerId: string | null
   entries: Record<string, SeriesUpdate>
   checking: boolean
+  checkingKeys: string[]
+  activeKeys: string[]
   refreshToken: number
+  refreshTarget: { key: string; bindingKey: string } | null
   configure: (ownerId: string, keys: string[]) => void
   saveResult: (ownerId: string, key: string, result: SeriesUpdate) => void
   markRead: (ownerId: string, key: string, displayedUpdate: SeriesUpdate) => void
   refresh: () => void
+  refreshOne: (ownerId: string, key: string, bindingKey: string) => void
 }
 
 export const useSeriesUpdatesStore = create<SeriesUpdatesStore>()(
@@ -19,10 +23,18 @@ export const useSeriesUpdatesStore = create<SeriesUpdatesStore>()(
       ownerId: null,
       entries: {},
       checking: false,
+      checkingKeys: [],
+      activeKeys: [],
       refreshToken: 0,
+      refreshTarget: null,
       configure: (ownerId, keys) =>
         set(state => ({
           ownerId,
+          activeKeys: keys,
+          checkingKeys:
+            state.ownerId === ownerId ? state.checkingKeys.filter(key => keys.includes(key)) : [],
+          checking: state.ownerId === ownerId && state.checkingKeys.some(key => keys.includes(key)),
+          refreshTarget: null,
           entries:
             state.ownerId === ownerId
               ? Object.fromEntries(
@@ -67,7 +79,15 @@ export const useSeriesUpdatesStore = create<SeriesUpdatesStore>()(
             },
           }
         }),
-      refresh: () => set(state => ({ refreshToken: state.refreshToken + 1 })),
+      refresh: () => set(state => ({ refreshTarget: null, refreshToken: state.refreshToken + 1 })),
+      refreshOne: (ownerId, key, bindingKey) =>
+        set(state =>
+          state.ownerId === ownerId &&
+          state.activeKeys.includes(key) &&
+          !state.checkingKeys.includes(key)
+            ? { refreshTarget: { key, bindingKey }, refreshToken: state.refreshToken + 1 }
+            : state,
+        ),
     }),
     {
       name: 'ouonnki-tv-series-updates',
