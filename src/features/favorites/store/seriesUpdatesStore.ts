@@ -2,11 +2,19 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { mergeSeriesUpdate, unreadEpisodeNumbers, type SeriesUpdate } from '../lib/seriesTracking'
 
+export interface SeriesCheckProgress {
+  total: number
+  completed: number
+  failed: number
+  cached: number
+}
+
 interface SeriesUpdatesStore {
   ownerId: string | null
   entries: Record<string, SeriesUpdate>
   checking: boolean
   checkingKeys: string[]
+  checkProgress: SeriesCheckProgress | null
   activeKeys: string[]
   refreshToken: number
   refreshTarget: { key: string; bindingKey: string } | null
@@ -24,6 +32,7 @@ export const useSeriesUpdatesStore = create<SeriesUpdatesStore>()(
       entries: {},
       checking: false,
       checkingKeys: [],
+      checkProgress: null,
       activeKeys: [],
       refreshToken: 0,
       refreshTarget: null,
@@ -31,6 +40,7 @@ export const useSeriesUpdatesStore = create<SeriesUpdatesStore>()(
         set(state => ({
           ownerId,
           activeKeys: keys,
+          checkProgress: null,
           checkingKeys:
             state.ownerId === ownerId ? state.checkingKeys.filter(key => keys.includes(key)) : [],
           checking: state.ownerId === ownerId && state.checkingKeys.some(key => keys.includes(key)),

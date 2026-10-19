@@ -19,6 +19,7 @@ describe('追更缓存账号隔离', () => {
       entries: {},
       checking: false,
       checkingKeys: [],
+      checkProgress: null,
       activeKeys: [],
       refreshToken: 0,
       refreshTarget: null,
@@ -36,12 +37,17 @@ describe('追更缓存账号隔离', () => {
       key: 'a',
       bindingKey: 'fixed',
     })
-    useSeriesUpdatesStore.setState({ checking: true, checkingKeys: ['a'] })
+    useSeriesUpdatesStore.setState({
+      checking: true,
+      checkingKeys: ['a'],
+      checkProgress: { total: 1, completed: 0, failed: 0, cached: 0 },
+    })
     store.refreshOne('alice', 'a', 'fixed')
     expect(useSeriesUpdatesStore.getState().refreshToken).toBe(1)
     store.configure('bob', ['b'])
     expect(useSeriesUpdatesStore.getState().checkingKeys).toEqual([])
     expect(useSeriesUpdatesStore.getState().checking).toBe(false)
+    expect(useSeriesUpdatesStore.getState().checkProgress).toBeNull()
     expect(useSeriesUpdatesStore.getState().refreshTarget).toBeNull()
     const persisted = JSON.parse(localStorage.getItem('ouonnki-tv-series-updates')!).state
     expect(Object.keys(persisted).sort()).toEqual(['entries', 'ownerId'])

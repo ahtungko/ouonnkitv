@@ -49,6 +49,7 @@ export function SeriesUpdates() {
     entries,
     checking,
     checkingKeys,
+    checkProgress,
     refresh,
     markRead,
   } = useSeriesUpdatesStore()
@@ -60,6 +61,7 @@ export function SeriesUpdates() {
     value: 'all',
   })
   const filter = selection.ownerId === ownerId ? selection.value : 'all'
+  const batchProgress = cacheOwner === ownerId ? checkProgress : null
   useEffect(() => {
     setSelection({ ownerId, value: 'all' })
   }, [ownerId])
@@ -151,6 +153,44 @@ export function SeriesUpdates() {
       <p className="text-muted-foreground mt-1 text-xs">
         首次追更只显示待看，之后的新集单独提醒；待看集数按观看进度估算，当前未看完的一集也计入。
       </p>
+      {batchProgress && (batchProgress.total > 0 || batchProgress.cached > 0) && (
+        <div className="mt-3 space-y-1.5" aria-label="追更检查进度">
+          <p
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+            className="text-muted-foreground text-xs tabular-nums"
+          >
+            {batchProgress.total > 0
+              ? `${checking ? '' : '检查完成 · '}已检查 ${batchProgress.completed} / ${batchProgress.total} 部`
+              : `已复用 ${batchProgress.cached} 部缓存`}
+            {batchProgress.failed > 0 && (
+              <span className="ml-2 text-amber-600 dark:text-amber-400">
+                失败 {batchProgress.failed} 部
+              </span>
+            )}
+            {batchProgress.total > 0 && batchProgress.cached > 0 && (
+              <span className="ml-2">复用 {batchProgress.cached} 部缓存</span>
+            )}
+          </p>
+          {batchProgress.total > 0 && (
+            <div
+              role="progressbar"
+              aria-label="剧集检查完成进度"
+              aria-valuemin={0}
+              aria-valuemax={batchProgress.total}
+              aria-valuenow={batchProgress.completed}
+              aria-valuetext={`已检查 ${batchProgress.completed} / ${batchProgress.total} 部，失败 ${batchProgress.failed} 部`}
+              className="bg-muted h-1.5 overflow-hidden rounded-full"
+            >
+              <div
+                className="bg-primary h-full transition-[width] motion-reduce:transition-none"
+                style={{ width: `${(batchProgress.completed / batchProgress.total) * 100}%` }}
+              />
+            </div>
+          )}
+        </div>
+      )}
       <div role="group" aria-label="追更筛选" className="mt-3 flex flex-wrap gap-1">
         {FILTERS.map(option => (
           <Button

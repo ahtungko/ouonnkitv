@@ -101,6 +101,7 @@ beforeEach(() => {
     entries: {},
     checking: false,
     checkingKeys: [],
+    checkProgress: null,
     activeKeys: [],
     refreshToken: 0,
     refreshTarget: null,
@@ -172,6 +173,170 @@ const addTrackedShow = (vodId: string, title: string) => {
 }
 
 describe('追更交互与后台检查', () => {
+  it('逐部累计检查进度，失败计入完成，结束后保留摘要且下一轮重新计数', async () => {
+    useFavoritesStore
+      .getState()
+      .setTracking(useFavoritesStore.getState().favorites[0].id, { enabled: true })
+    addTrackedShow('b', '第二部剧')
+    addTrackedShow('c', '第三部剧')
+    const finish: Record<string, (result: DetailResult) => void> = {}
+    mocks.getDetail.mockImplementation(
+      (id: string) =>
+        new Promise<DetailResult>(resolve => {
+          finish[id] = resolve
+        }),
+    )
+    await mount()
+    await settle()
+    expect(useSeriesUpdatesStore.getState().checkProgress).toEqual({
+      total: 3,
+      completed: 0,
+      failed: 0,
+      cached: 0,
+    })
+    expect(host.querySelector('[role="progressbar"]')?.getAttribute('aria-valuemax')).toBe('3')
+    expect(host.querySelector('[aria-label="追更检查进度"]')?.textContent).toContain(
+      '已检查 0 / 3 部',
+    )
+    await act(async () => finish.c(detail))
+    expect(useSeriesUpdatesStore.getState().checkProgress?.completed).toBe(1)
+    expect(mocks.getDetail).toHaveBeenCalledTimes(3)
+    await act(async () => finish.b({ success: false, episodes: [], error: '第二部失败' }))
+    expect(useSeriesUpdatesStore.getState().checkProgress).toEqual({
+      total: 3,
+      completed: 2,
+      failed: 1,
+      cached: 0,
+    })
+    expect(host.querySelector('[aria-label="追更检查进度"]')?.textContent).toContain('失败 1 部')
+    await act(async () => finish.a(detail))
+    expect(useSeriesUpdatesStore.getState().checking).toBe(false)
+    expect(useSeriesUpdatesStore.getState().checkProgress).toEqual({
+      total: 3,
+      completed: 3,
+      failed: 1,
+      cached: 0,
+    })
+    expect(host.querySelector('[aria-label="追更检查进度"]')?.textContent).toContain(
+      '检查完成 · 已检查 3 / 3 部',
+    )
+    expect(host.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow')).toBe('3')
+    await retry('第二部剧')
+    expect(useSeriesUpdatesStore.getState().checkProgress).toEqual({
+      total: 1,
+      completed: 0,
+      failed: 0,
+      cached: 0,
+    })
+    await act(async () => finish.b(detail))
+    expect(useSeriesUpdatesStore.getState().checkProgress).toEqual({
+      total: 1,
+      completed: 1,
+      failed: 0,
+      cached: 0,
+    })
+    expect(host.querySelector('[aria-label="追更检查进度"]')?.textContent).not.toContain('失败')
+  })
+
+  it('缓存复用与实际网络检查分别统计，纯缓存不显示虚假的检查进度条', async () => {
+    useFavoritesStore
+      .getState()
+      .setTracking(useFavoritesStore.getState().favorites[0].id, { enabled: true })
+    addTrackedShow('b', '第二部剧')
+    addTrackedShow('c', '第三部剧')
+    await mount()
+    await settle()
+    expect(mocks.getDetail).toHaveBeenCalledTimes(3)
+    await act(async () => root.render(null))
+    expect(useSeriesUpdatesStore.getState().checkProgress).toBeNull()
+    await mount()
+    await settle()
+    expect(mocks.getDetail).toHaveBeenCalledTimes(3)
+    expect(useSeriesUpdatesStore.getState().checkProgress).toEqual({
+      total: 0,
+      completed: 0,
+      failed: 0,
+      cached: 3,
+    })
+    expect(host.querySelector('[aria-label="追更检查进度"]')?.textContent).toBe('已复用 3 部缓存')
+    expect(host.querySelector('[role="progressbar"]')).toBeNull()
+    let finish!: (result: DetailResult) => void
+    mocks.getDetail.mockImplementationOnce(
+      () =>
+        new Promise<DetailResult>(resolve => {
+          finish = resolve
+        }),
+    )
+    await act(async () => {
+      addTrackedShow('d', '第四部剧')
+    })
+    await settle()
+    expect(mocks.getDetail).toHaveBeenCalledTimes(4)
+    expect(useSeriesUpdatesStore.getState().checkProgress).toEqual({
+      total: 1,
+      completed: 0,
+      failed: 0,
+      cached: 3,
+    })
+    expect(host.querySelector('[aria-label="追更检查进度"]')?.textContent).toContain(
+      '复用 3 部缓存',
+    )
+    await act(async () => finish(detail))
+    expect(useSeriesUpdatesStore.getState().checkProgress).toEqual({
+      total: 1,
+      completed: 1,
+      failed: 0,
+      cached: 3,
+    })
+    await retry()
+    expect(useSeriesUpdatesStore.getState().checkProgress).toEqual({
+      total: 1,
+      completed: 1,
+      failed: 0,
+      cached: 0,
+    })
+  })
+
+  it('同轮重试已完成的剧集替换旧状态，不重复计算分母和失败数量', async () => {
+    useFavoritesStore
+      .getState()
+      .setTracking(useFavoritesStore.getState().favorites[0].id, { enabled: true })
+    addTrackedShow('b', '第二部剧')
+    await mount()
+    await settle()
+    const finish: Record<string, (result: DetailResult) => void> = {}
+    mocks.getDetail.mockImplementation(
+      (id: string) =>
+        new Promise<DetailResult>(resolve => {
+          finish[id] = resolve
+        }),
+    )
+    await act(async () => useSeriesUpdatesStore.getState().refresh())
+    await act(async () => finish.b({ success: false, episodes: [], error: '暂时失败' }))
+    expect(useSeriesUpdatesStore.getState().checkProgress).toEqual({
+      total: 2,
+      completed: 1,
+      failed: 1,
+      cached: 0,
+    })
+    await retry('第二部剧')
+    expect(useSeriesUpdatesStore.getState().checkProgress).toEqual({
+      total: 2,
+      completed: 0,
+      failed: 0,
+      cached: 0,
+    })
+    await act(async () => finish.a(detail))
+    expect(useSeriesUpdatesStore.getState().checkProgress?.completed).toBe(1)
+    await act(async () => finish.b(detail))
+    expect(useSeriesUpdatesStore.getState().checkProgress).toEqual({
+      total: 2,
+      completed: 2,
+      failed: 0,
+      cached: 0,
+    })
+  })
+
   it('单部重查绕过30分钟缓存，只刷新目标剧集，首页与收藏入口共用状态', async () => {
     const original = useFavoritesStore.getState().favorites[0]
     useFavoritesStore.getState().setTracking(original.id, { enabled: true })
@@ -243,6 +408,12 @@ describe('追更交互与后台检查', () => {
     })
     expect(mocks.getDetail.mock.calls.map(call => call[0])).toEqual(['a', 'b'])
     expect(useSeriesUpdatesStore.getState().checkingKeys).toHaveLength(3)
+    expect(useSeriesUpdatesStore.getState().checkProgress).toEqual({
+      total: 3,
+      completed: 0,
+      failed: 0,
+      cached: 0,
+    })
     expect(
       host.querySelector<HTMLButtonElement>('[aria-label="重新检查第三部剧更新"]')!.disabled,
     ).toBe(true)
@@ -360,6 +531,7 @@ describe('追更交互与后台检查', () => {
     )
     expect(useSeriesUpdatesStore.getState().entries).toEqual({})
     expect(useSeriesUpdatesStore.getState().checkingKeys).toEqual([])
+    expect(useSeriesUpdatesStore.getState().checkProgress).toBeNull()
     const token = useSeriesUpdatesStore.getState().refreshToken
     await act(async () =>
       useSeriesUpdatesStore.getState().refreshOne(oldOwner, trackingKey(item), 'auto'),

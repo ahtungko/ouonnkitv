@@ -94,6 +94,7 @@ export function useSeriesUpdateChecker() {
       }))
     const queue = new Map<string, FavoriteItem>()
     const running = new Set<string>()
+    const outcomes = new Map<string, 'pending' | 'success' | 'failed' | 'cached'>()
     const isCurrent = (item: FavoriteItem) => {
       const current = useFavoritesStore
         .getState()
@@ -113,7 +114,20 @@ export function useSeriesUpdateChecker() {
     const syncChecking = () => {
       if (!controller.signal.aborted && useSeriesUpdatesStore.getState().ownerId === ownerId) {
         const checkingKeys = [...running, ...queue.keys()]
-        useSeriesUpdatesStore.setState({ checkingKeys, checking: checkingKeys.length > 0 })
+        const states = [...outcomes.values()]
+        const checkProgress = states.length
+          ? {
+              total: states.filter(state => state !== 'cached').length,
+              completed: states.filter(state => state === 'success' || state === 'failed').length,
+              failed: states.filter(state => state === 'failed').length,
+              cached: states.filter(state => state === 'cached').length,
+            }
+          : null
+        useSeriesUpdatesStore.setState({
+          checkingKeys,
+          checking: checkingKeys.length > 0,
+          checkProgress,
+        })
       }
     }
     const runItem = async (item: FavoriteItem) => {
@@ -130,10 +144,12 @@ export function useSeriesUpdateChecker() {
         )
         const source = enabledSources.find(source => source.id === result.sourceCode)
         const resourceSignature = fingerprint(JSON.stringify([source?.url, source?.detailUrl]))
-        if (isCurrent(item))
+        if (isCurrent(item)) {
           useSeriesUpdatesStore
             .getState()
             .saveResult(ownerId, key, { ...result, configuration, resourceSignature, bindingKey })
+          return 'success' as const
+        }
       } catch (error) {
         if (!isCurrent(item)) return
         useSeriesUpdatesStore.getState().saveResult(ownerId, key, {
@@ -142,22 +158,33 @@ export function useSeriesUpdateChecker() {
           bindingKey,
           error: error instanceof Error ? error.message : '检查失败，请稍后刷新',
         })
+        return 'failed' as const
       }
     }
     function pump() {
       while (!controller.signal.aborted && running.size < 2 && queue.size) {
         const [key, item] = queue.entries().next().value!
         queue.delete(key)
-        if (!isCurrent(item)) continue
+        if (!isCurrent(item)) {
+          outcomes.delete(key)
+          continue
+        }
         running.add(key)
-        void runItem(item).finally(() => {
-          running.delete(key)
-          pump()
-        })
+        void runItem(item)
+          .then(outcome => {
+            if (outcome) outcomes.set(key, outcome)
+            else outcomes.delete(key)
+          })
+          .finally(() => {
+            running.delete(key)
+            pump()
+          })
       }
       syncChecking()
     }
     const enqueue = (requested: FavoriteItem[], force: boolean) => {
+      const pending = new Map<string, FavoriteItem>()
+      const cached = new Set<string>()
       for (const item of requested) {
         const key = trackingKey(item)
         if (!isCurrent(item) || running.has(key) || queue.has(key)) continue
@@ -171,8 +198,21 @@ export function useSeriesUpdateChecker() {
           (previous.bindingKey ?? 'auto') === trackingBindingKey(item) &&
           enabledSources.some(source => source.id === previous.sourceCode) &&
           Date.now() - previous.attemptedAt < CHECK_INTERVAL
-        )
+        ) {
+          cached.add(key)
           continue
+        }
+        pending.set(key, item)
+      }
+      // 一轮结束后，手动检查开启新一轮；纯缓存命中不覆盖刚完成的检查摘要。
+      if (!running.size && !queue.size) {
+        if (!pending.size && outcomes.size) return
+        if (pending.size) outcomes.clear()
+      }
+      for (const key of cached) if (!outcomes.has(key)) outcomes.set(key, 'cached')
+      for (const [key, item] of pending) {
+        // 同轮重试替换该剧的旧结果，避免把一部剧重复计入分母。
+        outcomes.set(key, 'pending')
         queue.set(key, item)
       }
       pump()
@@ -198,7 +238,7 @@ export function useSeriesUpdateChecker() {
       queue.clear()
       client.destroy()
       if (useSeriesUpdatesStore.getState().ownerId === ownerId)
-        useSeriesUpdatesStore.setState({ checking: false, checkingKeys: [] })
+        useSeriesUpdatesStore.setState({ checking: false, checkingKeys: [], checkProgress: null })
     }
   }, [ownerId, signature, sourceSignature, networkSignature, tmdbEnabled])
 }

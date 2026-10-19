@@ -100,6 +100,7 @@ beforeEach(() => {
     entries,
     checking: false,
     checkingKeys: [],
+    checkProgress: null,
     activeKeys: favorites.map(trackingKey),
     refreshToken: 0,
     refreshTarget: null,
@@ -114,6 +115,31 @@ afterEach(async () => {
 })
 
 describe('首页追更筛选', () => {
+  it('显示全队列进度和失败数量，筛选不改变进度，切账号后隐藏旧摘要', async () => {
+    useSeriesUpdatesStore.setState({
+      checking: true,
+      checkProgress: { total: 6, completed: 4, failed: 1, cached: 2 },
+    })
+    await mount()
+    expect(host.querySelector('[aria-label="追更检查进度"]')?.textContent).toContain(
+      '已检查 4 / 6 部',
+    )
+    expect(host.querySelector('[aria-label="追更检查进度"]')?.textContent).toContain('失败 1 部')
+    expect(host.querySelector('[aria-label="追更检查进度"]')?.textContent).toContain(
+      '复用 2 部缓存',
+    )
+    await chooseFilter('有新集')
+    expect(titles()).toEqual(['新集剧'])
+    const bar = host.querySelector('[role="progressbar"]')!
+    expect(bar.getAttribute('aria-valuenow')).toBe('4')
+    expect(bar.getAttribute('aria-valuemax')).toBe('6')
+    expect(bar.getAttribute('aria-valuetext')).toContain('失败 1 部')
+    await act(async () =>
+      useAuthStore.setState({ account: account('00000000-0000-4000-8000-000000000002') }),
+    )
+    expect(host.querySelector('[aria-label="追更检查进度"]')).toBeNull()
+  })
+
   it('显示各类数量，可独立筛选新集、待看、追平和异常', async () => {
     await mount()
     expect(titles()).toHaveLength(6)
