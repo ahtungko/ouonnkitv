@@ -151,6 +151,28 @@ const openSource = () =>
   act(async () => host.querySelector<HTMLButtonElement>('[aria-label="绑定测试剧追更源"]')!.click())
 
 describe('追更交互与后台检查', () => {
+  it('切换首页筛选仅改变展示，不重复请求视频源或更改追更设置', async () => {
+    const id = useFavoritesStore.getState().favorites[0].id
+    useFavoritesStore.getState().setTracking(id, { enabled: true })
+    await mount()
+    await settle()
+    const tracking = useFavoritesStore.getState().favorites[0].tracking
+    expect(mocks.getDetail).toHaveBeenCalledTimes(1)
+    for (const label of ['有新集', '检查异常', '待看', '全部']) {
+      const button = Array.from(
+        host.querySelectorAll<HTMLButtonElement>('[aria-label="追更筛选"] button'),
+      ).find(button => button.textContent?.startsWith(label))!
+      await act(async () => button.click())
+      await settle()
+      expect(host.querySelectorAll('article')).toHaveLength(
+        ['待看', '全部'].includes(label) ? 1 : 0,
+      )
+    }
+    expect(mocks.getDetail).toHaveBeenCalledTimes(1)
+    expect(mocks.search).not.toHaveBeenCalled()
+    expect(useFavoritesStore.getState().favorites[0].tracking).toEqual(tracking)
+  })
+
   it('搜索预览后绑定固定源，绕过旧缓存并保留已看进度，恢复原源后重新检查', async () => {
     const id = useFavoritesStore.getState().favorites[0].id
     useFavoritesStore.getState().setTracking(id, { enabled: true })
@@ -404,7 +426,7 @@ describe('追更交互与后台检查', () => {
     })
     await mount()
     await settle()
-    expect(host.textContent).toContain('已追平')
+    expect(host.querySelector('article')?.textContent).toContain('已追平')
     await openProgress()
     await setProgressInput('1')
     await clickProgressButton('保存进度')
@@ -421,7 +443,7 @@ describe('追更交互与后台检查', () => {
     expect(host.textContent).toContain('2 集待看')
     await openProgress()
     await clickProgressButton('恢复自动计算')
-    expect(host.textContent).toContain('已追平')
+    expect(host.querySelector('article')?.textContent).toContain('已追平')
     expect(useFavoritesStore.getState().favorites[0].tracking?.progress).toBeUndefined()
     expect(useViewingHistoryStore.getState().viewingHistory).toHaveLength(1)
   })
@@ -435,7 +457,7 @@ describe('追更交互与后台检查', () => {
     await openProgress()
     await clickProgressButton('标记已追平')
     await clickProgressButton('保存进度')
-    expect(host.textContent).toContain('已追平')
+    expect(host.querySelector('article')?.textContent).toContain('已追平')
     mocks.getDetail.mockResolvedValueOnce({
       ...detail,
       episodes: [...detail.episodes, 'https://x/3'],
@@ -666,7 +688,7 @@ describe('追更交互与后台检查', () => {
         ],
       }),
     )
-    expect(host.textContent).toContain('已追平')
+    expect(host.querySelector('article')?.textContent).toContain('已追平')
     expect(host.textContent).not.toContain('2 集待看')
     // 云同步仅改变观看状态时，不重复请求视频源。
     await act(async () => useFavoritesStore.getState()._applyFilters())

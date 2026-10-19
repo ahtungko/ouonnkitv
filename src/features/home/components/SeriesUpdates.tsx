@@ -1,3 +1,4 @@
+import { useEffect, useId, useState } from 'react'
 import { Bell, RefreshCw, Play, AlertCircle } from 'lucide-react'
 import { NavLink } from 'react-router'
 import { Button } from '@/shared/components/ui/button'
@@ -21,6 +22,15 @@ import { buildCmsPlayPath, buildTmdbDetailPath } from '@/shared/lib/routes'
 import { TrackingProgressControl } from '@/features/favorites/components/TrackingProgressControl'
 import { TrackingSourceControl } from '@/features/favorites/components/TrackingSourceControl'
 
+const FILTERS = [
+  { value: 'all', label: '全部', empty: '暂无追更剧集。' },
+  { value: 'new', label: '有新集', empty: '暂无新集提醒，检查到新集后会显示在这里。' },
+  { value: 'pending', label: '待看', empty: '目前没有待看的剧集。' },
+  { value: 'caughtUp', label: '已追平', empty: '还没有已追平的剧集。' },
+  { value: 'error', label: '检查异常', empty: '暂无检查异常。' },
+] as const
+type TrackingFilter = (typeof FILTERS)[number]['value']
+
 const formatCheckedAt = (time: number) =>
   new Date(time).toLocaleString('zh-CN', {
     month: 'numeric',
@@ -36,6 +46,15 @@ export function SeriesUpdates() {
   const { ownerId: cacheOwner, entries, checking, refresh, markRead } = useSeriesUpdatesStore()
   const sources = useApiStore(state => state.videoAPIs)
   const tmdbEnabled = useTmdbEnabled()
+  const listId = useId()
+  const [selection, setSelection] = useState<{ ownerId: typeof ownerId; value: TrackingFilter }>({
+    ownerId,
+    value: 'all',
+  })
+  const filter = selection.ownerId === ownerId ? selection.value : 'all'
+  useEffect(() => {
+    setSelection({ ownerId, value: 'all' })
+  }, [ownerId])
   const tracked = favorites.filter(
     item =>
       item.tracking?.enabled &&
@@ -50,11 +69,36 @@ export function SeriesUpdates() {
           : undefined
       const progress = trackingProgress(item, update, history)
       const nextIndex = progress.nextEpisode?.index ?? update?.episodes?.[0]?.index ?? 0
-      const path =
-        update && sources.some(source => source.isEnabled && source.id === update.sourceCode)
-          ? trackingPlayPath(item, update, nextIndex)
-          : null
-      return { item, update, progress, path, newCount: unreadEpisodeNumbers(update).length }
+      const sourceAvailable = sources.some(
+        source => source.isEnabled && source.id === update?.sourceCode,
+      )
+      const path = update && sourceAvailable ? trackingPlayPath(item, update, nextIndex) : null
+      const error =
+        update?.error ||
+        (update?.checkedAt && !sourceAvailable
+          ? '上次检查的视频源已停用，请检查设置或重新绑定追更源'
+          : undefined)
+      const newCount = unreadEpisodeNumbers(update).length
+      return {
+        item,
+        update,
+        progress,
+        path,
+        error,
+        newCount,
+        matches: {
+          all: true,
+          new: newCount > 0,
+          pending: progress.pendingCount > 0,
+          // 无检查结果、空播放列表和失败后保留的旧结果都不能确认已追平。
+          caughtUp:
+            !!update?.checkedAt &&
+            !!update.episodes?.length &&
+            !error &&
+            progress.pendingCount === 0,
+          error: !!error,
+        },
+      }
     })
     .sort(
       (a, b) =>
@@ -64,6 +108,7 @@ export function SeriesUpdates() {
     )
   const pendingSeries = rows.filter(row => row.progress.pendingCount > 0).length
   const updatedSeries = rows.filter(row => row.newCount > 0).length
+  const visibleRows = rows.filter(row => row.matches[filter])
 
   if (!rows.length) return null
 
@@ -97,8 +142,44 @@ export function SeriesUpdates() {
       <p className="text-muted-foreground mt-1 text-xs">
         首次追更只显示待看，之后的新集单独提醒；待看集数按观看进度估算，当前未看完的一集也计入。
       </p>
-      <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3" aria-live="polite">
-        {rows.map(({ item, update, progress, path, newCount }) => {
+      <div role="group" aria-label="追更筛选" className="mt-3 flex flex-wrap gap-1">
+        {FILTERS.map(option => (
+          <Button
+            key={option.value}
+            type="button"
+            size="sm"
+            variant={filter === option.value ? 'secondary' : 'ghost'}
+            className="h-8 gap-1.5 px-2.5 text-xs"
+            aria-pressed={filter === option.value}
+            aria-controls={listId}
+            onClick={() => setSelection({ ownerId, value: option.value })}
+          >
+            {option.label}
+            <span className="text-muted-foreground tabular-nums">
+              {rows.filter(row => row.matches[option.value]).length}
+            </span>
+          </Button>
+        ))}
+      </div>
+      <div id={listId} className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3" aria-live="polite">
+        {!visibleRows.length && (
+          <div
+            className="text-muted-foreground col-span-full py-6 text-center text-sm"
+            role="status"
+          >
+            <p>{FILTERS.find(option => option.value === filter)?.empty}</p>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="mt-2"
+              onClick={() => setSelection({ ownerId, value: 'all' })}
+            >
+              查看全部追更
+            </Button>
+          </div>
+        )}
+        {visibleRows.map(({ item, update, progress, path, error, newCount }) => {
           const title = item.sourceType === 'tmdb' ? item.media.title : item.media.vodName
           const detailPath =
             item.sourceType === 'tmdb'
@@ -169,11 +250,11 @@ export function SeriesUpdates() {
                     {checking ? '正在检查视频源…' : '尚无检查结果'}
                   </p>
                 )}
-                {update?.error && (
+                {error && (
                   <p className="text-xs text-amber-600 dark:text-amber-400" role="status">
                     <AlertCircle className="mr-1 inline size-3" />
-                    {update.error}
-                    {update.checkedAt ? '（显示上次成功结果）' : ''}
+                    {error}
+                    {update?.checkedAt ? '（显示上次成功结果）' : ''}
                   </p>
                 )}
                 <div className="mt-1 flex flex-wrap items-center gap-1">
