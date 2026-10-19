@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { VideoItem } from '@/shared/types/video'
 import { useFavoritesStore } from './favoritesStore'
+import { useViewingHistoryStore } from '@/shared/store/viewingHistoryStore'
 
 const DEFAULT_FILTER_OPTIONS = {
   sourceType: 'all',
@@ -84,5 +85,36 @@ describe('favoritesStore cms id encoding', () => {
 
     useFavoritesStore.getState().addFavorites([video, { ...video }])
     expect(useFavoritesStore.getState().favorites).toHaveLength(1)
+  })
+
+  it('保存校准并持久化，恢复自动计算时保留观看历史', () => {
+    const store = useFavoritesStore.getState()
+    store.addCmsFavorite(createCmsVideo())
+    const id = useFavoritesStore.getState().favorites[0].id
+    store.setTracking(id, { enabled: true })
+    const history = useViewingHistoryStore.getState().viewingHistory
+    expect(store.setTrackingProgress(id, 9, 'cms')).toBe(true)
+    expect(useFavoritesStore.getState().filteredFavorites[0].tracking?.progress?.cms.completedEpisode).toBe(9)
+    expect(localStorage.getItem('ouonnki-tv-favorites-store')).toContain('completedEpisode')
+    store.setTracking(id, { enabled: false })
+    store.setTracking(id, { enabled: true })
+    expect(useFavoritesStore.getState().favorites[0].tracking?.progress?.cms.completedEpisode).toBe(9)
+    expect(store.setTrackingProgress(id, null, 'cms')).toBe(true)
+    expect(useFavoritesStore.getState().favorites[0].tracking?.progress).toBeUndefined()
+    expect(useViewingHistoryStore.getState().viewingHistory).toBe(history)
+  })
+
+  it('拒绝非法值、过期季数与已取消追更的提交', () => {
+    const store = useFavoritesStore.getState()
+    store.addCmsFavorite(createCmsVideo())
+    const id = useFavoritesStore.getState().favorites[0].id
+    store.setTracking(id, { enabled: true })
+    for (const value of [-1, 1.5, Number.NaN, Number.POSITIVE_INFINITY, Number.MAX_SAFE_INTEGER + 1]) {
+      expect(store.setTrackingProgress(id, value, 'cms')).toBe(false)
+    }
+    expect(store.setTrackingProgress(id, 9, '2')).toBe(false)
+    expect(store.setTrackingProgress(id, 0, 'cms')).toBe(true)
+    store.setTracking(id, { enabled: false })
+    expect(store.setTrackingProgress(id, 9, 'cms')).toBe(false)
   })
 })

@@ -7,6 +7,7 @@ import { useSeriesUpdatesStore } from '../store/seriesUpdatesStore'
 import type { FavoriteItem } from '../types/favorites'
 import { canTrackFavorite, trackingKey, trackingProgress } from '../lib/seriesTracking'
 import { useTrackingSeasons } from '../hooks/useTrackingSeasons'
+import { TrackingProgressControl } from './TrackingProgressControl'
 
 export function TrackingControl({ item }: { item: FavoriteItem }) {
   const setTracking = useFavoritesStore(state => state.setTracking)
@@ -114,6 +115,11 @@ export function TrackingControl({ item }: { item: FavoriteItem }) {
               {loading ? '加载中…' : '重试'}
             </button>
           )}
+        </div>
+      )}
+      {enabled && (
+        <div className="flex justify-center">
+          <TrackingProgressControl item={item} update={update} />
         </div>
       )}
       {enabled && (

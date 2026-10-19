@@ -16,6 +16,23 @@ describe('cloud payload compatibility', () => {
     expect(useFavoritesStore.getState().favorites[0].tracking).toEqual({ enabled: true, seasonNumber: 2 })
     expect(validPayload({ ...row, value: { ...row.value, tracking: { enabled: true, seasonNumber: 0 } } })).toBe(false)
   })
+  it('按季校准随收藏同步，兼容旧收藏并校验非法进度', () => {
+    const row = {
+      kind: 'favorite' as const, item_key: 'tmdb_tv_1', modified_at: 1, mutation_id: 'c', deleted: false,
+      value: { id: 'tmdb_tv_1', addedAt: 1, updatedAt: 1, sourceType: 'tmdb', watchStatus: 'watching', tags: [],
+        tracking: { enabled: true, seasonNumber: 2, progress: {
+          '1': { completedEpisode: 12, calibratedAt: 100 }, '2': { completedEpisode: 0, calibratedAt: 200 },
+        } }, media: { id: 1, mediaType: 'tv', title: '剧', originalTitle: 'Show', posterPath: null,
+          backdropPath: null, releaseDate: '2024', voteAverage: 8 } },
+    }
+    expect(validPayload(row)).toBe(true)
+    applyJournal({ favorite: { ...row, pending: false } })
+    expect(useFavoritesStore.getState().favorites[0].tracking?.progress).toEqual(row.value.tracking.progress)
+    for (const progress of [{ '2': { completedEpisode: -1, calibratedAt: 1 } },
+      { '2': { completedEpisode: 1.5, calibratedAt: 1 } }, { '0': { completedEpisode: 1, calibratedAt: 1 } }]) {
+      expect(validPayload({ ...row, value: { ...row.value, tracking: { ...row.value.tracking, progress } } })).toBe(false)
+    }
+  })
   it('accepts nullable legacy favorite fields', () => {
     expect(
       validPayload({

@@ -24,8 +24,12 @@ export function canTrackFavorite(item: FavoriteItem): boolean {
   return item.sourceType === 'cms' || item.media.mediaType === 'tv'
 }
 
+export function trackingSeasonKey(item: FavoriteItem): string {
+  return item.sourceType === 'tmdb' ? String(item.tracking?.seasonNumber ?? 1) : 'cms'
+}
+
 export function trackingKey(item: FavoriteItem): string {
-  return `${item.id}::${item.sourceType === 'tmdb' ? (item.tracking?.seasonNumber ?? 1) : 'cms'}`
+  return `${item.id}::${trackingSeasonKey(item)}`
 }
 
 export function episodeNumber(name: string | undefined): number | null {
@@ -73,9 +77,11 @@ export function trackingProgress(
   history: ViewingHistoryItem[],
 ) {
   const episodes = update?.episodes ?? []
-  let completedThrough = 0
-  let currentEpisode = 0
+  const calibration = item.tracking?.progress?.[trackingSeasonKey(item)]
+  let completedThrough = calibration?.completedEpisode ?? 0
+  let currentEpisode = completedThrough
   for (const record of favoriteHistory(item, history)) {
+    if (calibration && record.timestamp <= calibration.calibratedAt) continue
     if (record.playbackPosition <= 0 || record.duration <= 0) continue
     const samePlaylist = record.sourceCode === update?.sourceCode && record.vodId === update?.vodId
     const number =
@@ -90,6 +96,8 @@ export function trackingProgress(
   const pending = episodes.filter(ep => ep.number > completedThrough)
   return {
     currentEpisode,
+    completedThrough,
+    calibrated: !!calibration,
     pendingCount: pending.length,
     nextEpisode: pending[0],
     latestEpisode: episodes[episodes.length - 1]?.number ?? 0,

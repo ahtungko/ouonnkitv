@@ -38,7 +38,7 @@ export function useSeriesUpdateChecker() {
         id: item.id,
         sourceType: item.sourceType,
         media: item.media,
-        tracking: item.tracking,
+        tracking: { enabled: item.tracking?.enabled, seasonNumber: item.tracking?.seasonNumber },
       })),
   )
   const sourceSignature = JSON.stringify(sources.filter(source => source.isEnabled))

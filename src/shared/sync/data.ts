@@ -19,6 +19,15 @@ const favoriteBase = {
     .object({
       enabled: z.boolean(),
       seasonNumber: z.number().int().positive().optional(),
+      progress: z
+        .record(
+          z.string().regex(/^(?:cms|[1-9]\d*)$/),
+          z.object({
+            completedEpisode: z.number().int().nonnegative(),
+            calibratedAt: z.number().int().nonnegative(),
+          }),
+        )
+        .optional(),
     })
     .optional(),
 }

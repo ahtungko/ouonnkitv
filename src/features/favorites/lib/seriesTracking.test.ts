@@ -67,6 +67,76 @@ const detail = {
 }
 
 describe('追更集数与进度', () => {
+  it('校准可向前或向后修正，旧观看记录不会覆盖校准值', () => {
+    for (const completedEpisode of [0, 3, 9]) {
+      const item = {
+        ...cms,
+        tracking: { enabled: true, progress: { cms: { completedEpisode, calibratedAt: 100 } } },
+      }
+      const progress = trackingProgress(item, update, [
+        record({ episodeName: '第11集', timestamp: 50 }),
+      ])
+      expect(progress).toMatchObject({
+        completedThrough: completedEpisode,
+        currentEpisode: completedEpisode,
+        pendingCount: 12 - completedEpisode,
+        calibrated: true,
+      })
+      expect(progress.nextEpisode?.number).toBe(completedEpisode + 1)
+    }
+  })
+
+  it('校准后继续观看会自动推进，回看旧集不会降低校准进度', () => {
+    const item = {
+      ...cms,
+      tracking: { enabled: true, progress: { cms: { completedEpisode: 9, calibratedAt: 100 } } },
+    }
+    expect(
+      trackingProgress(item, update, [
+        record({ episodeName: '第10集', timestamp: 101, playbackPosition: 95 }),
+      ]),
+    ).toMatchObject({ completedThrough: 10, currentEpisode: 10, pendingCount: 2 })
+    expect(
+      trackingProgress(item, update, [
+        record({ episodeName: '第10集', timestamp: 101, playbackPosition: 40 }),
+      ]),
+    ).toMatchObject({ completedThrough: 9, currentEpisode: 10, pendingCount: 3 })
+    expect(
+      trackingProgress(item, update, [record({ episodeName: '第1集', timestamp: 101 })])
+        .pendingCount,
+    ).toBe(3)
+  })
+
+  it('校准按季隔离；已追平后新增的集数仍会计入待看', () => {
+    const item = {
+      ...tv,
+      tracking: {
+        enabled: true,
+        seasonNumber: 2,
+        progress: {
+          '1': { completedEpisode: 12, calibratedAt: 100 },
+          '2': { completedEpisode: 9, calibratedAt: 100 },
+        },
+      },
+    }
+    expect(trackingProgress(item, update, []).pendingCount).toBe(3)
+    expect(
+      trackingProgress({ ...item, tracking: { ...item.tracking, seasonNumber: 3 } }, update, [])
+        .pendingCount,
+    ).toBe(12)
+    const caughtUp = {
+      ...cms,
+      tracking: { enabled: true, progress: { cms: { completedEpisode: 12, calibratedAt: 100 } } },
+    }
+    expect(
+      trackingProgress(
+        caughtUp,
+        { ...update, episodes: [...update.episodes!, { index: 12, number: 13 }] },
+        [],
+      ).pendingCount,
+    ).toBe(1)
+  })
+
   it('过滤没有地址的占位集后，集名仍与播放索引对应', () => {
     const parsed = parsePlayUrl('第01集$https://x/1#第02集$#第03集$https://x/3')
     expect(parsed.names).toEqual(['第01集', '第03集'])

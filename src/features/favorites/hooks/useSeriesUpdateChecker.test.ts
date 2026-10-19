@@ -132,7 +132,137 @@ const clickRefresh = async () => {
   await settle()
 }
 
+const openProgress = () =>
+  act(async () => {
+    host.querySelector<HTMLButtonElement>('[aria-label="校准测试剧观看进度"]')!.click()
+  })
+const setProgressInput = (value: string) =>
+  act(async () => {
+    const input = document.querySelector<HTMLInputElement>('[role="dialog"] input')!
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, value)
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+  })
+const progressButton = (text: string) =>
+  Array.from(document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')).find(
+    button => button.textContent === text,
+  )!
+const clickProgressButton = (text: string) => act(async () => progressButton(text).click())
+
 describe('追更交互与后台检查', () => {
+  it('校准立即更新待看数与续播入口，可改回0或恢复历史自动计算，且不重复查源', async () => {
+    const id = useFavoritesStore.getState().favorites[0].id
+    useFavoritesStore.getState().setTracking(id, { enabled: true })
+    useViewingHistoryStore.setState({
+      viewingHistory: [
+        {
+          recordType: 'cms',
+          title: '测试剧',
+          imageUrl: '',
+          sourceCode: 's',
+          sourceName: '源',
+          vodId: 'a',
+          episodeIndex: 1,
+          episodeName: '第02集',
+          timestamp: 1,
+          playbackPosition: 95,
+          duration: 100,
+        },
+      ],
+    })
+    await mount()
+    await settle()
+    expect(host.textContent).toContain('已追平')
+    await openProgress()
+    await setProgressInput('1')
+    await clickProgressButton('保存进度')
+    expect(host.textContent).toContain('1 集待看')
+    expect(host.querySelector('a[href="/play/cms/s/a?ep=1"]')).not.toBeNull()
+    expect(useFavoritesStore.getState().favorites[0].tracking?.progress?.cms.completedEpisode).toBe(
+      1,
+    )
+    await settle()
+    expect(mocks.getDetail).toHaveBeenCalledTimes(1)
+    await openProgress()
+    await setProgressInput('0')
+    await clickProgressButton('保存进度')
+    expect(host.textContent).toContain('2 集待看')
+    await openProgress()
+    await clickProgressButton('恢复自动计算')
+    expect(host.textContent).toContain('已追平')
+    expect(useFavoritesStore.getState().favorites[0].tracking?.progress).toBeUndefined()
+    expect(useViewingHistoryStore.getState().viewingHistory).toHaveLength(1)
+  })
+
+  it('标记已追平只标记当前已知剧集，之后新增剧集仍提示待看', async () => {
+    useFavoritesStore
+      .getState()
+      .setTracking(useFavoritesStore.getState().favorites[0].id, { enabled: true })
+    await mount()
+    await settle()
+    await openProgress()
+    await clickProgressButton('标记已追平')
+    await clickProgressButton('保存进度')
+    expect(host.textContent).toContain('已追平')
+    mocks.getDetail.mockResolvedValueOnce({
+      ...detail,
+      episodes: [...detail.episodes, 'https://x/3'],
+      videoInfo: { ...detail.videoInfo, episodes_names: ['第01集', '第02集', '第03集'] },
+    })
+    await clickRefresh()
+    expect(host.textContent).toContain('1 集待看')
+    expect(host.querySelector('a[href="/play/cms/s/a?ep=2"]')).not.toBeNull()
+  })
+
+  it('无效输入不能保存，取消编辑不会修改进度', async () => {
+    useFavoritesStore
+      .getState()
+      .setTracking(useFavoritesStore.getState().favorites[0].id, { enabled: true })
+    await mount()
+    await settle()
+    await openProgress()
+    for (const value of ['', '-1', '1.5']) {
+      await setProgressInput(value)
+      expect(progressButton('保存进度').disabled).toBe(true)
+    }
+    await setProgressInput('9')
+    await clickProgressButton('取消')
+    expect(useFavoritesStore.getState().favorites[0].tracking?.progress).toBeUndefined()
+  })
+
+  it('不同季保留各自校准，切季时未提交的编辑自动关闭', async () => {
+    setTmdbFavorite()
+    useFavoritesStore.getState().setTracking('tmdb_tv_1', { enabled: true, seasonNumber: 2 })
+    await mount()
+    await settle()
+    await openProgress()
+    await setProgressInput('9')
+    await clickProgressButton('保存进度')
+    await act(async () =>
+      useFavoritesStore.getState().setTracking('tmdb_tv_1', { enabled: true, seasonNumber: 1 }),
+    )
+    await openProgress()
+    expect(document.querySelector<HTMLInputElement>('[role="dialog"] input')?.value).toBe('0')
+    await setProgressInput('3')
+    await clickProgressButton('保存进度')
+    await act(async () =>
+      useFavoritesStore.getState().setTracking('tmdb_tv_1', { enabled: true, seasonNumber: 2 }),
+    )
+    await openProgress()
+    expect(document.querySelector<HTMLInputElement>('[role="dialog"] input')?.value).toBe('9')
+    await setProgressInput('6')
+    await act(async () =>
+      useFavoritesStore.getState().setTracking('tmdb_tv_1', { enabled: true, seasonNumber: 1 }),
+    )
+    expect(document.querySelector('[role="dialog"]')).toBeNull()
+    await act(async () =>
+      useFavoritesStore.getState().setTracking('tmdb_tv_1', { enabled: true, seasonNumber: 2 }),
+    )
+    expect(document.querySelector('[role="dialog"]')).toBeNull()
+    const progress = useFavoritesStore.getState().favorites[0].tracking?.progress
+    expect(progress?.['1'].completedEpisode).toBe(3)
+    expect(progress?.['2'].completedEpisode).toBe(9)
+  })
+
   it('按需加载实际季列表，不补齐缺失的季，也不包含特别篇', async () => {
     setTmdbFavorite()
     mocks.tmdbDetails.mockResolvedValue({

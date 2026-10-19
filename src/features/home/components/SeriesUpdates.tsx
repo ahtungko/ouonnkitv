@@ -15,6 +15,7 @@ import { useApiStore } from '@/shared/store/apiStore'
 import { useTmdbEnabled } from '@/shared/hooks/useTmdbMode'
 import { getPosterUrl } from '@/shared/lib/tmdb'
 import { buildCmsPlayPath, buildTmdbDetailPath } from '@/shared/lib/routes'
+import { TrackingProgressControl } from '@/features/favorites/components/TrackingProgressControl'
 
 const formatCheckedAt = (time: number) =>
   new Date(time).toLocaleString('zh-CN', {
@@ -153,18 +154,21 @@ export function SeriesUpdates() {
                     {update.checkedAt ? '（显示上次成功结果）' : ''}
                   </p>
                 )}
-                {path && (
-                  <Button asChild size="sm" variant="secondary" className="mt-1 h-7 text-xs">
-                    <NavLink to={path}>
-                      <Play className="size-3" />
-                      {!progress.pendingCount
-                        ? '重新观看'
-                        : progress.currentEpisode
-                          ? '继续观看'
-                          : '开始观看'}
-                    </NavLink>
-                  </Button>
-                )}
+                <div className="mt-1 flex flex-wrap items-center gap-1">
+                  {path && (
+                    <Button asChild size="sm" variant="secondary" className="h-7 text-xs">
+                      <NavLink to={path}>
+                        <Play className="size-3" />
+                        {!progress.pendingCount
+                          ? '重新观看'
+                          : progress.currentEpisode
+                            ? '继续观看'
+                            : '开始观看'}
+                      </NavLink>
+                    </Button>
+                  )}
+                  <TrackingProgressControl item={item} update={update} />
+                </div>
               </div>
             </article>
           )

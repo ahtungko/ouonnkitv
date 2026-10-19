@@ -6,6 +6,7 @@ import { FavoriteWatchStatus } from '../types/favorites'
 import type { TmdbFavoriteItem, CmsFavoriteItem, SeriesTracking } from '../types/favorites'
 import type { TmdbMediaItem } from '@/shared/types/tmdb'
 import type { VideoItem } from '@/shared/types/video'
+import { canTrackFavorite, trackingSeasonKey } from '../lib/seriesTracking'
 
 interface FavoritesState {
   /** 收藏列表 */
@@ -20,7 +21,9 @@ interface FavoritesState {
 
 interface FavoritesActions {
   /** 设置追更开关与季数 */
-  setTracking: (id: string, tracking: SeriesTracking) => void
+  setTracking: (id: string, tracking: Pick<SeriesTracking, 'enabled' | 'seasonNumber'>) => void
+  /** null 恢复当前季的自动进度，0 表示从头开始。 */
+  setTrackingProgress: (id: string, completedEpisode: number | null, expectedSeasonKey: string) => boolean
   // === 基础 CRUD ===
 
   /** 添加 TMDB 媒体到收藏 */
@@ -214,10 +217,42 @@ export const useFavoritesStore = create<FavoritesStore>()(
           set(state => {
             const item = state.favorites.find(favorite => favorite.id === id)
             if (!item || (item.sourceType === 'tmdb' && item.media.mediaType !== 'tv')) return
-            item.tracking = tracking
+            item.tracking = {
+              ...item.tracking,
+              enabled: tracking.enabled,
+              seasonNumber: tracking.seasonNumber ?? item.tracking?.seasonNumber,
+            }
             item.updatedAt = Date.now()
           })
           get()._applyFilters()
+        },
+
+        setTrackingProgress: (id, completedEpisode, expectedSeasonKey) => {
+          if (
+            completedEpisode !== null &&
+            (!Number.isSafeInteger(completedEpisode) || completedEpisode < 0)
+          ) return false
+          let saved = false
+          set(state => {
+            const item = state.favorites.find(favorite => favorite.id === id)
+            if (
+              !item?.tracking?.enabled || !canTrackFavorite(item) ||
+              trackingSeasonKey(item) !== expectedSeasonKey
+            ) return
+            if (completedEpisode === null) {
+              if (item.tracking.progress) {
+                delete item.tracking.progress[expectedSeasonKey]
+                if (!Object.keys(item.tracking.progress).length) delete item.tracking.progress
+              }
+            } else {
+              item.tracking.progress ??= {}
+              item.tracking.progress[expectedSeasonKey] = { completedEpisode, calibratedAt: Date.now() }
+            }
+            item.updatedAt = Date.now()
+            saved = true
+          })
+          if (saved) get()._applyFilters()
+          return saved
         },
 
         // === 基础 CRUD 实现 ===
