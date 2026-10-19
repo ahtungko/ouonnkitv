@@ -84,6 +84,23 @@ If the playback migration previously failed at `position double precision defaul
 - An already verified, open app can continue locally during an outage. Fresh login or browser reload needs an online account check. Disabling an account blocks cloud access, not copies already downloaded to a device.
 - The static frontend and existing media proxy are not made private by this change. Server-side checks protect account management and per-user cloud data.
 
+## Cross-device series reminders
+
+Apply `supabase/migrations/202610190001_series_notifications.sql` in the Supabase SQL Editor after the existing managed-account migrations, then deploy the frontend and refresh your open devices. The migration is rerunnable and keeps favorites, history and existing settings intact. It creates a separate `series_notifications` table and an authenticated `sync_series_notifications` RPC; no Vercel environment variables, scheduling, service-role credentials or push subscriptions are added.
+
+Reminders use the existing account session. The settings page shows a separate reminder-sync status and a migration hint if the RPC is not installed. **Sync now** also flushes reminder receipts. Missing migrations or network failures keep reminders working locally and retain pending changes for retry.
+
+- Sync stores observed episode numbers and explicit read receipts. The database atomically unions both sets, so a stale/offline device cannot resurrect a read reminder or clear a newly arrived episode. Source details, playlists, playback URLs, tokens and proxy settings remain local.
+- The first uploaded resource creates its baseline from that device's existing reminder state, preserving its existing unread episodes. Subsequent devices inherit that cloud baseline, even when their first local check sees more episodes. Refresh older frontend tabs so they participate in receipt sync too.
+- Each account, favorite season, binding and source configuration fingerprint has its own reminder history. Matching source IDs and endpoint configuration are required to share a resource's reminder state. Changing resources creates a separate baseline; returning to the same resource reuses its receipts. Disabling/deleting a favorite does not erase its old read receipts, preventing another device from reviving them.
+- Local reads apply immediately and upload within about 10 seconds while the app is running. Visible pages pull every 30 seconds and sync on focus/reconnect. Local pending receipts survive reload and account changes. Signing into another account never uploads the previous account's receipts.
+- If cloud reminders reveal episodes missing from this device's cached list, the app schedules one check for that resource through the existing two-worker queue. Episode/playback results still come from the local source configuration. Reminder receipt sync does not perform checks or send notifications while the site is closed.
+- Cross-tab local caches merge observed/read/confirmed sets before writing. Cloud-confirmed sets acknowledge only content the server has seen, preserving reads or episodes added during an in-flight upload.
+
+Verify with two devices on one account: establish a baseline, let device A discover new episodes, sync both, then mark only the displayed episodes read on B. A should clear those reminders while retaining the same pending-watch count. Add another episode while B is offline; reconnect B and confirm the new episode remains unread. A different account must not see either device's reminder rows.
+
+Automated tests run the migration against a local PostgreSQL engine (PGlite), including privileges/RLS, first-device baselines, interleaved observations/read receipts, invalid payloads and rollback. Live behavior still requires applying the migration to your configured Supabase project.
+
 ## Upgrading the earlier email-code prototype
 
 Keep the first two migrations if they are already applied; run the third provisioning-fix migration too. Existing email-only users are not automatically promoted or converted, and their cloud rows are not deleted. Create the managed admin/users above and explicitly import local favorites/history as needed. Email templates and SMTP setup are no longer required by this app.

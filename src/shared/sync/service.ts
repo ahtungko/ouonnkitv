@@ -7,6 +7,7 @@ import { useAuthStore } from '@/shared/store/authStore'
 import { syncClient } from './client'
 import { applyJournal, seedJournal, snapshot, validPayload, type Snapshot } from './data'
 import { acknowledge, mergeRemote, newer, recordSchema, type Journal } from './records'
+import { startSeriesNotificationSync } from './seriesNotifications'
 
 export const useSyncStatus = create<{
   username: string | null
@@ -229,6 +230,7 @@ function changeSession(session: Session | null) {
 
 export function startSync(): () => void {
   if (!syncClient) return () => {}
+  const stopNotifications = startSeriesNotificationSync()
   // A persisted owner may exist even if the saved session has expired.
   owner = null
   const updateSession = (session: Session | null) => {
@@ -278,6 +280,7 @@ export function startSync(): () => void {
     if (document.visibilityState === 'visible') flush()
   }, 30_000)
   return () => {
+    stopNotifications()
     generation++
     busy = false
     unsubscribeAuth()

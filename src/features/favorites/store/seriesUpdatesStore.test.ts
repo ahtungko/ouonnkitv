@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useSeriesUpdatesStore } from './seriesUpdatesStore'
 import { unreadEpisodeNumbers, type SeriesUpdate } from '../lib/seriesTracking'
+import { useSeriesNotificationsStore } from './seriesNotificationsStore'
 
 const result = (numbers: number[], overrides: Partial<SeriesUpdate> = {}): SeriesUpdate => ({
   attemptedAt: 1,
@@ -13,7 +14,14 @@ const result = (numbers: number[], overrides: Partial<SeriesUpdate> = {}): Serie
 })
 
 describe('追更缓存账号隔离', () => {
-  beforeEach(() =>
+  beforeEach(() => {
+    localStorage.clear()
+    useSeriesNotificationsStore.setState({
+      accounts: {},
+      syncOwner: null,
+      status: '未同步',
+      error: null,
+    })
     useSeriesUpdatesStore.setState({
       ownerId: null,
       entries: {},
@@ -23,8 +31,8 @@ describe('追更缓存账号隔离', () => {
       activeKeys: [],
       refreshToken: 0,
       refreshTarget: null,
-    }),
-  )
+    })
+  })
 
   it('只接受当前账号有效追更项的重查，忽略重复或过期请求', () => {
     const store = useSeriesUpdatesStore.getState()

@@ -14,6 +14,7 @@ import { accountSchema } from '../../../../shared/account-rules'
 import { TrackingControl } from '../components/TrackingControl'
 import { SeriesUpdates } from '@/features/home/components/SeriesUpdates'
 import { trackingBindingKey, trackingKey, unreadEpisodeNumbers } from '../lib/seriesTracking'
+import { useSeriesNotificationsStore } from '../store/seriesNotificationsStore'
 
 const mocks = vi.hoisted(() => {
   const tmdbDetails = vi.fn()
@@ -86,6 +87,7 @@ beforeEach(() => {
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
   vi.useFakeTimers()
   localStorage.clear()
+  useSeriesNotificationsStore.setState({ accounts: {} })
   mocks.getDetail.mockReset().mockResolvedValue(detail)
   mocks.search.mockReset().mockResolvedValue({ success: true, items: [] })
   mocks.tmdbClient = { tvShows: { details: mocks.tmdbDetails } }

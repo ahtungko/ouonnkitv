@@ -4,9 +4,12 @@ import { Button } from '@/shared/components/ui/button'
 import { importDeviceCollection, syncNow, useSyncStatus } from '@/shared/sync/service'
 import { useAuthStore } from '@/shared/store/authStore'
 import { SettingsSection } from './common'
+import { syncSeriesNotificationsNow } from '@/shared/sync/seriesNotifications'
+import { useSeriesNotificationsStore } from '@/features/favorites/store/seriesNotificationsStore'
 
 export default function CloudSync() {
   const state = useSyncStatus()
+  const reminders = useSeriesNotificationsStore()
   const { account, logout, error } = useAuthStore()
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
@@ -16,18 +19,27 @@ export default function CloudSync() {
         title="账号与云同步"
         icon={<Cloud className="size-4" />}
         tone="sky"
-        description="登录后自动同步收藏、观看进度与播放/搜索偏好。各账号的数据相互独立。"
+        description="登录后自动同步收藏、观看进度、追更新集提醒与播放/搜索偏好。各账号的数据相互独立。"
       >
         <div className="space-y-3">
           <p className="text-sm">
             {account?.username} · {account?.role === 'admin' ? '管理员' : '用户'}
           </p>
+          {reminders.syncOwner === account?.id && (
+            <p className="text-muted-foreground text-xs" role="status">
+              {reminders.status}
+              {reminders.error ? ` · ${reminders.error}` : ''}
+            </p>
+          )}
           <p className="text-muted-foreground text-sm" role="status">
             {state.status}
             {state.lastSynced ? ` · 最近同步：${new Date(state.lastSynced).toLocaleString()}` : ''}
           </p>
           <div className="flex flex-wrap gap-2">
-            <Button disabled={busy || state.status === '同步中…'} onClick={() => void syncNow()}>
+            <Button
+              disabled={busy || state.status === '同步中…' || reminders.status === '提醒同步中…'}
+              onClick={() => void Promise.all([syncNow(), syncSeriesNotificationsNow()])}
+            >
               立即同步
             </Button>
             <Button
@@ -49,7 +61,7 @@ export default function CloudSync() {
               disabled={busy}
               onClick={() => {
                 setBusy(true)
-                void syncNow()
+                void Promise.all([syncNow(), syncSeriesNotificationsNow()])
                   .then(logout)
                   .catch(error => setMessage(error instanceof Error ? error.message : '退出失败'))
                   .finally(() => setBusy(false))

@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { mergeSeriesUpdate, unreadEpisodeNumbers, type SeriesUpdate } from '../lib/seriesTracking'
+import { useSeriesNotificationsStore, syncedNotificationView } from './seriesNotificationsStore'
 
 export interface SeriesCheckProgress {
   total: number
@@ -27,7 +28,7 @@ interface SeriesUpdatesStore {
 
 export const useSeriesUpdatesStore = create<SeriesUpdatesStore>()(
   persist(
-    set => ({
+    (set, get) => ({
       ownerId: null,
       entries: {},
       checking: false,
@@ -52,43 +53,44 @@ export const useSeriesUpdatesStore = create<SeriesUpdatesStore>()(
                 )
               : {},
         })),
-      saveResult: (ownerId, key, result) =>
-        set(state =>
-          state.ownerId === ownerId
-            ? {
-                entries: { ...state.entries, [key]: mergeSeriesUpdate(state.entries[key], result) },
-              }
-            : state,
-        ),
-      markRead: (ownerId, key, displayedUpdate) =>
-        set(state => {
-          const current = state.entries[key]
-          if (
-            state.ownerId !== ownerId ||
-            !current?.notification ||
-            current.sourceCode !== displayedUpdate.sourceCode ||
-            current.vodId !== displayedUpdate.vodId ||
-            (current.bindingKey ?? 'auto') !== (displayedUpdate.bindingKey ?? 'auto') ||
-            current.resourceSignature !== displayedUpdate.resourceSignature
-          )
-            return state
-          // 只确认按钮显示时已看到的提醒，并保留点击前刚到达的新集。
-          const read = new Set(unreadEpisodeNumbers(displayedUpdate))
-          return {
-            entries: {
-              ...state.entries,
-              [key]: {
-                ...current,
-                notification: {
-                  ...current.notification,
-                  unreadEpisodes: current.notification.unreadEpisodes.filter(
-                    number => !read.has(number),
-                  ),
-                },
+      saveResult: (ownerId, key, result) => {
+        const state = get()
+        if (state.ownerId !== ownerId) return
+        const merged = mergeSeriesUpdate(state.entries[key], result)
+        useSeriesNotificationsStore.getState().observe(ownerId, key, merged)
+        merged.notification = syncedNotificationView(ownerId, key, merged)
+        set({ entries: { ...get().entries, [key]: merged } })
+      },
+      markRead: (ownerId, key, displayedUpdate) => {
+        const state = get()
+        const current = state.entries[key]
+        if (
+          state.ownerId !== ownerId ||
+          !current?.notification ||
+          current.sourceCode !== displayedUpdate.sourceCode ||
+          current.vodId !== displayedUpdate.vodId ||
+          (current.bindingKey ?? 'auto') !== (displayedUpdate.bindingKey ?? 'auto') ||
+          current.resourceSignature !== displayedUpdate.resourceSignature
+        )
+          return
+        // 只确认按钮显示时已看到的提醒，并保留点击前刚到达的新集。
+        const read = new Set(unreadEpisodeNumbers(displayedUpdate))
+        useSeriesNotificationsStore.getState().markRead(ownerId, key, current, [...read])
+        set({
+          entries: {
+            ...state.entries,
+            [key]: {
+              ...current,
+              notification: {
+                ...current.notification,
+                unreadEpisodes: current.notification.unreadEpisodes.filter(
+                  number => !read.has(number),
+                ),
               },
             },
-          }
-        }),
+          },
+        })
+      },
       refresh: () => set(state => ({ refreshTarget: null, refreshToken: state.refreshToken + 1 })),
       refreshOne: (ownerId, key, bindingKey) =>
         set(state =>

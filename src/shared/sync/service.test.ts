@@ -6,6 +6,8 @@ import { useAuthStore } from '@/shared/store/authStore'
 import { useSettingStore } from '@/shared/store/settingStore'
 import type { ViewingHistoryItem } from '@/shared/types'
 import { recordKey, type SyncRecord } from './records'
+import { useSeriesNotificationsStore } from '@/features/favorites/store/seriesNotificationsStore'
+import { useSeriesUpdatesStore } from '@/features/favorites/store/seriesUpdatesStore'
 
 const mocks = vi.hoisted(() => ({
   authCallback: null as null | ((event: string, session: Session | null) => void),
@@ -56,6 +58,8 @@ let stop: (() => void) | undefined
 beforeEach(() => {
   vi.useFakeTimers()
   localStorage.clear()
+  useSeriesNotificationsStore.setState({ accounts: {} })
+  useSeriesUpdatesStore.setState({ ownerId: null, entries: {}, activeKeys: [] })
   useFavoritesStore.setState({ favorites: [] })
   useViewingHistoryStore.setState({ viewingHistory: [item('guest')] })
   useSettingStore.getState().resetSettings()
