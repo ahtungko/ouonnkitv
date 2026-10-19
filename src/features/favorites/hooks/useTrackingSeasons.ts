@@ -2,11 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { getTmdbClient, resolveTmdbApiBaseUrl } from '@/shared/lib/tmdb'
 import { useSettingStore } from '@/shared/store/settingStore'
 import { useAuthStore } from '@/shared/store/authStore'
-
-export interface TrackingSeason {
-  number: number
-  name: string
-}
+import { normalizeTrackingSeasons, type TrackingSeason } from '../lib/trackingSeasons'
+export type { TrackingSeason } from '../lib/trackingSeasons'
 
 interface SeasonCacheEntry {
   expiresAt: number
@@ -27,15 +24,7 @@ async function fetchSeasons(id: number, language: string, force: boolean) {
   if (!force && cached && cached.expiresAt > Date.now()) return cached.result
   // 只取基础剧集资料，不附加演职员、推荐、图片等详情页数据。
   const result = client.tvShows.details(id, undefined, language).then(detail => {
-    const seasons = new Map<number, TrackingSeason>()
-    for (const season of detail.seasons ?? []) {
-      if (!Number.isSafeInteger(season.season_number) || season.season_number <= 0) continue
-      seasons.set(season.season_number, {
-        number: season.season_number,
-        name: season.name?.trim() || `第 ${season.season_number} 季`,
-      })
-    }
-    return [...seasons.values()].sort((a, b) => a.number - b.number)
+    return normalizeTrackingSeasons(detail.seasons ?? [])
   })
   const entry = { expiresAt: Date.now() + 60 * 60 * 1000, result }
   cache.set(key, entry)
@@ -48,7 +37,7 @@ async function fetchSeasons(id: number, language: string, force: boolean) {
   }
 }
 
-export function useTrackingSeasons(id: number | undefined, enabled: boolean) {
+export function useTrackingSeasons(id: number | undefined, enabled: boolean, refreshKey?: number) {
   const language = useSettingStore(state => state.system.tmdbLanguage)
   const token = useSettingStore(state => state.system.tmdbApiToken)
   const apiBase = useSettingStore(state => state.system.tmdbApiBaseUrl)
@@ -104,6 +93,6 @@ export function useTrackingSeasons(id: number | undefined, enabled: boolean) {
 
   useEffect(() => {
     if (enabled) void load()
-  }, [enabled, load])
+  }, [enabled, load, refreshKey])
   return { ...(state.key === key ? state : { seasons: [], loading: false, error: null }), load }
 }

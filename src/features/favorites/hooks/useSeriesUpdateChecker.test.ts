@@ -77,6 +77,11 @@ function Harness() {
   )
 }
 
+function HomeHarness() {
+  useSeriesUpdateChecker()
+  return createElement(MemoryRouter, null, createElement(SeriesUpdates))
+}
+
 beforeEach(() => {
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
   vi.useFakeTimers()
@@ -133,6 +138,28 @@ const settle = () =>
     await vi.advanceTimersByTimeAsync(350)
   })
 const mount = () => act(async () => root.render(createElement(Harness)))
+const mountHome = () => act(async () => root.render(createElement(HomeHarness)))
+const bindTmdbSeason = (seasonNumber: number, vodId: string, completed: number) => {
+  useFavoritesStore.getState().setTracking('tmdb_tv_1', { enabled: true, seasonNumber })
+  useFavoritesStore.getState().setTrackingBinding(
+    'tmdb_tv_1',
+    {
+      sourceCode: 's',
+      sourceName: '源',
+      vodId,
+      title: '测试剧',
+    },
+    String(seasonNumber),
+    completed,
+  )
+}
+const airedMetadata = {
+  seasons: [
+    { season_number: 0, name: '特别篇', air_date: '2020-01-01', episode_count: 1 },
+    { season_number: 1, name: '第一季', air_date: '2024-01-01', episode_count: 2 },
+    { season_number: 2, name: '重逢篇', air_date: '2025-01-01', episode_count: 2 },
+  ],
+}
 const clickRefresh = async () => {
   const button = Array.from(host.querySelectorAll('button')).find(button =>
     button.textContent?.includes('检查更新'),
@@ -173,6 +200,171 @@ const addTrackedShow = (vodId: string, title: string) => {
 }
 
 describe('追更交互与后台检查', () => {
+  it('视频源缺集时不提前建议跳季，确认看完TMDB已知集数后才提醒', async () => {
+    setTmdbFavorite()
+    bindTmdbSeason(1, 's1', 2)
+    mocks.tmdbDetails.mockResolvedValue({
+      seasons: airedMetadata.seasons.map(season =>
+        season.season_number === 1 ? { ...season, episode_count: 3 } : season,
+      ),
+    })
+    await mountHome()
+    await settle()
+    expect(host.querySelector('article')?.textContent).toContain('已追平')
+    expect(host.querySelector('article')?.textContent).not.toContain('第 2 季已开播')
+    await act(async () => useFavoritesStore.getState().setTrackingProgress('tmdb_tv_1', 3, '1'))
+    expect(host.querySelector('article')?.textContent).toContain('第 2 季已开播')
+    expect(mocks.getDetail).toHaveBeenCalledTimes(1)
+    expect(mocks.tmdbDetails).toHaveBeenCalledTimes(1)
+  })
+
+  it('首页只在TMDB当前季追平后按需发现新季，回退进度后隐藏提醒', async () => {
+    setTmdbFavorite()
+    bindTmdbSeason(1, 's1', 0)
+    mocks.tmdbDetails.mockResolvedValue(airedMetadata)
+    await mountHome()
+    await settle()
+    expect(mocks.tmdbDetails).not.toHaveBeenCalled()
+    expect(host.querySelector('article')?.textContent).not.toContain('已开播')
+    await act(async () => useFavoritesStore.getState().setTrackingProgress('tmdb_tv_1', 1, '1'))
+    expect(mocks.tmdbDetails).not.toHaveBeenCalled()
+    await act(async () => useFavoritesStore.getState().setTrackingProgress('tmdb_tv_1', 2, '1'))
+    expect(mocks.tmdbDetails).toHaveBeenCalledTimes(1)
+    expect(host.querySelector('article')?.textContent).toContain('第 2 季已开播')
+    expect(useFavoritesStore.getState().favorites[0].tracking?.seasonNumber).toBe(1)
+    expect(mocks.getDetail).toHaveBeenCalledTimes(1)
+    await act(async () => useFavoritesStore.getState().setTrackingProgress('tmdb_tv_1', 0, '1'))
+    expect(host.querySelector('[aria-label="测试剧新季提醒"]')).toBeNull()
+  })
+
+  it('首页与收藏共享新季元数据，一键切季保留各季进度和绑定并检查目标资源', async () => {
+    setTmdbFavorite()
+    bindTmdbSeason(3, 's3', 1)
+    bindTmdbSeason(1, 's1', 2)
+    mocks.tmdbDetails.mockResolvedValue({
+      seasons: [
+        ...airedMetadata.seasons.filter(season => season.season_number !== 2),
+        { season_number: 2, name: '未来季', air_date: '2999-01-01', episode_count: 2 },
+        { season_number: 3, name: '归来篇', air_date: '2025-01-01', episode_count: 2 },
+      ],
+    })
+    await mount()
+    await settle()
+    expect(mocks.tmdbDetails).toHaveBeenCalledTimes(1)
+    expect(host.querySelectorAll('[aria-label="切换测试剧追更至第3季"]')).toHaveLength(2)
+    expect(host.querySelector('article')?.textContent).toContain('第 3 季已开播')
+    const original = useFavoritesStore.getState().favorites[0].tracking!
+    await act(async () =>
+      host.querySelector<HTMLButtonElement>('[aria-label="切换测试剧追更至第3季"]')!.click(),
+    )
+    const switched = useFavoritesStore.getState().favorites[0].tracking!
+    expect(switched.seasonNumber).toBe(3)
+    expect(switched.progress).toEqual(original.progress)
+    expect(switched.bindings).toEqual(original.bindings)
+    expect(host.querySelector('[aria-label="切换测试剧追更至第3季"]')).toBeNull()
+    await settle()
+    expect(mocks.getDetail.mock.calls.map(call => call[0])).toEqual(['s1', 's3'])
+    expect(host.querySelector('article')?.textContent).toContain('1 集待看')
+    const playLink = Array.from(host.querySelectorAll<HTMLAnchorElement>('article a')).find(link =>
+      link.textContent?.includes('继续观看'),
+    )
+    expect(playLink?.getAttribute('href')).toBe('/play/tv/1?source=s&id=s3&ep=1&season=3')
+  })
+
+  it('未知或未来季不提醒，可手动刷新新季元数据而不重复请求视频源', async () => {
+    setTmdbFavorite()
+    bindTmdbSeason(1, 's1', 2)
+    mocks.tmdbDetails.mockResolvedValue({
+      seasons: [
+        airedMetadata.seasons[1],
+        { season_number: 2, name: '未来季', air_date: '2999-01-01', episode_count: 2 },
+        { season_number: 3, name: '待定季', air_date: null, episode_count: 3 },
+        { season_number: 4, name: '空季', air_date: '2025-01-01', episode_count: 0 },
+      ],
+    })
+    await mountHome()
+    await settle()
+    expect(host.querySelector('article')?.textContent).not.toContain('已开播')
+    mocks.tmdbDetails.mockResolvedValue(airedMetadata)
+    await act(async () =>
+      host.querySelector<HTMLButtonElement>('[aria-label="检查测试剧新季"]')!.click(),
+    )
+    expect(mocks.tmdbDetails).toHaveBeenCalledTimes(2)
+    expect(host.querySelector('article')?.textContent).toContain('第 2 季已开播')
+    expect(mocks.getDetail).toHaveBeenCalledTimes(1)
+    expect(useFavoritesStore.getState().favorites[0].tracking?.seasonNumber).toBe(1)
+  })
+
+  it('新季元数据失败不影响已成功的剧集检查，支持单独重试', async () => {
+    setTmdbFavorite()
+    bindTmdbSeason(1, 's1', 2)
+    mocks.tmdbDetails.mockRejectedValueOnce(new Error('TMDB offline'))
+    await mountHome()
+    await settle()
+    expect(host.querySelector('article')?.textContent).toContain('暂时无法确认新季')
+    expect(host.querySelector('article')?.textContent).toContain('已追平')
+    expect(useSeriesUpdatesStore.getState().entries['tmdb_tv_1::1'].error).toBeUndefined()
+    mocks.tmdbDetails.mockResolvedValue(airedMetadata)
+    await act(async () =>
+      host.querySelector<HTMLButtonElement>('[aria-label="检查测试剧新季"]')!.click(),
+    )
+    expect(host.querySelector('article')?.textContent).toContain('第 2 季已开播')
+    expect(mocks.getDetail).toHaveBeenCalledTimes(1)
+  })
+
+  it('季元数据缓存到期后，成功检查当前季会重新发现已开播的新季', async () => {
+    setTmdbFavorite()
+    bindTmdbSeason(1, 's1', 2)
+    mocks.tmdbDetails.mockResolvedValue({ seasons: [airedMetadata.seasons[1]] })
+    await mountHome()
+    await settle()
+    expect(mocks.tmdbDetails).toHaveBeenCalledTimes(1)
+    mocks.tmdbDetails.mockResolvedValue(airedMetadata)
+    await retry()
+    expect(mocks.tmdbDetails).toHaveBeenCalledTimes(1)
+    await act(async () => vi.advanceTimersByTimeAsync(60 * 60 * 1000 + 1))
+    await retry()
+    expect(mocks.tmdbDetails).toHaveBeenCalledTimes(2)
+    expect(host.querySelector('article')?.textContent).toContain('第 2 季已开播')
+  })
+
+  it('点击前重新校验最新进度与账号，过期的新季入口不能改写追更季', async () => {
+    setTmdbFavorite()
+    bindTmdbSeason(1, 's1', 2)
+    mocks.tmdbDetails.mockResolvedValue(airedMetadata)
+    await mountHome()
+    await settle()
+    const oldButton = host.querySelector<HTMLButtonElement>('[aria-label="切换测试剧追更至第2季"]')!
+    await act(async () => {
+      useFavoritesStore.getState().setTrackingProgress('tmdb_tv_1', 0, '1')
+      oldButton.click()
+    })
+    expect(useFavoritesStore.getState().favorites[0].tracking?.seasonNumber).toBe(1)
+    await act(async () => useFavoritesStore.getState().setTrackingProgress('tmdb_tv_1', 2, '1'))
+    const button = host.querySelector<HTMLButtonElement>('[aria-label="切换测试剧追更至第2季"]')!
+    await act(async () => {
+      useAuthStore.setState({
+        account: {
+          ...useAuthStore.getState().account!,
+          id: '00000000-0000-4000-8000-000000000002',
+        },
+      })
+      button.click()
+    })
+    expect(useFavoritesStore.getState().favorites[0].tracking?.seasonNumber).toBe(1)
+  })
+
+  it('CMS收藏不猜测季信息或请求TMDB，即使已经追平', async () => {
+    const id = useFavoritesStore.getState().favorites[0].id
+    useFavoritesStore.getState().setTracking(id, { enabled: true })
+    useFavoritesStore.getState().setTrackingProgress(id, 2, 'cms')
+    await mount()
+    await settle()
+    expect(host.querySelector('article')?.textContent).toContain('已追平')
+    expect(mocks.tmdbDetails).not.toHaveBeenCalled()
+    expect(host.querySelector('[aria-label="测试剧新季提醒"]')).toBeNull()
+  })
+
   it('逐部累计检查进度，失败计入完成，结束后保留摘要且下一轮重新计数', async () => {
     useFavoritesStore
       .getState()

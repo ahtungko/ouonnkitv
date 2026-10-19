@@ -16,6 +16,7 @@ import { useTrackingSeasons } from '../hooks/useTrackingSeasons'
 import { TrackingProgressControl } from './TrackingProgressControl'
 import { TrackingSourceControl } from './TrackingSourceControl'
 import { TrackingRefreshControl } from './TrackingRefreshControl'
+import { NextTrackingSeason } from './NextTrackingSeason'
 
 export function TrackingControl({ item }: { item: FavoriteItem }) {
   const setTracking = useFavoritesStore(state => state.setTracking)
@@ -144,6 +145,7 @@ export function TrackingControl({ item }: { item: FavoriteItem }) {
               : '等待检查更新'}
         </p>
       )}
+      {enabled && <NextTrackingSeason item={item} update={update} />}
     </div>
   )
 }

@@ -22,6 +22,7 @@ import { buildCmsPlayPath, buildTmdbDetailPath } from '@/shared/lib/routes'
 import { TrackingProgressControl } from '@/features/favorites/components/TrackingProgressControl'
 import { TrackingSourceControl } from '@/features/favorites/components/TrackingSourceControl'
 import { TrackingRefreshControl } from '@/features/favorites/components/TrackingRefreshControl'
+import { NextTrackingSeason } from '@/features/favorites/components/NextTrackingSeason'
 
 const FILTERS = [
   { value: 'all', label: '全部', empty: '暂无追更剧集。' },
@@ -336,6 +337,7 @@ export function SeriesUpdates() {
                     </Button>
                   )}
                 </div>
+                <NextTrackingSeason item={item} update={update} />
               </div>
             </article>
           )
