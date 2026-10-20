@@ -3,6 +3,10 @@ import { syncClient } from '@/shared/sync/client'
 import { useAuthStore } from '@/shared/store/authStore'
 
 const announcementSchema = z.object({
+  kind: z.enum(['notice', 'maintenance', 'version_update']).default('notice'),
+  version_label: z.string().max(40).nullable().default(null),
+  maintenance_start: z.string().datetime({ offset: true }).nullable().default(null),
+  maintenance_end: z.string().datetime({ offset: true }).nullable().default(null),
   title: z.string().max(100),
   content: z.string().max(10000),
   published: z.boolean(),
@@ -21,7 +25,7 @@ function credentials(ownerId: string) {
 
 function announcementError(error: { code?: string; message: string }) {
   if (['PGRST202', '42P01', '42883'].includes(error.code || ''))
-    return new Error('请先在 Supabase 执行公告迁移 202610200001_site_announcement.sql')
+    return new Error('请先在 Supabase 执行公告迁移 202610200001 和 202610200002')
   if (error.message.includes('Announcement changed'))
     return new Error('公告已在其他页面更新。请重新加载后再编辑，本次修改尚未保存。')
   if (error.message.includes('Invalid announcement'))
@@ -47,15 +51,28 @@ export async function saveAnnouncement(ownerId: string, value: Announcement) {
     ...value,
     title: value.title.trim(),
     content: value.content.trim(),
+    version_label: value.kind === 'version_update' ? value.version_label?.trim() || null : null,
+    maintenance_start: value.kind === 'maintenance' ? value.maintenance_start : null,
+    maintenance_end: value.kind === 'maintenance' ? value.maintenance_end : null,
   })
   if (parsed.published && (!parsed.title || !parsed.content))
     throw new Error('请填写公告标题和正文')
+  if (
+    parsed.maintenance_start &&
+    parsed.maintenance_end &&
+    Date.parse(parsed.maintenance_end) < Date.parse(parsed.maintenance_start)
+  )
+    throw new Error('预计结束时间不能早于维护开始时间')
   const { data, error } = await client
     .rpc('save_site_announcement', {
       p_title: parsed.title,
       p_content: parsed.content,
       p_published: parsed.published,
       p_expected_revision: parsed.revision,
+      p_kind: parsed.kind,
+      p_version_label: parsed.version_label,
+      p_maintenance_start: parsed.maintenance_start,
+      p_maintenance_end: parsed.maintenance_end,
     })
     .setHeader('Authorization', `Bearer ${token}`)
   if (error) throw announcementError(error)
@@ -77,6 +94,6 @@ export function dismissAnnouncement(ownerId: string, revision: number) {
   try {
     localStorage.setItem(dismissalKey(ownerId), String(revision))
   } catch {
-    // The banner can still be dismissed for this page when storage is unavailable.
+    // The dialog can still be dismissed for this page when storage is unavailable.
   }
 }

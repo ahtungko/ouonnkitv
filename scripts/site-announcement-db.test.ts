@@ -9,7 +9,12 @@ const migration = readFileSync(
   new URL('../supabase/migrations/202610200001_site_announcement.sql', import.meta.url),
   'utf8',
 )
+const typesMigration = readFileSync(
+  new URL('../supabase/migrations/202610200002_announcement_types.sql', import.meta.url),
+  'utf8',
+)
 let db: PGlite
+let upgraded: Record<string, unknown>
 
 async function asUser(id: string, active = true) {
   await db.exec('reset role; set role authenticated')
@@ -34,6 +39,21 @@ async function save(title: string | null, content: string, published: boolean, r
   ).rows[0].value
 }
 
+async function saveTyped(
+  kind: string | null,
+  revision = 0,
+  version: string | null = null,
+  start: string | null = null,
+  end: string | null = null,
+) {
+  return (
+    await db.query<{ value: Record<string, unknown> }>(
+      'select public.save_site_announcement($1, $2, $3, $4, $5, $6, $7::timestamptz, $8::timestamptz) as value',
+      ['公告', '正文', true, revision, kind, version, start, end],
+    )
+  ).rows[0].value
+}
+
 beforeAll(async () => {
   db = new PGlite()
   await db.exec(`
@@ -54,10 +74,17 @@ beforeAll(async () => {
       using (id = auth.uid() and public.account_is_active());
   `)
   await db.exec(migration)
+  await db.exec(
+    "update public.site_announcement set title = '升级前公告', content = '保留正文', published = true, revision = 7",
+  )
+  await db.exec(typesMigration)
+  upgraded = (await db.query<Record<string, unknown>>('select * from public.site_announcement'))
+    .rows[0]
 }, 45000)
 beforeEach(async () => {
   await db.exec(`reset role; update public.site_announcement set
-    title = '', content = '', published = false, revision = 0`)
+    title = '', content = '', published = false, revision = 0,
+    kind = 'notice', version_label = null, maintenance_start = null, maintenance_end = null`)
   await asUser(admin)
 })
 afterAll(async () => {
@@ -65,6 +92,72 @@ afterAll(async () => {
 })
 
 describe('站内公告数据库权限与发布', () => {
+  it('升级保留旧公告、发布状态和已读版本，默认普通公告', () => {
+    expect(upgraded).toMatchObject({
+      title: '升级前公告',
+      content: '保留正文',
+      published: true,
+      revision: 7,
+      kind: 'notice',
+      version_label: null,
+      maintenance_start: null,
+    })
+  })
+
+  it('维护时间按绝对时间保存，版本更新清除维护字段', async () => {
+    const row = await saveTyped(
+      'maintenance',
+      0,
+      null,
+      '2026-10-20T16:00:00+08:00',
+      '2026-10-20T17:00:00+08:00',
+    )
+    expect(Date.parse(row.maintenance_start as string)).toBe(Date.parse('2026-10-20T08:00:00Z'))
+    expect(row).toMatchObject({ kind: 'maintenance', version_label: null, revision: 1 })
+    expect(await saveTyped('version_update', 1, ' v2.1.0 ', '2026-10-20T08:00:00Z')).toMatchObject({
+      kind: 'version_update',
+      version_label: 'v2.1.0',
+      maintenance_start: null,
+      maintenance_end: null,
+      revision: 2,
+    })
+    await asUser(user)
+    expect(await read()).toMatchObject({ kind: 'version_update', version_label: 'v2.1.0' })
+  })
+
+  it('拒绝未知类型、过长版本号、无效时间范围及无限时间', async () => {
+    await expect(saveTyped('unknown')).rejects.toThrow('Invalid announcement')
+    await expect(saveTyped(null)).rejects.toThrow('Invalid announcement')
+    await expect(saveTyped('version_update', 0, 'x'.repeat(41))).rejects.toThrow(
+      'Invalid announcement',
+    )
+    await expect(
+      saveTyped('maintenance', 0, null, '2026-10-20T10:00Z', '2026-10-20T09:00Z'),
+    ).rejects.toThrow('Invalid announcement')
+    await expect(saveTyped('maintenance', 0, null, 'infinity')).rejects.toThrow(
+      'Invalid announcement',
+    )
+    expect(await read()).toMatchObject({ revision: 0, published: false })
+  })
+
+  it('新RPC保留权限与乐观锁保护，旧客户端仍可发布普通公告', async () => {
+    await saveTyped('version_update', 0, 'v2.1.0')
+    await expect(saveTyped('notice', 0)).rejects.toThrow('Announcement changed')
+    await asUser(user)
+    await expect(saveTyped('notice', 1)).rejects.toThrow('Admin required')
+    await asUser(admin, false)
+    await expect(saveTyped('notice', 1)).rejects.toThrow('Admin required')
+    await db.exec('reset role; set role anon')
+    await expect(saveTyped('notice', 1)).rejects.toThrow(/permission denied/)
+    await asUser(admin)
+    expect(await save('旧客户端', '正文', true, 1)).toMatchObject({
+      kind: 'notice',
+      version_label: null,
+      maintenance_start: null,
+      revision: 2,
+    })
+  })
+
   it('草稿只有管理员能读取，发布后用户可读，下架后不可读', async () => {
     expect(await read()).toMatchObject({ revision: 0, published: false })
     await save('维护通知', '第一行\n第二行', false, 0)
@@ -128,6 +221,8 @@ describe('站内公告数据库权限与发布', () => {
     await save('已有公告', '正文', true, 0)
     await db.exec('reset role')
     await db.exec(migration)
+    await db.exec(typesMigration)
+    await db.exec(typesMigration)
     await asUser(admin)
     expect(await read()).toMatchObject({ title: '已有公告', revision: 1, published: true })
   })

@@ -11,6 +11,8 @@ import { ThemeToggle, useThemeState } from './theme'
 import SearchBox from './SearchBox'
 import AccountMenu from './AccountMenu'
 import { cn } from '@/shared/lib'
+import { AnnouncementCenter } from '@/features/announcements/AnnouncementCenter'
+import { useVersionStore } from '@/shared/store/versionStore'
 
 interface NavigationProps {
   hidden?: boolean
@@ -24,6 +26,7 @@ export default function Navigation({
   const { mode } = useThemeState()
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false)
   const location = useLocation()
+  const showUpdateModal = useVersionStore(state => state.showUpdateModal)
 
   // 在搜索页面隐藏导航栏搜索框
   const isSearchPage = location.pathname === '/search'
@@ -107,6 +110,9 @@ export default function Navigation({
                   : '',
               )}
             >
+              <AnnouncementCenter
+                deferred={location.pathname.startsWith('/play/') || showUpdateModal}
+              />
               <ThemeToggle>
                 <Button size="icon" variant="ghost" className="size-7">
                   {mode === 'dark' && <Moon />}

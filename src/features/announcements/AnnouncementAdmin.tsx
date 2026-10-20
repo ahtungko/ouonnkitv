@@ -8,6 +8,13 @@ import { useAuthStore } from '@/shared/store/authStore'
 import { saveAnnouncement, type Announcement } from './service'
 import { useAnnouncement } from './useAnnouncement'
 
+function localDateTime(value: string | null) {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16)
+}
+
 function AnnouncementEditor({
   initial,
   ownerId,
@@ -20,6 +27,10 @@ function AnnouncementEditor({
   const [saved, setSaved] = useState(initial)
   const [title, setTitle] = useState(initial.title)
   const [content, setContent] = useState(initial.content)
+  const [kind, setKind] = useState(initial.kind)
+  const [versionLabel, setVersionLabel] = useState(initial.version_label || '')
+  const [maintenanceStart, setMaintenanceStart] = useState(localDateTime(initial.maintenance_start))
+  const [maintenanceEnd, setMaintenanceEnd] = useState(localDateTime(initial.maintenance_end))
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
@@ -32,6 +43,18 @@ function AnnouncementEditor({
     try {
       const result = await saveAnnouncement(ownerId, {
         ...saved,
+        ...(!unpublish && {
+          kind,
+          version_label: kind === 'version_update' ? versionLabel : null,
+          maintenance_start:
+            kind === 'maintenance' && maintenanceStart
+              ? new Date(maintenanceStart).toISOString()
+              : null,
+          maintenance_end:
+            kind === 'maintenance' && maintenanceEnd
+              ? new Date(maintenanceEnd).toISOString()
+              : null,
+        }),
         title: unpublish ? saved.title : title,
         content: unpublish ? saved.content : content,
         published,
@@ -39,7 +62,7 @@ function AnnouncementEditor({
       setSaved(result)
       setMessage(
         published
-          ? '公告已发布，首页将在下次刷新或一分钟内显示新版本。'
+          ? '公告已发布，用户下次刷新或一分钟内收到弹窗；播放中会延后展示。'
           : unpublish
             ? '公告已下架，未保存的编辑仍保留在表单中。'
             : '草稿已保存，用户暂时看不到。',
@@ -63,6 +86,55 @@ function AnnouncementEditor({
         {saved.published ? '已发布' : '未发布'} · 版本 {saved.revision}
       </p>
       <fieldset disabled={busy} className="space-y-4">
+        <label className="block space-y-2 text-sm">
+          <span>公告类型</span>
+          <select
+            className="border-input bg-background h-9 w-full rounded-md border px-3 text-sm"
+            value={kind}
+            onChange={event => setKind(event.target.value as Announcement['kind'])}
+          >
+            <option value="notice">普通公告</option>
+            <option value="maintenance">维护通知</option>
+            <option value="version_update">版本更新</option>
+          </select>
+        </label>
+        {kind === 'version_update' && (
+          <label className="block space-y-2 text-sm">
+            <span>版本号（可选）</span>
+            <Input
+              value={versionLabel}
+              maxLength={40}
+              placeholder="例如：v2.1.0"
+              onChange={event => setVersionLabel(event.target.value)}
+            />
+          </label>
+        )}
+        {kind === 'maintenance' && (
+          <div className="space-y-2">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block space-y-2 text-sm">
+                <span>维护开始时间（可选）</span>
+                <Input
+                  type="datetime-local"
+                  value={maintenanceStart}
+                  onChange={event => setMaintenanceStart(event.target.value)}
+                />
+              </label>
+              <label className="block space-y-2 text-sm">
+                <span>预计结束时间（可选）</span>
+                <Input
+                  type="datetime-local"
+                  value={maintenanceEnd}
+                  min={maintenanceStart || undefined}
+                  onChange={event => setMaintenanceEnd(event.target.value)}
+                />
+              </label>
+            </div>
+            <p className="text-muted-foreground text-xs">
+              按当前设备时区填写。此时间仅供提醒，不会自动关闭网站或定时发布公告。
+            </p>
+          </div>
+        )}
         <label className="block space-y-2 text-sm">
           <span>公告标题</span>
           <Input
@@ -116,6 +188,10 @@ function AnnouncementEditor({
         onClick={() => {
           setTitle(saved.title)
           setContent(saved.content)
+          setKind(saved.kind)
+          setVersionLabel(saved.version_label || '')
+          setMaintenanceStart(localDateTime(saved.maintenance_start))
+          setMaintenanceEnd(localDateTime(saved.maintenance_end))
           setMessage('')
           setError('')
           reload()
@@ -132,7 +208,7 @@ function AnnouncementManagement({ ownerId }: { ownerId: string }) {
   return (
     <SettingsSection
       title="站内公告"
-      description="发布一条首页公告。用户关闭当前版本后，发布更新会再次提醒；下架后停止展示。"
+      description="选择公告类型并发布。新版本自动弹窗提醒，播放中延后展示；下架后停止展示。"
       icon={<Megaphone className="size-4" />}
       tone="amber"
     >

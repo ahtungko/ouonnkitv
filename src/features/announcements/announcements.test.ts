@@ -10,7 +10,7 @@ vi.mock('./service', async importOriginal => ({
   readAnnouncement: mocks.read,
   saveAnnouncement: mocks.save,
 }))
-import { AnnouncementBanner } from './AnnouncementBanner'
+import { AnnouncementCenter } from './AnnouncementCenter'
 import AnnouncementAdmin from './AnnouncementAdmin'
 import { dismissalKey, type Announcement } from './service'
 import { useAnnouncement } from './useAnnouncement'
@@ -18,6 +18,10 @@ import { useAnnouncement } from './useAnnouncement'
 const alice = '00000000-0000-4000-8000-000000000001'
 const bob = '00000000-0000-4000-8000-000000000002'
 const announcement = (revision = 1, published = true): Announcement => ({
+  kind: 'notice',
+  version_label: null,
+  maintenance_start: null,
+  maintenance_end: null,
   title: '维护通知',
   content: '第一行\n第二行',
   revision,
@@ -37,10 +41,10 @@ function login(id = alice, role = 'user') {
 }
 let host: HTMLDivElement
 let root: Root
-const mount = (component = AnnouncementBanner) =>
+const mount = (component = AnnouncementCenter) =>
   act(async () => root.render(createElement(component)))
 const button = (label: string) =>
-  Array.from(host.querySelectorAll('button')).find(
+  Array.from(document.body.querySelectorAll('button')).find(
     item => item.textContent?.includes(label) || item.getAttribute('aria-label') === label,
   )!
 const click = (label: string) => act(async () => button(label).click())
@@ -69,28 +73,35 @@ afterEach(async () => {
   host.remove()
 })
 
-describe('首页公告', () => {
+const dialog = () => document.body.querySelector('[role="dialog"]')
+
+describe('公告弹窗', () => {
   it('关闭后保留查看入口，刷新仍关闭；发布新版重新展示', async () => {
     await mount()
-    expect(host.textContent).toContain('维护通知')
-    await click('关闭本版公告')
+    expect(dialog()?.textContent).toContain('维护通知')
+    await click('我知道了')
     expect(localStorage.getItem(dismissalKey(alice))).toBe('1')
-    expect(host.textContent).toContain('查看站内公告')
+    expect(dialog()).toBeNull()
+    expect(button('查看站内公告')).toBeDefined()
     await act(async () => root.render(null))
     await mount()
-    expect(button('关闭本版公告')).toBeUndefined()
+    expect(dialog()).toBeNull()
+    await click('查看站内公告')
+    expect(dialog()?.textContent).toContain('维护通知')
+    await click('我知道了')
     mocks.read.mockResolvedValue(announcement(2))
     await act(async () => window.dispatchEvent(new Event('focus')))
-    expect(button('关闭本版公告')).toBeDefined()
+    expect(dialog()).not.toBeNull()
   })
 
   it('账号关闭记录隔离，切回原账号保持原状态', async () => {
     await mount()
-    await click('关闭本版公告')
+    await click('我知道了')
     await act(async () => login(bob))
-    expect(button('关闭本版公告')).toBeDefined()
+    expect(dialog()).not.toBeNull()
     await act(async () => login(alice))
-    expect(host.textContent).toContain('查看站内公告')
+    expect(dialog()).toBeNull()
+    expect(button('查看站内公告')).toBeDefined()
   })
 
   it('切账号后丢弃旧账号的在途响应', async () => {
@@ -106,6 +117,7 @@ describe('首页公告', () => {
     await act(async () => login(bob))
     await act(async () => finish(announcement()))
     expect(host.textContent).toBe('')
+    expect(dialog()).toBeNull()
   })
 
   it('草稿、下架和请求失败时不影响首页其余内容', async () => {
@@ -114,10 +126,11 @@ describe('首页公告', () => {
     expect(host.textContent).toBe('')
     mocks.read.mockResolvedValue(announcement())
     await act(async () => window.dispatchEvent(new Event('focus')))
-    expect(host.textContent).toContain('维护通知')
+    expect(dialog()?.textContent).toContain('维护通知')
     mocks.read.mockResolvedValue(null)
     await act(async () => window.dispatchEvent(new Event('focus')))
     expect(host.textContent).toBe('')
+    expect(dialog()).toBeNull()
     mocks.read.mockRejectedValue(new Error('offline'))
     await act(async () => window.dispatchEvent(new Event('focus')))
     expect(host.textContent).toBe('')
@@ -129,15 +142,125 @@ describe('首页公告', () => {
       content: '<img src=x onerror=alert(1)>\n第二行',
     })
     await mount()
-    await click('查看全文')
     expect(document.body.querySelector('[role="dialog"]')?.textContent).toContain(
       '<img src=x onerror=alert(1)>\n第二行',
     )
     expect(document.body.querySelector('img')).toBeNull()
   })
+
+  it('播放期间延后新版本，退出后弹出且不提前标记已读', async () => {
+    await act(async () => root.render(createElement(AnnouncementCenter, { deferred: true })))
+    expect(dialog()).toBeNull()
+    expect(button('查看站内公告').disabled).toBe(true)
+    expect(localStorage.getItem(dismissalKey(alice))).toBeNull()
+    await act(async () => root.render(createElement(AnnouncementCenter, { deferred: false })))
+    expect(dialog()).not.toBeNull()
+    await click('我知道了')
+    await act(async () => root.render(createElement(AnnouncementCenter, { deferred: true })))
+    mocks.read.mockResolvedValue(announcement(2))
+    await act(async () => window.dispatchEvent(new Event('focus')))
+    expect(dialog()).toBeNull()
+    expect(localStorage.getItem(dismissalKey(alice))).toBe('1')
+    await act(async () => root.render(createElement(AnnouncementCenter, { deferred: false })))
+    expect(dialog()).not.toBeNull()
+  })
+
+  it('弹窗被播放页临时收起时不确认已读，退出后继续提醒', async () => {
+    await mount()
+    expect(dialog()).not.toBeNull()
+    await act(async () => root.render(createElement(AnnouncementCenter, { deferred: true })))
+    expect(dialog()).toBeNull()
+    expect(localStorage.getItem(dismissalKey(alice))).toBeNull()
+    await act(async () => root.render(createElement(AnnouncementCenter, { deferred: false })))
+    expect(dialog()).not.toBeNull()
+  })
+
+  it('Escape 关闭也记住当前版本，其他标签页的关闭记录即时生效', async () => {
+    await mount()
+    await act(async () =>
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })),
+    )
+    expect(dialog()).toBeNull()
+    expect(localStorage.getItem(dismissalKey(alice))).toBe('1')
+    mocks.read.mockResolvedValue(announcement(2))
+    await act(async () => window.dispatchEvent(new Event('focus')))
+    expect(dialog()).not.toBeNull()
+    localStorage.setItem(dismissalKey(alice), '2')
+    await act(async () =>
+      window.dispatchEvent(new StorageEvent('storage', { key: dismissalKey(alice) })),
+    )
+    expect(dialog()).toBeNull()
+  })
+
+  it('维护弹窗显示时间，版本更新显示版本号和对应类型', async () => {
+    mocks.read.mockResolvedValue({
+      ...announcement(),
+      kind: 'maintenance',
+      maintenance_start: '2026-10-20T08:00:00Z',
+      maintenance_end: '2026-10-20T09:00:00Z',
+    })
+    await mount()
+    expect(dialog()?.textContent).toContain('开始时间：')
+    expect(dialog()?.textContent).toContain('预计结束：')
+    mocks.read.mockResolvedValue({
+      ...announcement(2),
+      kind: 'version_update',
+      version_label: 'v2.1.0',
+    })
+    await act(async () => window.dispatchEvent(new Event('focus')))
+    expect(dialog()?.textContent).toContain('版本更新')
+    expect(dialog()?.textContent).toContain('v2.1.0')
+    expect(dialog()?.textContent).not.toContain('开始时间：')
+  })
 })
 
 describe('管理员公告编辑', () => {
+  it('公告类型显示对应字段，重新加载重置类型和版本号', async () => {
+    login(alice, 'admin')
+    await mount(AnnouncementAdmin)
+    let select = host.querySelector('select')!
+    await act(async () => {
+      select.value = 'version_update'
+      select.dispatchEvent(new Event('change', { bubbles: true }))
+    })
+    await change(host.querySelector('input[placeholder="例如：v2.1.0"]')!, 'v2.1.0')
+    await click('重新加载（放弃未保存修改）')
+    expect(host.querySelector('select')?.value).toBe('notice')
+    expect(host.querySelector('input[placeholder="例如：v2.1.0"]')).toBeNull()
+    select = host.querySelector('select')!
+    await act(async () => {
+      select.value = 'version_update'
+      select.dispatchEvent(new Event('change', { bubbles: true }))
+    })
+    await change(host.querySelector('input[placeholder="例如：v2.1.0"]')!, 'v2.1.0')
+    await click('发布更新')
+    expect(mocks.save).toHaveBeenLastCalledWith(
+      alice,
+      expect.objectContaining({
+        kind: 'version_update',
+        version_label: 'v2.1.0',
+        maintenance_start: null,
+      }),
+    )
+    await act(async () => {
+      select.value = 'maintenance'
+      select.dispatchEvent(new Event('change', { bubbles: true }))
+    })
+    const times = host.querySelectorAll<HTMLInputElement>('input[type="datetime-local"]')
+    expect(times).toHaveLength(2)
+    await change(times[0], '2026-10-20T10:00')
+    await change(times[1], '2026-10-20T12:00')
+    await click('发布更新')
+    expect(mocks.save).toHaveBeenLastCalledWith(
+      alice,
+      expect.objectContaining({
+        kind: 'maintenance',
+        version_label: null,
+        maintenance_start: new Date('2026-10-20T10:00').toISOString(),
+        maintenance_end: new Date('2026-10-20T12:00').toISOString(),
+      }),
+    )
+  })
   it('重新加载相同服务端版本也会丢弃标题、正文和错误提示', async () => {
     login(alice, 'admin')
     mocks.save.mockRejectedValue(new Error('保存失败'))

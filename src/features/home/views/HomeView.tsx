@@ -16,7 +16,6 @@ import { SeriesUpdates } from '../components/SeriesUpdates'
 import { MediaCarousel } from '../components/MediaCarousel'
 import { CmsHomeContent } from '../components/CmsHomeContent'
 import { useMemo } from 'react'
-import { AnnouncementBanner } from '@/features/announcements/AnnouncementBanner'
 
 /**
  * TmdbHomeContent - TMDB 模式首页内容
@@ -106,10 +105,5 @@ function TmdbHomeContent() {
 export default function HomeView() {
   const tmdbEnabled = useTmdbEnabled()
 
-  return (
-    <div className="flex flex-col gap-4">
-      <AnnouncementBanner />
-      {tmdbEnabled ? <TmdbHomeContent /> : <CmsHomeContent />}
-    </div>
-  )
+  return tmdbEnabled ? <TmdbHomeContent /> : <CmsHomeContent />
 }
