@@ -25,7 +25,10 @@ beforeEach(() => {
       { name: '', url: 'invalid' },
     ]),
   )
-  mocks.profile.mockReset().mockResolvedValue({ data: [account], error: null })
+  mocks.profile.mockReset().mockImplementation(async (name: string) => ({
+    data: name === 'account_is_active' ? true : [account],
+    error: null,
+  }))
   mocks.createClient.mockReset().mockReturnValue({ rpc: mocks.profile })
 })
 
@@ -41,6 +44,19 @@ async function request(authorization: string | null = 'Bearer token') {
 }
 
 describe('NSFW source API', () => {
+  it('维护时普通用户不能领取源，管理员可继续访问', async () => {
+    mocks.profile.mockImplementation(async (name: string) => ({
+      data: name === 'account_is_active' ? false : [{ ...account, allow_nsfw: true }],
+      error: null,
+    }))
+    const blocked = await request()
+    expect(blocked.status).toHaveBeenCalledWith(503)
+    expect(blocked.json).toHaveBeenCalledWith(expect.objectContaining({ maintenance: true }))
+    mocks.profile.mockResolvedValueOnce({ data: [{ ...account, role: 'admin' }], error: null })
+    const allowed = await request()
+    expect(allowed.status).toHaveBeenCalledWith(200)
+  })
+
   it('requires authentication', async () => {
     const res = await request(null)
     expect(res.status).toHaveBeenCalledWith(401)

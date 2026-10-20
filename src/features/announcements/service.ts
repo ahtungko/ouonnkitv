@@ -58,11 +58,17 @@ export async function saveAnnouncement(ownerId: string, value: Announcement) {
   if (parsed.published && (!parsed.title || !parsed.content))
     throw new Error('请填写公告标题和正文')
   if (
+    parsed.published &&
+    parsed.kind === 'maintenance' &&
+    (!parsed.maintenance_start || !parsed.maintenance_end)
+  )
+    throw new Error('发布维护公告需要填写开始时间和结束时间')
+  if (
     parsed.maintenance_start &&
     parsed.maintenance_end &&
-    Date.parse(parsed.maintenance_end) < Date.parse(parsed.maintenance_start)
+    Date.parse(parsed.maintenance_end) <= Date.parse(parsed.maintenance_start)
   )
-    throw new Error('预计结束时间不能早于维护开始时间')
+    throw new Error('维护结束时间必须晚于开始时间')
   const { data, error } = await client
     .rpc('save_site_announcement', {
       p_title: parsed.title,

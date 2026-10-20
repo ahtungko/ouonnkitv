@@ -201,7 +201,7 @@ describe('公告弹窗', () => {
     })
     await mount()
     expect(dialog()?.textContent).toContain('开始时间：')
-    expect(dialog()?.textContent).toContain('预计结束：')
+    expect(dialog()?.textContent).toContain('结束时间：')
     mocks.read.mockResolvedValue({
       ...announcement(2),
       kind: 'version_update',

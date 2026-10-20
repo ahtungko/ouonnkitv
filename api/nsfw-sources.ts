@@ -65,6 +65,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!account.success || !account.data.enabled) {
       return res.status(403).json({ error: '账号不可用' })
     }
+    if (account.data.role !== 'admin') {
+      const access = await client.rpc('account_is_active')
+      if (access.error) return res.status(503).json({ error: '暂时无法确认网站状态' })
+      if (access.data !== true) {
+        res.setHeader('Retry-After', '15')
+        return res.status(503).json({ error: '网站维护中，请稍后再试', maintenance: true })
+      }
+    }
     if (account.data.role !== 'admin' && !account.data.allow_nsfw) {
       return res.status(200).json({ sources: [] })
     }

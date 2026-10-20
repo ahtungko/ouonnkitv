@@ -7,6 +7,7 @@ import { startAuth, useAuthStore } from '@/shared/store/authStore'
 import { startSync } from '@/shared/sync/service'
 import { syncClient } from '@/shared/sync/client'
 import { useApiStore } from '@/shared/store/apiStore'
+import { MaintenanceGuard } from '@/features/announcements/MaintenanceGuard'
 
 export default function AuthGuard({ children }: { children: ReactNode }) {
   const { account, initialized, error, login } = useAuthStore()
@@ -26,7 +27,7 @@ export default function AuthGuard({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (initialized && !account) clearRestrictedSources()
   }, [account, clearRestrictedSources, initialized])
-  if (account) return <>{children}</>
+  if (account) return <MaintenanceGuard>{children}</MaintenanceGuard>
   return (
     <div className="bg-background flex min-h-dvh flex-col md:flex-row">
       <div className="bg-muted/40 flex flex-col items-center justify-center gap-4 px-8 py-12 md:w-1/2">

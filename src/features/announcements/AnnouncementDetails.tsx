@@ -44,7 +44,7 @@ export function AnnouncementDetails({ announcement }: { announcement: Announceme
               <p>开始时间：{formatTime(announcement.maintenance_start)}</p>
             )}
             {announcement.maintenance_end && (
-              <p>预计结束：{formatTime(announcement.maintenance_end)}</p>
+              <p>结束时间：{formatTime(announcement.maintenance_end)}</p>
             )}
             <p className="text-muted-foreground text-xs">时间按当前设备时区显示</p>
           </div>

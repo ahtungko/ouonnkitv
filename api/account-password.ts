@@ -38,6 +38,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const account = accountSchema.safeParse(data?.[0])
     if (error || !account.success || !account.data.enabled)
       return res.status(401).json({ error: '账号或会话已失效，请重新登录' })
+    if (account.data.role !== 'admin') {
+      const access = await caller.rpc('account_is_active')
+      if (access.error) return res.status(503).json({ error: '暂时无法确认网站状态' })
+      if (access.data !== true)
+        return res.status(503).json({ error: '网站维护中，请稍后再试', maintenance: true })
+    }
 
     // Reauthenticate in an isolated, non-persistent client. Never accept a target user ID.
     const verifier = createClient(url, key, options)
@@ -51,6 +57,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const active = await verifier.rpc('current_account')
       if (active.error || active.data?.[0]?.id !== account.data.id || !active.data[0].enabled)
         return res.status(403).json({ error: '账号已不可用，请联系管理员' })
+      if (account.data.role !== 'admin') {
+        const access = await verifier.rpc('account_is_active')
+        if (access.error) return res.status(503).json({ error: '暂时无法确认网站状态' })
+        if (access.data !== true)
+          return res.status(503).json({ error: '网站维护中，请稍后再试', maintenance: true })
+      }
       const updated = await verifier.auth.updateUser({
         password: input.data.newPassword,
         current_password: input.data.currentPassword,

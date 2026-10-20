@@ -62,7 +62,9 @@ function AnnouncementEditor({
       setSaved(result)
       setMessage(
         published
-          ? '公告已发布，用户下次刷新或一分钟内收到弹窗；播放中会延后展示。'
+          ? kind === 'maintenance'
+            ? '维护公告已发布，将按起止时间自动维护；管理员不受影响，下架可提前恢复访问。'
+            : '公告已发布，用户下次刷新或一分钟内收到弹窗；播放中会延后展示。'
           : unpublish
             ? '公告已下架，未保存的编辑仍保留在表单中。'
             : '草稿已保存，用户暂时看不到。',
@@ -113,17 +115,19 @@ function AnnouncementEditor({
           <div className="space-y-2">
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="block space-y-2 text-sm">
-                <span>维护开始时间（可选）</span>
+                <span>维护开始时间</span>
                 <Input
                   type="datetime-local"
+                  required
                   value={maintenanceStart}
                   onChange={event => setMaintenanceStart(event.target.value)}
                 />
               </label>
               <label className="block space-y-2 text-sm">
-                <span>预计结束时间（可选）</span>
+                <span>维护结束时间</span>
                 <Input
                   type="datetime-local"
+                  required
                   value={maintenanceEnd}
                   min={maintenanceStart || undefined}
                   onChange={event => setMaintenanceEnd(event.target.value)}
@@ -131,7 +135,7 @@ function AnnouncementEditor({
               </label>
             </div>
             <p className="text-muted-foreground text-xs">
-              按当前设备时区填写。此时间仅供提醒，不会自动关闭网站或定时发布公告。
+              按当前设备时区填写。发布后按服务器时间自动进入和结束维护，期间普通用户无法访问；管理员不受限制。下架可提前恢复访问。
             </p>
           </div>
         )}
@@ -208,7 +212,7 @@ function AnnouncementManagement({ ownerId }: { ownerId: string }) {
   return (
     <SettingsSection
       title="站内公告"
-      description="选择公告类型并发布。新版本自动弹窗提醒，播放中延后展示；下架后停止展示。"
+      description="维护通知按起止时间限制普通用户访问，管理员豁免；其他公告自动弹窗提醒。下架可提前结束维护。"
       icon={<Megaphone className="size-4" />}
       tone="amber"
     >

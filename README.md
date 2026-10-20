@@ -25,7 +25,8 @@
 
 - 管理员在「管理员中心」选择普通公告、维护通知或版本更新，支持填写维护时间或版本号、保存草稿、发布更新和下架。
 - 新公告自动弹窗；点击「我知道了」、关闭按钮或按 Escape 后，本机当前账号不再重复弹出当前版本。顶部导航保留查看入口，发布新版本后重新提醒；播放期间延后至退出播放页再展示。
-- 网站打开期间每分钟及回到页面、网络恢复时刷新公告。需要依次执行[公告基础迁移](supabase/migrations/202610200001_site_announcement.sql)和[公告类型升级迁移](supabase/migrations/202610200002_announcement_types.sql)，详见[配置指南](docs/cloud-sync.md#site-announcement)。
+- 维护公告发布时需填写开始和结束时间：按服务器时间自动进入维护、到时恢复；普通用户显示维护页并停止播放，管理员始终可用。下架可提前恢复访问，维护前的公告已读状态不影响维护限制。
+- 网站打开期间每分钟及回到页面、网络恢复时刷新公告；维护状态每 15 秒检查，已知的起止时间由本机依据服务器时钟定时切换。需要依次执行[公告基础迁移](supabase/migrations/202610200001_site_announcement.sql)、[公告类型升级](supabase/migrations/202610200002_announcement_types.sql)和[定时维护迁移](supabase/migrations/202610200003_scheduled_maintenance.sql)，详见[配置指南](docs/cloud-sync.md#site-announcement)。
 
 ### 追剧更新
 

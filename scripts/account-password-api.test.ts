@@ -19,8 +19,14 @@ beforeEach(() => {
   vi.resetAllMocks()
   vi.stubEnv('OKI_SUPABASE_URL', 'https://test.supabase.co')
   vi.stubEnv('OKI_SUPABASE_ANON_KEY', 'public-key')
-  mocks.profile.mockResolvedValue({ data: [profile], error: null })
-  mocks.active.mockResolvedValue({ data: [profile], error: null })
+  mocks.profile.mockImplementation(async (name: string) => ({
+    data: name === 'account_is_active' ? true : [profile],
+    error: null,
+  }))
+  mocks.active.mockImplementation(async (name: string) => ({
+    data: name === 'account_is_active' ? true : [profile],
+    error: null,
+  }))
   mocks.login.mockResolvedValue({ data: { session: {}, user: { id } }, error: null })
   mocks.update.mockResolvedValue({ error: null })
   mocks.logout.mockResolvedValue({ error: null })
@@ -41,6 +47,30 @@ async function request(input: unknown = body, token: string | null = 'Bearer tok
   return res
 }
 describe('self-service password changes', () => {
+  it('维护期间普通用户不能发起修改', async () => {
+    mocks.profile.mockImplementation(async (name: string) => ({
+      data: name === 'account_is_active' ? false : [profile],
+      error: null,
+    }))
+    expect((await request()).status).toHaveBeenCalledWith(503)
+    expect(mocks.login).not.toHaveBeenCalled()
+  })
+
+  it('维护期间管理员仍能修改自己的密码', async () => {
+    mocks.profile.mockResolvedValueOnce({ data: [{ ...profile, role: 'admin' }], error: null })
+    expect((await request()).status).toHaveBeenCalledWith(200)
+  })
+
+  it('验证密码期间进入维护时拒绝修改并销毁临时会话', async () => {
+    mocks.active.mockImplementation(async (name: string) => ({
+      data: name === 'account_is_active' ? false : [profile],
+      error: null,
+    }))
+    expect((await request()).status).toHaveBeenCalledWith(503)
+    expect(mocks.update).not.toHaveBeenCalled()
+    expect(mocks.logout).toHaveBeenCalled()
+  })
+
   it('requires authentication before doing any work', async () => {
     expect((await request(body, null)).status).toHaveBeenCalledWith(401)
     expect(mocks.createClient).not.toHaveBeenCalled()

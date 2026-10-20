@@ -24,6 +24,18 @@ beforeEach(() => {
 })
 
 describe('公告 RPC 错误提示', () => {
+  it('维护公告发布时必须填写两个时间，草稿仍可暂存', async () => {
+    await expect(
+      saveAnnouncement(ownerId, { ...announcement, kind: 'maintenance' }),
+    ).rejects.toThrow('发布维护公告需要填写开始时间和结束时间')
+    expect(mocks.rpc).not.toHaveBeenCalled()
+    mocks.result.mockResolvedValue({
+      data: { ...announcement, kind: 'maintenance', published: false },
+      error: null,
+    })
+    await saveAnnouncement(ownerId, { ...announcement, kind: 'maintenance', published: false })
+    expect(mocks.rpc).toHaveBeenCalled()
+  })
   it('旧公告响应补齐默认类型，不影响已发布内容和已读版本', async () => {
     const legacy = {
       title: '原公告',
@@ -65,7 +77,7 @@ describe('公告 RPC 错误提示', () => {
         maintenance_start: '2026-10-20T10:00:00Z',
         maintenance_end: '2026-10-20T09:00:00Z',
       }),
-    ).rejects.toThrow('预计结束时间不能早于维护开始时间')
+    ).rejects.toThrow('维护结束时间必须晚于开始时间')
     expect(mocks.rpc).not.toHaveBeenCalled()
   })
 
