@@ -23,25 +23,39 @@ interface NotificationState {
 }
 
 type SavedState = Pick<NotificationState, 'accounts'>
+function readSavedAccounts(text: string | null): NotificationAccounts {
+  if (!text) return {}
+  try {
+    const value = JSON.parse(text)
+    return parseNotificationAccounts(value?.state?.accounts ?? {})
+  } catch {
+    return {}
+  }
+}
+
 const storage: PersistStorage<SavedState> = {
   getItem: name => {
     const text = localStorage.getItem(name)
     if (!text) return null
-    const value = JSON.parse(text)
     return {
-      state: { accounts: parseNotificationAccounts(value.state?.accounts ?? {}) },
+      state: { accounts: readSavedAccounts(text) },
       version: 0,
     }
   },
   setItem: (name, value) => {
     const text = localStorage.getItem(name)
-    const disk = text ? parseNotificationAccounts(JSON.parse(text).state?.accounts ?? {}) : {}
+    const disk = readSavedAccounts(text)
     // Union receipts before writing so another tab's unsent reads cannot be lost.
     localStorage.setItem(
       name,
       JSON.stringify({
         ...value,
-        state: { accounts: mergeNotificationAccounts(disk, value.state.accounts) },
+        state: {
+          accounts: mergeNotificationAccounts(
+            disk,
+            parseNotificationAccounts(value.state.accounts),
+          ),
+        },
       }),
     )
   },

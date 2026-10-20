@@ -68,3 +68,4 @@ export {
 
 // 工具函数
 export { buildApiUrl, buildSearchUrl, buildDetailUrl, buildListUrl } from './utils/url'
+export { normalizeVodId } from './utils/video'

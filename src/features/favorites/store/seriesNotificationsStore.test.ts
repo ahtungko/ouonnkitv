@@ -37,6 +37,74 @@ beforeEach(() => {
 })
 
 describe('跨设备提醒收据', () => {
+  it('登录时写同步状态可修复数字ID旧缓存，保留未上传的已读和其他账号', async () => {
+    const legacyBinding = JSON.stringify(['dyttzyapi-com', 83519])
+    const legacyKey = JSON.stringify([
+      'tmdb_tv_30984::1',
+      legacyBinding,
+      'dyttzyapi-com',
+      83519,
+      '-1224272884',
+    ])
+    const oldRow = {
+      resourceKey: legacyKey,
+      trackingKey: 'tmdb_tv_30984::1',
+      bindingKey: legacyBinding,
+      sourceCode: 'dyttzyapi-com',
+      vodId: 83519,
+      resourceSignature: '-1224272884',
+      knownEpisodes: [1, 2, 3, 4],
+      baselineEpisodes: [1, 2],
+      readEpisodes: [1, 2, 3],
+      syncedKnownEpisodes: [1, 2, 3],
+      syncedReadEpisodes: [1, 2],
+    }
+    useSeriesNotificationsStore.getState().observe('bob', key, update([1, 2]))
+    const bob = useSeriesNotificationsStore.getState().accounts.bob
+    localStorage.setItem(
+      'ouonnki-tv-series-notifications',
+      JSON.stringify({
+        state: { accounts: { alice: { [legacyKey]: oldRow }, bob } },
+        version: 0,
+      }),
+    )
+    expect(() =>
+      useSeriesNotificationsStore.setState({ syncOwner: 'alice', status: '准备同步提醒' }),
+    ).not.toThrow()
+    await useSeriesNotificationsStore.persist.rehydrate()
+    const rows = Object.values(useSeriesNotificationsStore.getState().accounts.alice)
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toMatchObject({
+      vodId: '83519',
+      bindingKey: JSON.stringify(['dyttzyapi-com', '83519']),
+      readEpisodes: [1, 2, 3],
+      syncedReadEpisodes: [],
+    })
+    expect(notificationView(rows[0]).unreadEpisodes).toEqual([4])
+    expect(notificationNeedsSync(rows[0])).toBe(true)
+    expect(useSeriesNotificationsStore.getState().accounts.bob).toEqual(bob)
+  })
+
+  it('数字ID的新检查结果在保存和再次水合后保持字符串身份', async () => {
+    const numeric = { ...update([1, 2, 3], [3]), vodId: 83519 } as unknown as SeriesUpdate
+    useSeriesNotificationsStore.getState().observe('alice', key, numeric)
+    expect(() => useSeriesNotificationsStore.setState({ status: '准备同步提醒' })).not.toThrow()
+    await useSeriesNotificationsStore.persist.rehydrate()
+    expect(Object.values(useSeriesNotificationsStore.getState().accounts.alice)[0]).toMatchObject({
+      vodId: '83519',
+      baselineEpisodes: [1, 2],
+    })
+  })
+
+  it('损坏的JSON不再让状态更新抛错，保留内存中的有效记录', async () => {
+    useSeriesNotificationsStore.getState().observe('alice', key, update([1, 2, 3], [3]))
+    localStorage.setItem('ouonnki-tv-series-notifications', '{broken')
+    expect(() => useSeriesNotificationsStore.setState({ status: '准备同步提醒' })).not.toThrow()
+    await useSeriesNotificationsStore.persist.rehydrate()
+    expect(local().knownEpisodes).toEqual([1, 2, 3])
+    expect(notificationView(local()).unreadEpisodes).toEqual([3])
+  })
+
   it('首次迁移保留本机已有未读，第一次普通检查建立已读基准', () => {
     const store = useSeriesNotificationsStore.getState()
     expect(store.observe('alice', key, update([1, 2, 3], [3]))?.unreadEpisodes).toEqual([3])

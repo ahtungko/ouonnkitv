@@ -78,6 +78,34 @@ afterEach(() => {
 })
 
 describe('提醒云同步生命周期', () => {
+  it('旧追更结果中的数字ID和绑定键转换后再上传，不再让登录初始化抛错', async () => {
+    const numeric = {
+      ...update([1, 2, 3]),
+      vodId: 83519,
+      bindingKey: JSON.stringify(['s', 83519]),
+      notification: { knownEpisodes: [1, 2, 3], unreadEpisodes: [3] },
+    } as unknown as SeriesUpdate
+    useSeriesUpdatesStore.setState({ entries: { [key]: numeric } })
+    mocks.rpc.mockImplementation((_name, args) =>
+      Promise.resolve({
+        data: args.p_changes.map(
+          (row: RemoteSeriesNotification & { baselineEpisodes: number[] }) => ({
+            ...row,
+            readEpisodes: row.baselineEpisodes,
+          }),
+        ),
+        error: null,
+      }),
+    )
+    await syncSeriesNotificationsNow()
+    const payload = mocks.rpc.mock.calls[0][1].p_changes[0]
+    expect(payload.vodId).toBe('83519')
+    expect(JSON.parse(payload.bindingKey)).toEqual(['s', '83519'])
+    expect(JSON.parse(payload.resourceKey)[3]).toBe('83519')
+    expect(useSeriesNotificationsStore.getState().status).toBe('提醒已同步')
+    expect(useSeriesUpdatesStore.getState().entries[key].notification?.unreadEpisodes).toEqual([3])
+  })
+
   it('超过25个资源时分批同步，不遗漏队列中的其他季或资源', async () => {
     useSeriesUpdatesStore.setState({
       activeKeys: Array.from({ length: 27 }, (_, index) => `favorite-${index}::1`),

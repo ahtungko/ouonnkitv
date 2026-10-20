@@ -1,8 +1,13 @@
-import type { CmsClient, VideoSource } from '@ouonnki/cms-core'
+import { normalizeVodId, type CmsClient, type VideoSource } from '@ouonnki/cms-core'
 import type { FavoriteItem } from '../types/favorites'
 import type { ViewingHistoryItem } from '@/shared/types/video'
 import { buildPlaylistMatches } from '@/features/media/components/tmdb-detail/playlistMatcher'
-import { favoriteHistory, playableEpisodes, trackingBinding, type SeriesUpdate } from './seriesTracking'
+import {
+  favoriteHistory,
+  playableEpisodes,
+  trackingBinding,
+  type SeriesUpdate,
+} from './seriesTracking'
 
 const normalizeTitle = (title: string) =>
   title
@@ -18,7 +23,9 @@ export async function checkSeriesUpdates(
   history: ViewingHistoryItem[],
   signal: AbortSignal,
 ): Promise<SeriesUpdate> {
-  const read = async (source: VideoSource, vodId: string): Promise<SeriesUpdate> => {
+  const read = async (source: VideoSource, rawVodId: string): Promise<SeriesUpdate> => {
+    const vodId = normalizeVodId(rawVodId)
+    if (vodId === null) throw new Error('无效的视频ID格式')
     signal.throwIfAborted()
     const detail = await client.getDetail(vodId, source)
     signal.throwIfAborted()

@@ -212,6 +212,20 @@ describe('追更集数与进度', () => {
 })
 
 describe('视频源实际更新检查', () => {
+  it('旧收藏中的数字ID在详情请求和检查结果中统一为字符串', async () => {
+    const numeric = { ...cms, media: { ...cms.media, vodId: 83519 } } as unknown as CmsFavoriteItem
+    const client = { search: vi.fn(), getDetail: vi.fn().mockResolvedValue(detail) }
+    const result = await checkSeriesUpdates(
+      numeric,
+      client,
+      [source],
+      [],
+      new AbortController().signal,
+    )
+    expect(client.getDetail).toHaveBeenCalledWith('83519', source)
+    expect(result.vodId).toBe('83519')
+  })
+
   it.each([cms, tv])('手动绑定优先于原源、历史和自动搜索：$sourceType', async item => {
     const fixed = {
       sourceCode: 'fixed',

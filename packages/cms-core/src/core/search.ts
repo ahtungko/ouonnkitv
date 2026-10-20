@@ -9,6 +9,7 @@ import type {
 } from '../types'
 
 import { buildSearchUrl } from '../utils/url'
+import { normalizeVodId } from '../utils/video'
 
 /**
  * 搜索配置
@@ -78,12 +79,20 @@ export async function searchVideos(
     }
 
     // 添加源信息到每个结果
-    const items: VideoItem[] = data.list.map((item: VideoItem) => ({
-      ...item,
-      source_name: source.name,
-      source_code: source.id,
-      api_url: source.url,
-    }))
+    const items: VideoItem[] = data.list.flatMap((item: VideoItem) => {
+      const vodId = normalizeVodId(item?.vod_id)
+      return vodId === null
+        ? []
+        : [
+            {
+              ...item,
+              vod_id: vodId,
+              source_name: source.name,
+              source_code: source.id,
+              api_url: source.url,
+            },
+          ]
+    })
 
     // 解析分页信息
     const pagination: Pagination = {

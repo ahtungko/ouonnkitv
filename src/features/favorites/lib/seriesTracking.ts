@@ -1,4 +1,4 @@
-import type { DetailResult } from '@ouonnki/cms-core'
+import { normalizeVodId, type DetailResult } from '@ouonnki/cms-core'
 import type { FavoriteItem } from '../types/favorites'
 import type { ViewingHistoryItem } from '@/shared/types/video'
 import { buildCmsPlayPath, buildTmdbPlayPath } from '@/shared/lib/routes'
@@ -88,7 +88,9 @@ export function trackingBinding(item: FavoriteItem) {
 
 export function trackingBindingKey(item: FavoriteItem): string {
   const binding = trackingBinding(item)
-  return binding ? JSON.stringify([binding.sourceCode, binding.vodId]) : 'auto'
+  return binding
+    ? JSON.stringify([binding.sourceCode, normalizeVodId(binding.vodId) ?? binding.vodId])
+    : 'auto'
 }
 
 export function matchingTrackingUpdate(item: FavoriteItem, update: SeriesUpdate | undefined) {
