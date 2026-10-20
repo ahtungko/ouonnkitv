@@ -12,6 +12,8 @@ An administrator creates usernames and passwords. Users sign in once and their f
    - [Admin dashboard](../supabase/migrations/202610020001_admin_dashboard.sql)
    - [NSFW source access](../supabase/migrations/202610020002_nsfw_access.sql)
    - [Single active player](../supabase/migrations/202610030001_playback_lease.sql)
+   - [Cross-device series reminders](../supabase/migrations/202610190001_series_notifications.sql)
+   - [Site announcement](../supabase/migrations/202610200001_site_announcement.sql)
 3. Under Supabase Authentication, keep the email/password provider enabled but **disable Allow new users to sign up**. Keep multiple simultaneous sessions allowed. The application uses internal, automatically confirmed email-shaped identifiers for Supabase Auth; users only enter usernames, and no mailbox or SMTP is needed. The database trigger also rejects accounts not provisioned by the server admin API.
 4. Configure the Vercel project variables:
 
@@ -100,6 +102,17 @@ Reminders use the existing account session. The settings page shows a separate r
 Verify with two devices on one account: establish a baseline, let device A discover new episodes, sync both, then mark only the displayed episodes read on B. A should clear those reminders while retaining the same pending-watch count. Add another episode while B is offline; reconnect B and confirm the new episode remains unread. A different account must not see either device's reminder rows.
 
 Automated tests run the migration against a local PostgreSQL engine (PGlite), including privileges/RLS, first-device baselines, interleaved observations/read receipts, invalid payloads and rollback. Live behavior still requires applying the migration to your configured Supabase project.
+
+## Site announcement
+
+Apply [202610200001_site_announcement.sql](../supabase/migrations/202610200001_site_announcement.sql) in the Supabase SQL Editor after the managed-account migrations, then deploy the frontend. The migration is rerunnable and preserves the current announcement. No new environment variables or Vercel API routes are needed.
+
+- **Admin center → Site announcement (站内公告)** manages one current announcement: title (up to 100 characters), plain-text body (up to 10,000 characters, with line breaks), draft saving, publishing/updating and unpublishing. Editing a published announcement leaves its current content live until **Publish update**. **Unpublish** removes the saved announcement without publishing unsaved form edits. Saving changes increments its version; an outdated editor must reload before overwriting a newer version.
+- Both home modes show a banner with a full-text dialog. Closing the banner leaves a compact **View site announcement** entry. Dismissal is remembered per account in this browser; it does not sync across devices. A new published version appears again. No automatic modal interrupts playback.
+- While the home page is open, it checks every minute while visible, and on focus, reconnect and becoming visible. Reloading the home page fetches immediately. Publishing or unpublishing reaches other open home pages on their next successful check. If loading fails, the banner hides and retries on the next check; the rest of the home page remains available.
+- Database authorization allows active users to read only published content; active admins can read drafts and use the save RPC. Anonymous, disabled and invalidated sessions cannot access announcements. Direct client table writes are denied, including for admins. Missing migration guidance appears in the admin section.
+
+Verify with an admin and ordinary user: save a draft (user sees nothing), publish it (user sees the banner), close it, publish an update (banner appears again), then unpublish (banner disappears on refresh). Open two admin pages and confirm that saving from the stale page cannot overwrite the new version.
 
 ## Upgrading the earlier email-code prototype
 

@@ -1,0 +1,225 @@
+import { act, createElement } from 'react'
+import { createRoot, type Root } from 'react-dom/client'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { accountSchema } from '../../../shared/account-rules'
+import { useAuthStore } from '@/shared/store/authStore'
+
+const mocks = vi.hoisted(() => ({ read: vi.fn(), save: vi.fn() }))
+vi.mock('./service', async importOriginal => ({
+  ...(await importOriginal<typeof import('./service')>()),
+  readAnnouncement: mocks.read,
+  saveAnnouncement: mocks.save,
+}))
+import { AnnouncementBanner } from './AnnouncementBanner'
+import AnnouncementAdmin from './AnnouncementAdmin'
+import { dismissalKey, type Announcement } from './service'
+import { useAnnouncement } from './useAnnouncement'
+
+const alice = '00000000-0000-4000-8000-000000000001'
+const bob = '00000000-0000-4000-8000-000000000002'
+const announcement = (revision = 1, published = true): Announcement => ({
+  title: '维护通知',
+  content: '第一行\n第二行',
+  revision,
+  published,
+  updated_at: '2026-10-20T08:00:00Z',
+})
+function login(id = alice, role = 'user') {
+  useAuthStore.setState({
+    account: accountSchema.parse({
+      id,
+      role,
+      username: 'test',
+      enabled: true,
+      created_at: '2026-10-20',
+    }),
+  })
+}
+let host: HTMLDivElement
+let root: Root
+const mount = (component = AnnouncementBanner) =>
+  act(async () => root.render(createElement(component)))
+const button = (label: string) =>
+  Array.from(host.querySelectorAll('button')).find(
+    item => item.textContent?.includes(label) || item.getAttribute('aria-label') === label,
+  )!
+const click = (label: string) => act(async () => button(label).click())
+const change = (element: HTMLInputElement | HTMLTextAreaElement, value: string) =>
+  act(async () => {
+    const prototype =
+      element.tagName === 'INPUT' ? HTMLInputElement.prototype : HTMLTextAreaElement.prototype
+    Object.getOwnPropertyDescriptor(prototype, 'value')!.set!.call(element, value)
+    element.dispatchEvent(new Event('input', { bubbles: true }))
+  })
+
+beforeEach(() => {
+  Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
+  localStorage.clear()
+  login()
+  mocks.read.mockReset().mockResolvedValue(announcement())
+  mocks.save
+    .mockReset()
+    .mockImplementation(async (_owner, value) => ({ ...value, revision: value.revision + 1 }))
+  host = document.createElement('div')
+  document.body.appendChild(host)
+  root = createRoot(host)
+})
+afterEach(async () => {
+  await act(async () => root.unmount())
+  host.remove()
+})
+
+describe('首页公告', () => {
+  it('关闭后保留查看入口，刷新仍关闭；发布新版重新展示', async () => {
+    await mount()
+    expect(host.textContent).toContain('维护通知')
+    await click('关闭本版公告')
+    expect(localStorage.getItem(dismissalKey(alice))).toBe('1')
+    expect(host.textContent).toContain('查看站内公告')
+    await act(async () => root.render(null))
+    await mount()
+    expect(button('关闭本版公告')).toBeUndefined()
+    mocks.read.mockResolvedValue(announcement(2))
+    await act(async () => window.dispatchEvent(new Event('focus')))
+    expect(button('关闭本版公告')).toBeDefined()
+  })
+
+  it('账号关闭记录隔离，切回原账号保持原状态', async () => {
+    await mount()
+    await click('关闭本版公告')
+    await act(async () => login(bob))
+    expect(button('关闭本版公告')).toBeDefined()
+    await act(async () => login(alice))
+    expect(host.textContent).toContain('查看站内公告')
+  })
+
+  it('切账号后丢弃旧账号的在途响应', async () => {
+    let finish!: (value: Announcement) => void
+    mocks.read.mockImplementationOnce(
+      () =>
+        new Promise(resolve => {
+          finish = resolve
+        }),
+    )
+    await mount()
+    mocks.read.mockResolvedValue(null)
+    await act(async () => login(bob))
+    await act(async () => finish(announcement()))
+    expect(host.textContent).toBe('')
+  })
+
+  it('草稿、下架和请求失败时不影响首页其余内容', async () => {
+    mocks.read.mockResolvedValue(announcement(1, false))
+    await mount()
+    expect(host.textContent).toBe('')
+    mocks.read.mockResolvedValue(announcement())
+    await act(async () => window.dispatchEvent(new Event('focus')))
+    expect(host.textContent).toContain('维护通知')
+    mocks.read.mockResolvedValue(null)
+    await act(async () => window.dispatchEvent(new Event('focus')))
+    expect(host.textContent).toBe('')
+    mocks.read.mockRejectedValue(new Error('offline'))
+    await act(async () => window.dispatchEvent(new Event('focus')))
+    expect(host.textContent).toBe('')
+  })
+
+  it('正文按文本显示，全文弹窗支持换行且不执行 HTML', async () => {
+    mocks.read.mockResolvedValue({
+      ...announcement(),
+      content: '<img src=x onerror=alert(1)>\n第二行',
+    })
+    await mount()
+    await click('查看全文')
+    expect(document.body.querySelector('[role="dialog"]')?.textContent).toContain(
+      '<img src=x onerror=alert(1)>\n第二行',
+    )
+    expect(document.body.querySelector('img')).toBeNull()
+  })
+})
+
+describe('管理员公告编辑', () => {
+  it('重新加载相同服务端版本也会丢弃标题、正文和错误提示', async () => {
+    login(alice, 'admin')
+    mocks.save.mockRejectedValue(new Error('保存失败'))
+    await mount(AnnouncementAdmin)
+    await change(host.querySelector('input')!, '未保存的标题')
+    await change(host.querySelector('textarea')!, '未保存的正文')
+    await click('发布更新')
+    expect(host.querySelector('[role="alert"]')?.textContent).toBe('保存失败')
+    await click('重新加载（放弃未保存修改）')
+    expect(mocks.read).toHaveBeenCalledTimes(2)
+    expect(host.querySelector('input')?.value).toBe('维护通知')
+    expect(host.querySelector('textarea')?.value).toBe('第一行\n第二行')
+    expect(host.querySelector('[role="alert"]')).toBeNull()
+  })
+
+  it('普通用户没有公告管理表单', async () => {
+    await mount(AnnouncementAdmin)
+    expect(host.querySelector('form')).toBeNull()
+    expect(mocks.read).not.toHaveBeenCalled()
+  })
+
+  it('发布后继续编辑使用新版本，下架不发布尚未保存的修改', async () => {
+    login(alice, 'admin')
+    mocks.read.mockResolvedValue(announcement(0, false))
+    await mount(AnnouncementAdmin)
+    await change(host.querySelector('input')!, '新公告')
+    await click('发布公告')
+    expect(mocks.save).toHaveBeenLastCalledWith(
+      alice,
+      expect.objectContaining({ title: '新公告', revision: 0, published: true }),
+    )
+    await change(host.querySelector('input')!, '未保存的标题')
+    await click('下架公告')
+    expect(mocks.save).toHaveBeenLastCalledWith(
+      alice,
+      expect.objectContaining({ title: '新公告', revision: 1, published: false }),
+    )
+    expect(host.querySelector('input')?.value).toBe('未保存的标题')
+    await click('保存草稿')
+    expect(mocks.save).toHaveBeenLastCalledWith(
+      alice,
+      expect.objectContaining({ title: '未保存的标题', revision: 2, published: false }),
+    )
+  })
+
+  it('保存冲突保留本机编辑并显示失败信息', async () => {
+    login(alice, 'admin')
+    mocks.save.mockRejectedValue(new Error('公告已在其他页面更新'))
+    await mount(AnnouncementAdmin)
+    await change(host.querySelector('input')!, '本机修改')
+    await click('发布更新')
+    expect(host.querySelector('[role="alert"]')?.textContent).toContain('其他页面更新')
+    expect(host.querySelector('input')?.value).toBe('本机修改')
+  })
+})
+
+function AnnouncementStateProbe() {
+  const { announcement, loading, error } = useAnnouncement(false)
+  return createElement('output', null, JSON.stringify({ announcement, loading, error }))
+}
+
+describe('公告 Hook 空账号状态', () => {
+  it('未登录时不显示加载中，也不发送请求', async () => {
+    useAuthStore.setState({ account: null })
+    await mount(AnnouncementStateProbe)
+    expect(JSON.parse(host.textContent!)).toEqual({ announcement: null, loading: false, error: '' })
+    expect(mocks.read).not.toHaveBeenCalled()
+  })
+
+  it('请求中退出登录后停止加载并忽略旧请求结果', async () => {
+    let finish!: (value: Announcement) => void
+    mocks.read.mockImplementationOnce(
+      () =>
+        new Promise(resolve => {
+          finish = resolve
+        }),
+    )
+    await mount(AnnouncementStateProbe)
+    expect(JSON.parse(host.textContent!).loading).toBe(true)
+    await act(async () => useAuthStore.setState({ account: null }))
+    expect(JSON.parse(host.textContent!)).toEqual({ announcement: null, loading: false, error: '' })
+    await act(async () => finish(announcement()))
+    expect(JSON.parse(host.textContent!)).toEqual({ announcement: null, loading: false, error: '' })
+  })
+})

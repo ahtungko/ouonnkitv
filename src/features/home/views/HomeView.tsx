@@ -16,6 +16,7 @@ import { SeriesUpdates } from '../components/SeriesUpdates'
 import { MediaCarousel } from '../components/MediaCarousel'
 import { CmsHomeContent } from '../components/CmsHomeContent'
 import { useMemo } from 'react'
+import { AnnouncementBanner } from '@/features/announcements/AnnouncementBanner'
 
 /**
  * TmdbHomeContent - TMDB 模式首页内容
@@ -47,12 +48,10 @@ function TmdbHomeContent() {
       mediaType: item.media.mediaType,
     }))
 
-    const historySources = viewingHistory
-      .filter(isTmdbHistoryItem)
-      .map(item => ({
-        id: item.tmdbId,
-        mediaType: item.tmdbMediaType,
-      }))
+    const historySources = viewingHistory.filter(isTmdbHistoryItem).map(item => ({
+      id: item.tmdbId,
+      mediaType: item.tmdbMediaType,
+    }))
 
     const sourceMap = new Map<string, { id: number; mediaType: TmdbMediaType }>()
     ;[...favoriteSources, ...historySources].forEach(source => {
@@ -61,8 +60,9 @@ function TmdbHomeContent() {
 
     return Array.from(sourceMap.values())
   }, [favorites, viewingHistory])
-  const { recommendations, loading: recommendationsLoading } =
-    useTmdbRecommendations(tmdbRecommendationCandidates)
+  const { recommendations, loading: recommendationsLoading } = useTmdbRecommendations(
+    tmdbRecommendationCandidates,
+  )
 
   return (
     <div className="flex flex-col gap-6">
@@ -106,9 +106,10 @@ function TmdbHomeContent() {
 export default function HomeView() {
   const tmdbEnabled = useTmdbEnabled()
 
-  if (!tmdbEnabled) {
-    return <CmsHomeContent />
-  }
-
-  return <TmdbHomeContent />
+  return (
+    <div className="flex flex-col gap-4">
+      <AnnouncementBanner />
+      {tmdbEnabled ? <TmdbHomeContent /> : <CmsHomeContent />}
+    </div>
+  )
 }
