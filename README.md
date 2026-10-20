@@ -1,10 +1,10 @@
 <h1 align="center">
-  <img src="https://cdn.ouonnki.com/gh/Ouonnki/blog-pictures/posts/logo.svg" alt="OuonnkiTV Logo" width="80"/><br/>
-  OuonnkiTV
+  <img src="./public/favicon.svg" alt="xkaTV Logo" width="80"/><br/>
+  xkaTV
 </h1>
 
 <p align="center">
-  现代化视频聚合搜索与播放前端
+  你的私人流媒体影院 · 由 ahtungko 维护
 </p>
 
 <p align="center">
@@ -12,7 +12,7 @@
   <img src="https://img.shields.io/badge/node-%3E%3D20-brightgreen" alt="Node.js >=20"/>
   <img src="https://img.shields.io/badge/pnpm-%3E%3D9.15.4-blue" alt="pnpm >=9.15.4"/>
   <img src="https://img.shields.io/badge/vite-%5E6.3.5-yellowgreen" alt="Vite"/>
-  <a href="https://github.com/Ouonnki/OuonnkiTV/stargazers"><img src="https://img.shields.io/github/stars/Ouonnki/OuonnkiTV?style=social" alt="GitHub stars"/></a>
+  <a href="https://github.com/ahtungko/ouonnkitv/stargazers"><img src="https://img.shields.io/github/stars/ahtungko/ouonnkitv?style=social" alt="GitHub stars"/></a>
 </p>
 
 ---
@@ -47,7 +47,7 @@
 
 ## 🚀 快速开始
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/Ouonnki/OuonnkiTV&build-command=pnpm%20build&install-command=pnpm%20install&output-directory=dist)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/ahtungko/ouonnkitv&build-command=pnpm%20build&install-command=pnpm%20install&output-directory=dist)
 
 > Docker、Cloudflare Pages、Netlify、本地开发等完整部署指南 → [docs/deployment.md](docs/deployment.md)
 
@@ -67,7 +67,9 @@
 
 ## 📜 贡献与许可
 
-欢迎通过 [Issue](https://github.com/Ouonnki/OuonnkiTV/issues) 或 [Pull Request](https://github.com/Ouonnki/OuonnkiTV/pulls) 参与贡献。本项目采用 [Apache License 2.0](LICENSE) 开源协议。
+欢迎通过 [Issue](https://github.com/ahtungko/ouonnkitv/issues) 或 [Pull Request](https://github.com/ahtungko/ouonnkitv/pulls) 参与贡献。本项目采用 [Apache License 2.0](LICENSE) 开源协议。
+
+本站基于 [OuonnkiTV](https://github.com/Ouonnki/OuonnkiTV) 开发，感谢原作者及开源贡献者。原项目版权声明保留在 [LICENSE](LICENSE) 中。本站版本日志记录本仓库的功能更新。
 
 ## ⚠️ 免责声明
 
@@ -93,8 +95,8 @@
 ---
 
 <p align="center">
-  <a href="https://star-history.com/#Ouonnki/OuonnkiTV&Date">
-    <img src="https://api.star-history.com/svg?repos=Ouonnki/OuonnkiTV&type=Date" alt="Star History Chart" />
+  <a href="https://star-history.com/#ahtungko/ouonnkitv&Date">
+    <img src="https://api.star-history.com/svg?repos=ahtungko/ouonnkitv&type=Date" alt="Star History Chart" />
   </a>
 </p>
 

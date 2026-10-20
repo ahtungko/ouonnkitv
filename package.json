@@ -1,7 +1,16 @@
 {
   "name": "xkaTV",
   "private": true,
-  "version": "2.0.0",
+  "version": "2.1.0",
+  "description": "xkaTV · 你的私人流媒体影院",
+  "author": "ahtungko",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ahtungko/ouonnkitv.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ahtungko/ouonnkitv/issues"
+  },
   "type": "module",
   "packageManager": "pnpm@10.15.1",
   "engines": {

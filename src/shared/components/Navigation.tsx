@@ -1,4 +1,5 @@
 import { Navbar, NavbarBrand, NavbarContent } from '@/shared/components/ui/navbar'
+import { PROJECT } from '@/shared/config/project'
 import { OkiLogo } from '@/shared/components/icons'
 import { SidebarTrigger } from '@/shared/components/ui/sidebar'
 import { NavLink, useLocation } from 'react-router'
@@ -74,7 +75,7 @@ export default function Navigation({
                 <div>
                   <OkiLogo />
                 </div>
-                <p className="text-accent-foreground text-lg font-bold">xkaTV</p>
+                <p className="text-accent-foreground text-lg font-bold">{PROJECT.name}</p>
               </div>
             </NavLink>
           </NavbarBrand>

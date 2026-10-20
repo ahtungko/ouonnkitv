@@ -41,7 +41,7 @@
 项目采用 **Feature-Sliced Design** 架构，功能按领域模块组织。
 
 ```text
-OuonnkiTV/
+ouonnkitv/
 ├─ api/                        # Vercel Serverless Functions
 │  └─ proxy.ts
 ├─ functions/                  # Cloudflare Workers Functions
@@ -117,6 +117,12 @@ OuonnkiTV/
 | `index.ts` | 模块公共导出 |
 
 ---
+
+## 项目展示信息
+
+本站名称、维护者、简介、仓库及反馈链接集中在 `src/shared/config/project.ts`，供登录页、导航、页面标题和关于页使用。变更品牌时同步更新 `index.html`、`public/site.webmanifest`、`package.json` 和 README 的静态信息。
+
+站内版本日志在 `src/shared/store/versionStore.ts` 维护，发布时同步更新根目录 `package.json` 的版本号。本地存储键名与 `OKI_*` 环境变量保持兼容，升级后可继续使用已有配置。
 
 ## @ouonnki/cms-core
 

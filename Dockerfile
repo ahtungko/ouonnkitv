@@ -37,12 +37,13 @@ ARG VCS_REF
 ARG VERSION
 
 # 添加标签
-LABEL org.opencontainers.image.title="OuonnkiTV"
-LABEL org.opencontainers.image.description="OuonnkiTV Web Application"
+LABEL org.opencontainers.image.title="xkaTV"
+LABEL org.opencontainers.image.description="xkaTV Web Application"
+LABEL org.opencontainers.image.authors="ahtungko"
 LABEL org.opencontainers.image.version=${VERSION}
 LABEL org.opencontainers.image.created=${BUILD_DATE}
 LABEL org.opencontainers.image.revision=${VCS_REF}
-LABEL org.opencontainers.image.source="https://github.com/Ouonnki/OuonnkiTV"
+LABEL org.opencontainers.image.source="https://github.com/ahtungko/ouonnkitv"
 
 # 自托管默认禁用分析；docker run/compose 可显式设为 false 覆盖
 ENV OKI_DISABLE_ANALYTICS=true

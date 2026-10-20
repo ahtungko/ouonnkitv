@@ -19,6 +19,7 @@ import { OkiLogo } from '@/shared/components/icons'
 import { useVersionStore } from '../store'
 import { useAuthStore } from '@/shared/store/authStore'
 import { cn } from '@/shared/lib'
+import { PROJECT } from '@/shared/config/project'
 
 interface SideBarProps {
   className?: string
@@ -106,7 +107,7 @@ export default function SideBar({
             <div>
               <OkiLogo />
             </div>
-            <p className="text-accent-foreground text-lg font-bold">xkaTV</p>
+            <p className="text-accent-foreground text-lg font-bold">{PROJECT.name}</p>
           </div>
         </NavLink>
       </SidebarHeader>

@@ -1,6 +1,6 @@
 # TMDB API Key 申请指南
 
-OuonnkiTV 的 TMDB 智能模式需要一个 TMDB API Token 来获取影片元数据、海报和推荐内容。本文档介绍如何申请。
+xkaTV 的 TMDB 智能模式需要一个 TMDB API Token 来获取影片元数据、海报和推荐内容。本文档介绍如何申请。
 
 ---
 
@@ -17,7 +17,7 @@ OuonnkiTV 的 TMDB 智能模式需要一个 TMDB API Token 来获取影片元数
 如果是首次申请，需要先同意使用条款并填写基本信息：
 
 - **应用类型**：选择 Personal
-- **应用名称**：填写任意名称（如 OuonnkiTV）
+- **应用名称**：填写任意名称（如 xkaTV）
 - **应用网址**：填写你的部署地址或 `https://localhost`
 - **应用简介**：简要描述用途即可
 
@@ -30,7 +30,7 @@ OuonnkiTV 的 TMDB 智能模式需要一个 TMDB API Token 来获取影片元数
 | API Key (v3 auth)               | 32 位字符串，**不是我们需要的**       |
 | API Read Access Token (v4 auth) | 以 `eyJ` 开头的长字符串，**使用这个** |
 
-复制 **API Read Access Token**（v4 auth），这就是 OuonnkiTV 需要的 Token。
+复制 **API Read Access Token**（v4 auth），这就是 xkaTV 需要的 Token。
 
 ---
 
@@ -66,7 +66,7 @@ Docker 镜像在容器启动时读取该变量；Vercel、Cloudflare Pages、Net
 
 **Q: API Key 和 API Read Access Token 有什么区别？**
 
-API Key 是 v3 版本的认证方式（32 位短字符串），API Read Access Token 是 v4 版本的 Bearer Token（以 `eyJ` 开头的长字符串）。OuonnkiTV 使用的 `tmdb-ts` SDK 需要 v4 的 Read Access Token。
+API Key 是 v3 版本的认证方式（32 位短字符串），API Read Access Token 是 v4 版本的 Bearer Token（以 `eyJ` 开头的长字符串）。xkaTV 使用的 `tmdb-ts` SDK 需要 v4 的 Read Access Token。
 
 **Q: 申请是否收费？**
 

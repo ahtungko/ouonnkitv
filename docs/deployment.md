@@ -1,6 +1,6 @@
 # 部署指南
 
-本文档详细介绍 OuonnkiTV 的各种部署方式和更新同步方法。
+本文档详细介绍 xkaTV 的各种部署方式和更新同步方法。
 
 ---
 
@@ -66,21 +66,14 @@ docker-compose up -d --force-recreate
 
 ### 方式二：预构建镜像（快速启动）
 
-提供 Docker Hub 和 GitHub Container Registry 两个镜像源：
+本仓库的 CI/CD 工作流成功构建并发布后，可使用自己的 GHCR 镜像。首次部署请先在仓库 Actions 确认发布成功；若镜像尚未发布，请使用上面的 Docker Compose 源码构建方式。
 
 ```bash
-# Docker Hub（推荐国内用户，替换为当前官方发布账号）
-docker pull archiewang0307/ouonnkitv:latest
-docker run -d --name ouonnkitv -p 3000:80 \
-  -e 'OKI_INITIAL_VIDEO_SOURCES=[{"name":"示例源","url":"https://api.example.com","isEnabled":true}]' \
-  -e 'OKI_DISABLE_ANALYTICS=true' \
-  archiewang0307/ouonnkitv:latest
-
-# GitHub Container Registry
-docker pull ghcr.io/ouonnki/ouonnkitv:latest
-docker run -d --name ouonnkitv -p 3000:80 \
+# 私有镜像需先通过 docker login ghcr.io 登录具有读取权限的账号
+docker pull ghcr.io/ahtungko/ouonnkitv:latest
+docker run -d --name xkatv -p 3000:80 \
   --env-file .env \
-  ghcr.io/ouonnki/ouonnkitv:latest
+  ghcr.io/ahtungko/ouonnkitv:latest
 
 # 访问 http://localhost:3000
 ```
@@ -100,7 +93,7 @@ docker run -d --name ouonnkitv -p 3000:80 \
 ```yaml
 services:
   ouonnkitv:
-    image: ghcr.io/ouonnki/ouonnkitv:latest
+    image: ghcr.io/ahtungko/ouonnkitv:latest
     container_name: ouonnkitv
     restart: unless-stopped
     ports:
@@ -121,7 +114,7 @@ services:
 3. 使用原端口和新的 `-e` / `--env-file` 参数创建容器。
 4. 浏览器刷新页面；初始配置变化时，应用会重新执行一次初始内容导入。若需完全替换已有本地配置，请在应用内执行「恢复默认配置」。
 
-> `feixiangii/ouonnkitv` 是其他使用者发布的旧镜像，不包含本项目新版运行时配置能力。
+> 请使用本仓库构建的镜像，以包含本站的账号、追剧提醒和维护功能。
 
 ---
 
@@ -146,7 +139,7 @@ Docker 运行时配置优先于镜像中可能存在的构建时配置；其他�
 
 点击下方按钮，一键部署到 Vercel：
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/Ouonnki/OuonnkiTV&build-command=pnpm%20build&install-command=pnpm%20install&output-directory=dist)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/ahtungko/ouonnkitv&build-command=pnpm%20build&install-command=pnpm%20install&output-directory=dist)
 
 **部署步骤：**
 
@@ -186,7 +179,7 @@ Docker 运行时配置优先于镜像中可能存在的构建时配置；其他�
 
 ## Netlify 部署
 
-[![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/Ouonnki/OuonnkiTV)
+[![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/ahtungko/ouonnkitv)
 
 **部署步骤：**
 
@@ -212,8 +205,8 @@ Docker 运行时配置优先于镜像中可能存在的构建时配置；其他�
 
 ```bash
 # 克隆仓库
-git clone https://github.com/Ouonnki/OuonnkiTV.git
-cd OuonnkiTV
+git clone https://github.com/ahtungko/ouonnkitv.git
+cd ouonnkitv
 
 # 安装依赖
 pnpm install
@@ -247,8 +240,8 @@ Vercel 部署的项目会自动跟踪 GitHub 仓库变化：
 **Docker Compose 方式：**
 
 ```bash
-docker-compose pull
-docker-compose up -d
+git pull origin main
+docker compose up -d --build
 ```
 
 **预构建镜像方式：**
@@ -258,12 +251,11 @@ docker-compose up -d
 docker stop <container_id>
 docker rm <container_id>
 
-# 拉取最新镜像（选择其一）
-docker pull archiewang0307/ouonnkitv:latest
-docker pull ghcr.io/ouonnki/ouonnkitv:latest
+# 拉取本仓库已发布的镜像
+docker pull ghcr.io/ahtungko/ouonnkitv:latest
 
 # 运行新容器
-docker run -d --name ouonnkitv -p 3000:80 --env-file .env archiewang0307/ouonnkitv:latest
+docker run -d --name ouonnkitv -p 3000:80 --env-file .env ghcr.io/ahtungko/ouonnkitv:latest
 ```
 
 ### 本地更新
@@ -274,31 +266,8 @@ pnpm install
 pnpm dev
 ```
 
-### Fork 同步
+### 上游更新参考
 
-保持 Fork 仓库与上游同步：
+本站由 ahtungko 独立维护，不再定时镜像覆盖上游代码。仓库保留手动检查上游更新的工作流：Actions → Check Upstream Updates → Run workflow，可查看上游比较链接后选择需要合并的变更。
 
-#### 方式一：GitHub Action 自动同步（已内置）
-
-项目内置了自动同步工作流（`.github/workflows/sync.yml`）：
-
-- **触发时间**：每日 UTC 02:00 自动运行
-- **手动触发**：进入 Fork 仓库的 Actions → 选择 "Sync Upstream" → Run workflow
-- **同步策略**：若 `main` 分支无独立提交，则强制同步；否则跳过
-- **注意事项**：自定义修改建议放在独立分支，避免在 `main` 分支直接修改
-
-#### 方式二：GitHub 原生同步
-
-1. 进入你的 Fork 仓库主页
-2. 点击 "Sync fork" 按钮
-3. 选择 "Update branch" 完成同步
-
-**CLI 手动同步：**
-
-```bash
-git remote add upstream https://github.com/Ouonnki/OuonnkiTV.git  # 仅首次
-git fetch upstream
-git checkout main
-git merge upstream/main  # 或使用 rebase
-git push origin main
-```
+原项目：[OuonnkiTV](https://github.com/Ouonnki/OuonnkiTV)。手动合并前请先保存本地修改，并在独立分支验证账号、同步、公告与维护等本站功能。

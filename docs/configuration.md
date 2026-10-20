@@ -1,6 +1,6 @@
 # 配置管理
 
-OuonnkiTV 支持通过环境变量预定义应用的默认配置。当用户点击 **设置** → **关于项目** → **配置操作** → **恢复默认配置** 时，应用将重置为这些预定义的默认值。
+xkaTV 支持通过环境变量预定义应用的默认配置。当用户点击 **设置** → **关于项目** → **配置操作** → **恢复默认配置** 时，应用将重置为这些预定义的默认值。
 
 ---
 
@@ -73,7 +73,7 @@ OKI_INITIAL_CONFIG='{"settings":{...},"videoSources":"https://example.com/source
 
 ## TMDB 配置（建议启用）
 
-OuonnkiTV 支持通过 [TMDB](https://www.themoviedb.org/)（The Movie Database）获取影片元数据、海报和推荐内容。启用后可显著提升浏览体验，建议所有用户配置。
+xkaTV 支持通过 [TMDB](https://www.themoviedb.org/)（The Movie Database）获取影片元数据、海报和推荐内容。启用后可显著提升浏览体验，建议所有用户配置。
 
 > Token 申请方法请参考 [TMDB API Key 申请指南](./tmdb-key.md)
 

@@ -8,6 +8,7 @@ import { startSync } from '@/shared/sync/service'
 import { syncClient } from '@/shared/sync/client'
 import { useApiStore } from '@/shared/store/apiStore'
 import { MaintenanceGuard } from '@/features/announcements/MaintenanceGuard'
+import { PROJECT } from '@/shared/config/project'
 
 export default function AuthGuard({ children }: { children: ReactNode }) {
   const { account, initialized, error, login } = useAuthStore()
@@ -32,8 +33,8 @@ export default function AuthGuard({ children }: { children: ReactNode }) {
     <div className="bg-background flex min-h-dvh flex-col md:flex-row">
       <div className="bg-muted/40 flex flex-col items-center justify-center gap-4 px-8 py-12 md:w-1/2">
         <OkiLogo size={80} />
-        <div className="text-xl font-bold tracking-widest">xkaTV</div>
-        <p className="text-muted-foreground text-sm">你的私人流媒体影院</p>
+        <div className="text-xl font-bold tracking-widest">{PROJECT.name}</div>
+        <p className="text-muted-foreground text-sm">{PROJECT.description}</p>
       </div>
       <div className="flex flex-1 items-center justify-center px-8 py-12">
         <form

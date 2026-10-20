@@ -1,6 +1,9 @@
 {
   "name": "xkaTV",
   "short_name": "xkaTV",
+  "description": "你的私人流媒体影院 · 由 ahtungko 维护",
+  "lang": "zh-CN",
+  "start_url": "/",
   "icons": [
     {
       "src": "/web-app-manifest-192x192.png",

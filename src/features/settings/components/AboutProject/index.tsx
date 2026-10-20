@@ -1,7 +1,8 @@
 import { OkiLogo } from '@/shared/components/icons'
 import { Badge } from '@/shared/components/ui/badge'
-import { History, Sparkles } from 'lucide-react'
+import { Github, History, MessageSquare, Sparkles } from 'lucide-react'
 import { useVersionStore } from '@/shared/store/versionStore'
+import { PROJECT } from '@/shared/config/project'
 import { SettingsPageShell, SettingsSection } from '../common'
 
 export default function AboutProject() {
@@ -25,9 +26,9 @@ export default function AboutProject() {
                 <OkiLogo size={56} className="drop-shadow-sm" />
               </div>
               <div className="space-y-1">
-                <h2 className="text-xl font-semibold tracking-tight md:text-2xl">xkaTV</h2>
+                <h2 className="text-xl font-semibold tracking-tight md:text-2xl">{PROJECT.name}</h2>
                 <p className="text-muted-foreground text-sm">
-                  面向高频观影场景的流媒体聚合应用，强调连续性与模块化体验。
+                  {PROJECT.description}，由 {PROJECT.owner} 持续维护。
                 </p>
               </div>
             </div>
@@ -58,7 +59,39 @@ export default function AboutProject() {
       </section>
 
       <SettingsSection title="项目资源" description="查看仓库代码与版本更新记录。" tone="violet">
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="grid gap-3 md:grid-cols-3">
+          {[
+            {
+              title: '项目仓库',
+              description: '查看本站源码',
+              href: PROJECT.repository,
+              icon: Github,
+            },
+            {
+              title: '问题反馈',
+              description: '提交问题与功能建议',
+              href: PROJECT.issues,
+              icon: MessageSquare,
+            },
+          ].map(({ title, description, href, icon: Icon }) => (
+            <a
+              key={href}
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="border-border/70 bg-muted/35 hover:bg-muted/55 rounded-xl border px-4 py-4 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className="bg-background flex size-10 items-center justify-center rounded-lg">
+                  <Icon className="size-5" />
+                </div>
+                <div className="space-y-0.5">
+                  <p className="text-sm font-semibold">{title}</p>
+                  <p className="text-muted-foreground text-xs">{description}</p>
+                </div>
+              </div>
+            </a>
+          ))}
           <button
             type="button"
             onClick={() => setShowUpdateModal(true)}
@@ -77,20 +110,47 @@ export default function AboutProject() {
         </div>
       </SettingsSection>
 
-      <SettingsSection title="项目理念" description="高效交互、美观界面与稳定播放并重。" tone="cyan">
+      <SettingsSection
+        title="项目理念"
+        description="高效交互、美观界面与稳定播放并重。"
+        tone="cyan"
+      >
         <div className="bg-muted/30 rounded-xl p-4">
           <div className="mb-2 flex items-center gap-2">
             <Sparkles className="text-muted-foreground size-4" />
             <p className="text-sm font-medium">设计方向</p>
           </div>
           <p className="text-muted-foreground text-sm leading-6">
-            项目持续围绕高效的 UX 交互、美观一致的 UI 设计与稳定流畅的播放体验迭代，确保功能扩展时依然保持易用、清晰和可靠。
+            项目持续围绕高效的 UX 交互、美观一致的 UI
+            设计与稳定流畅的播放体验迭代，确保功能扩展时依然保持易用、清晰和可靠。
           </p>
         </div>
       </SettingsSection>
 
+      <p className="text-muted-foreground text-center text-xs leading-6">
+        基于{' '}
+        <a
+          href={PROJECT.upstream}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline underline-offset-4"
+        >
+          OuonnkiTV
+        </a>{' '}
+        开发，遵循{' '}
+        <a
+          href={`${PROJECT.repository}/blob/main/LICENSE`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline underline-offset-4"
+        >
+          Apache License 2.0
+        </a>
+        。感谢原作者与开源贡献者。
+      </p>
+
       <footer className="border-border/70 text-muted-foreground mt-1 border-t pt-4 text-center text-sm">
-        © {currentYear} xkaTV
+        © {currentYear} {PROJECT.name} · {PROJECT.owner}
       </footer>
     </SettingsPageShell>
   )

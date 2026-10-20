@@ -1,66 +1,32 @@
-# 强制覆盖 Fork 的 main 分支，使其与上游主仓库保持 1:1 同步
-# 使用说明：
-# - 已默认启用：每日 UTC 02:00（北京时间 10:00）自动同步。
-# - 若你在 fork 的 main 分支做了自定义修改，它们会被覆盖；请把自定义提交放在其他分支 (custom/xxx)。
-# - 如果检测到 main 存在独立提交，Workflow 会跳过强制覆盖以避免误伤。
-# - 想改为“安全合并”模式：注释掉 reset/force push，启用底部的合并示例。
-
-name: Sync Upstream (Force Mirror)
+name: Check Upstream Updates
 
 on:
-  schedule:
-    - cron: '0 2 * * *' # 每天 UTC 02:00
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  sync:
+  check:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Checkout fork
+      - name: Checkout current project
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
+          persist-credentials: false
 
-      - name: 添加 upstream 远程
+      - name: Check upstream changes
+        env:
+          PROJECT_REPOSITORY: ${{ github.repository }}
         run: |
-          git remote add upstream https://github.com/Ouonnki/OuonnkiTV.git || true
-          git fetch --prune upstream
-
-      - name: 检测本地 main 是否有独立提交（若有则跳过防误伤）
-        id: divergence
-        run: |
-          git checkout main
+          git remote add upstream https://github.com/Ouonnki/OuonnkiTV.git
           git fetch upstream main
-          UPSTREAM_HASH=$(git rev-parse upstream/main)
-          BASE=$(git merge-base main upstream/main)
-          if [ "$(git rev-parse main)" != "$UPSTREAM_HASH" ] && [ "$BASE" != "$UPSTREAM_HASH" ]; then
-            echo "fork 的 main 相比 upstream/main 有额外提交，将跳过强制覆盖 (创建 custom/* 分支保存你的修改)";
-            echo "skip=true" >> $GITHUB_OUTPUT
-          else
-            echo "skip=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: 强制对齐 upstream/main
-        if: steps.divergence.outputs.skip == 'false'
-        run: |
-          git reset --hard upstream/main
-          git push origin main --force
-
-      - name: 跳过提示
-        if: steps.divergence.outputs.skip == 'true'
-        run: |
-          echo "已跳过强制覆盖。请将你的自定义提交迁移到其他分支，然后重新运行本 Workflow。"
-
-      # --- 安全合并示例（可替换上面强制覆盖步骤） ---
-      # - name: 安全合并（示例，默认注释）
-      #   run: |
-      #     git checkout main
-      #     git merge --ff-only upstream/main || git merge upstream/main --no-edit
-      #     git push origin main
-
-      - name: 完成
-        run: echo "同步流程结束"
+          UPSTREAM_COUNT=$(git rev-list --count HEAD..upstream/main)
+          {
+            echo "## 上游更新参考"
+            echo "上游有 ${UPSTREAM_COUNT} 个尚未包含在当前分支的提交。"
+            echo "[查看差异](https://github.com/${PROJECT_REPOSITORY}/compare/main...Ouonnki:OuonnkiTV:main)"
+            echo "工作流仅检查更新，不修改分支。请在独立分支选择并验证需要的变更。"
+          } >> "$GITHUB_STEP_SUMMARY"
