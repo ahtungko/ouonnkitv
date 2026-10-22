@@ -1,18 +1,25 @@
 import { useState } from 'react'
-import { Megaphone } from 'lucide-react'
+import { Eye, Megaphone } from 'lucide-react'
 import { Button } from '@/shared/components/ui/button'
 import { Input } from '@/shared/components/ui/input'
 import { Textarea } from '@/shared/components/ui/textarea'
+import { Dialog, DialogTrigger } from '@/shared/components/ui/dialog'
 import { SettingsSection } from '@/features/settings/components/common'
 import { useAuthStore } from '@/shared/store/authStore'
 import { saveAnnouncement, type Announcement } from './service'
 import { useAnnouncement } from './useAnnouncement'
+import { AnnouncementDialogContent } from './AnnouncementDialogContent'
 
 function localDateTime(value: string | null) {
   if (!value) return ''
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return ''
   return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16)
+}
+
+function isoDateTime(value: string) {
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? null : date.toISOString()
 }
 
 function AnnouncementEditor({
@@ -35,6 +42,15 @@ function AnnouncementEditor({
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
 
+  const draft = {
+    title: title.trim(),
+    content: content.trim(),
+    kind,
+    version_label: kind === 'version_update' ? versionLabel.trim() || null : null,
+    maintenance_start: kind === 'maintenance' ? isoDateTime(maintenanceStart) : null,
+    maintenance_end: kind === 'maintenance' ? isoDateTime(maintenanceEnd) : null,
+  }
+
   async function save(published: boolean, unpublish = false) {
     if (busy) return
     setBusy(true)
@@ -43,20 +59,7 @@ function AnnouncementEditor({
     try {
       const result = await saveAnnouncement(ownerId, {
         ...saved,
-        ...(!unpublish && {
-          kind,
-          version_label: kind === 'version_update' ? versionLabel : null,
-          maintenance_start:
-            kind === 'maintenance' && maintenanceStart
-              ? new Date(maintenanceStart).toISOString()
-              : null,
-          maintenance_end:
-            kind === 'maintenance' && maintenanceEnd
-              ? new Date(maintenanceEnd).toISOString()
-              : null,
-        }),
-        title: unpublish ? saved.title : title,
-        content: unpublish ? saved.content : content,
+        ...(unpublish ? {} : draft),
         published,
       })
       setSaved(result)
@@ -160,6 +163,15 @@ function AnnouncementEditor({
           <span className="text-muted-foreground block text-xs">{content.length} / 10000</span>
         </label>
         <div className="flex flex-wrap gap-2">
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button type="button" variant="outline" disabled={!title.trim() || !content.trim()}>
+                <Eye className="size-4" />
+                预览公告
+              </Button>
+            </DialogTrigger>
+            <AnnouncementDialogContent announcement={{ ...saved, ...draft }} preview />
+          </Dialog>
           <Button type="submit" disabled={busy || !title.trim() || !content.trim()}>
             {busy ? '正在保存…' : saved.published ? '发布更新' : '发布公告'}
           </Button>

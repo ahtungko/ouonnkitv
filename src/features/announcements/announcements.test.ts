@@ -215,6 +215,77 @@ describe('公告弹窗', () => {
 })
 
 describe('管理员公告编辑', () => {
+  it.each(['notice', 'maintenance', 'version_update'] as const)(
+    '%s 预览展示当前未保存内容，关闭后保留编辑且不发布或标记已读',
+    async kind => {
+      login(alice, 'admin')
+      mocks.read.mockResolvedValue(announcement(1, false))
+      localStorage.setItem(dismissalKey(alice), '旧的已读版本')
+      await mount(AnnouncementAdmin)
+      const select = host.querySelector('select')!
+      await act(async () => {
+        select.value = kind
+        select.dispatchEvent(new Event('change', { bubbles: true }))
+      })
+      if (kind === 'version_update')
+        await change(host.querySelector('input[placeholder="例如：v2.1.0"]')!, ' v2.2.0 ')
+      if (kind === 'maintenance') {
+        const times = host.querySelectorAll<HTMLInputElement>('input[type="datetime-local"]')
+        await change(times[0], '2026-10-22T10:00')
+        await change(times[1], '2026-10-22T12:00')
+      }
+      const title = host.querySelector<HTMLInputElement>('input[placeholder="例如：本周维护通知"]')!
+      const content = host.querySelector('textarea')!
+      await change(title, ' 当前草稿标题 ')
+      await change(content, '第一行\n<img src=x onerror=alert(1)>')
+      await click('预览公告')
+      expect(dialog()?.textContent).toContain('当前草稿标题')
+      expect(dialog()?.textContent).toContain('仅供查看，不会保存或发布')
+      expect(dialog()?.textContent).toContain('第一行\n<img src=x onerror=alert(1)>')
+      expect(dialog()?.querySelector('img')).toBeNull()
+      if (kind === 'maintenance') {
+        expect(dialog()?.textContent).toContain('维护通知')
+        expect(dialog()?.textContent).toContain(new Date('2026-10-22T10:00').toLocaleString())
+        expect(dialog()?.textContent).toContain(new Date('2026-10-22T12:00').toLocaleString())
+      } else {
+        expect(dialog()?.textContent).not.toContain('开始时间：')
+        expect(dialog()?.textContent).toContain(kind === 'notice' ? '普通公告' : '版本更新')
+        if (kind === 'version_update') expect(dialog()?.textContent).toContain('v2.2.0')
+      }
+      if (kind === 'notice')
+        await act(async () =>
+          document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })),
+        )
+      else await click('返回编辑')
+      expect(dialog()).toBeNull()
+      expect(title.value).toBe(' 当前草稿标题 ')
+      expect(content.value).toBe('第一行\n<img src=x onerror=alert(1)>')
+      expect(select.value).toBe(kind)
+      expect(mocks.save).not.toHaveBeenCalled()
+      expect(mocks.read).toHaveBeenCalledTimes(1)
+      expect(localStorage.getItem(dismissalKey(alice))).toBe('旧的已读版本')
+    },
+  )
+
+  it('填写标题和正文后即可预览，不要求先保存或填完维护时间', async () => {
+    login(alice, 'admin')
+    mocks.read.mockResolvedValue({
+      ...announcement(0, false),
+      kind: 'maintenance',
+      title: '',
+      content: '',
+    })
+    await mount(AnnouncementAdmin)
+    expect(button('预览公告').disabled).toBe(true)
+    await change(host.querySelector('input[placeholder="例如：本周维护通知"]')!, '维护草稿')
+    expect(button('预览公告').disabled).toBe(true)
+    await change(host.querySelector('textarea')!, '尚未决定具体时间')
+    await click('预览公告')
+    expect(dialog()?.textContent).toContain('维护草稿')
+    expect(dialog()?.textContent).not.toContain('Invalid Date')
+    expect(mocks.save).not.toHaveBeenCalled()
+  })
+
   it('公告类型显示对应字段，重新加载重置类型和版本号', async () => {
     login(alice, 'admin')
     await mount(AnnouncementAdmin)

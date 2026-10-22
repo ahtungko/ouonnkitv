@@ -5,6 +5,49 @@ import { OkiLogo } from '@/shared/components/icons'
 import { useAuthStore } from '@/shared/store/authStore'
 import { maintenanceIsActive, readMaintenance, type MaintenanceStatus } from './maintenance'
 
+function MaintenanceCountdown({
+  endsAt,
+  serverTime,
+  receivedAt,
+}: {
+  endsAt: string
+  serverTime: string
+  receivedAt: number
+}) {
+  const [, tick] = useState(0)
+  useEffect(() => {
+    const update = () => tick(value => value + 1)
+    const interval = window.setInterval(update, 1000)
+    document.addEventListener('visibilitychange', update)
+    return () => {
+      window.clearInterval(interval)
+      document.removeEventListener('visibilitychange', update)
+    }
+  }, [])
+
+  const serverNow = Date.parse(serverTime) + performance.now() - receivedAt
+  const seconds = Math.ceil((Date.parse(endsAt) - serverNow) / 1000)
+  const remaining = Number.isFinite(seconds) ? Math.max(0, seconds) : 0
+  const days = Math.floor(remaining / 86400)
+  const time = [
+    Math.floor((remaining % 86400) / 3600),
+    Math.floor((remaining % 3600) / 60),
+    remaining % 60,
+  ]
+    .map(value => String(value).padStart(2, '0'))
+    .join(':')
+
+  return (
+    <div className="space-y-1">
+      <p className="text-muted-foreground text-sm">预计恢复倒计时</p>
+      <p role="timer" aria-label="预计恢复倒计时" className="text-3xl font-semibold tabular-nums">
+        {days > 0 && `${days} 天 `}
+        {time}
+      </p>
+    </div>
+  )
+}
+
 function UserMaintenanceGuard({ ownerId, children }: { ownerId: string; children: ReactNode }) {
   const [snapshot, setSnapshot] = useState<{
     status: MaintenanceStatus
@@ -96,7 +139,7 @@ function UserMaintenanceGuard({ ownerId, children }: { ownerId: string; children
         <h1 className="text-2xl font-semibold break-words">
           {maintenance ? maintenance.title : error ? '暂时无法连接网站' : '正在检查网站状态…'}
         </h1>
-        {maintenance && (
+        {maintenance && snapshot && (
           <>
             <p className="text-sm leading-relaxed break-words whitespace-pre-wrap">
               {maintenance.content}
@@ -106,6 +149,11 @@ function UserMaintenanceGuard({ ownerId, children }: { ownerId: string; children
               <p>结束时间：{new Date(maintenance.ends_at).toLocaleString()}</p>
               <p className="text-muted-foreground text-xs">时间按当前设备时区显示</p>
             </div>
+            <MaintenanceCountdown
+              endsAt={maintenance.ends_at}
+              serverTime={snapshot.status.server_time}
+              receivedAt={snapshot.receivedAt}
+            />
             <p className="text-muted-foreground text-sm">维护结束后自动恢复访问，无需重新登录。</p>
           </>
         )}

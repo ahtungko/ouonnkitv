@@ -1,20 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Megaphone } from 'lucide-react'
 import { Button } from '@/shared/components/ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogClose,
-  DialogDescription,
-  DialogHeader,
-  DialogFooter,
-  DialogTitle,
-  DialogTrigger,
-} from '@/shared/components/ui/dialog'
+import { Dialog, DialogTrigger } from '@/shared/components/ui/dialog'
 import { useAuthStore } from '@/shared/store/authStore'
 import { dismissAnnouncement, dismissalKey, readDismissal } from './service'
 import { useAnnouncement } from './useAnnouncement'
-import { AnnouncementDetails } from './AnnouncementDetails'
+import { AnnouncementDialogContent } from './AnnouncementDialogContent'
 
 function AccountAnnouncement({ ownerId, deferred }: { ownerId: string; deferred: boolean }) {
   const { announcement } = useAnnouncement()
@@ -62,20 +53,7 @@ function AccountAnnouncement({ ownerId, deferred }: { ownerId: string; deferred:
           )}
         </Button>
       </DialogTrigger>
-      <DialogContent className="top-1/2 right-auto bottom-auto left-1/2 max-h-[85dvh] w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border-b sm:bottom-auto sm:w-full">
-        <DialogHeader>
-          <DialogTitle className="pr-6 leading-snug break-words">{announcement.title}</DialogTitle>
-          <DialogDescription>
-            站内公告 · {new Date(announcement.updated_at).toLocaleString()}
-          </DialogDescription>
-        </DialogHeader>
-        <AnnouncementDetails announcement={announcement} />
-        <DialogFooter>
-          <DialogClose asChild>
-            <Button>我知道了</Button>
-          </DialogClose>
-        </DialogFooter>
-      </DialogContent>
+      <AnnouncementDialogContent announcement={announcement} />
     </Dialog>
   )
 }

@@ -67,6 +67,33 @@ afterEach(async () => {
 })
 
 describe('定时维护访问控制', () => {
+  it('倒计时按服务器时间逐秒更新，不受本机时钟修改影响，到时自动恢复访问', async () => {
+    mocks.read.mockImplementation(async () => status(-10_000, 3500))
+    await mount()
+    const remaining = () => host.querySelector('[role="timer"]')?.textContent
+    expect(remaining()).toBe('00:00:04')
+    await advance(1000)
+    expect(remaining()).toBe('00:00:03')
+    vi.setSystemTime(new Date('2050-01-01T00:00:00Z'))
+    await advance(1000)
+    expect(remaining()).toBe('00:00:02')
+    await advance(1500)
+    expect(host.querySelector('[role="timer"]')).toBeNull()
+    expect(host.textContent).toContain('网站内容')
+    expect(mocks.logout).not.toHaveBeenCalled()
+  })
+
+  it('维护超过一天时显示天数，管理员调整结束时间后同步更新倒计时', async () => {
+    mocks.read.mockImplementation(async () => status(-10_000, 90_061_000))
+    await mount()
+    expect(host.querySelector('[role="timer"]')?.textContent).toBe('1 天 01:01:01')
+    mocks.read.mockImplementation(async () => status(-10_000, 60_000))
+    await act(async () => window.dispatchEvent(new Event('focus')))
+    expect(host.querySelector('[role="timer"]')?.textContent).toBe('00:01:00')
+    await advance(1000)
+    expect(host.querySelector('[role="timer"]')?.textContent).toBe('00:00:59')
+  })
+
   it('按服务器时间准确进入和结束维护，设备时钟偏差不影响，开始时卸载播放器', async () => {
     await mount()
     expect(host.textContent).toContain('网站内容')
