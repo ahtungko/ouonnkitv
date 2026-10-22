@@ -101,6 +101,7 @@ export function UnderlineTabs<TKey extends string = string>({
               <button
                 key={option.key}
                 type="button"
+                aria-pressed={isActive}
                 className={cn(
                   'relative shrink-0 px-1 py-1.5 text-xs font-medium whitespace-nowrap md:py-2 md:text-sm',
                   tabButtonClassName,
@@ -119,7 +120,7 @@ export function UnderlineTabs<TKey extends string = string>({
                   <motion.span
                     layoutId={layoutId}
                     className={cn(
-                      'absolute right-0 bottom-0 left-0 h-0.5 rounded-full bg-primary',
+                      'bg-primary absolute right-0 bottom-0 left-0 h-0.5 rounded-full',
                       option.indicatorClassName,
                       indicatorClassName,
                     )}
@@ -135,14 +136,14 @@ export function UnderlineTabs<TKey extends string = string>({
         <>
           <div
             className={cn(
-              'pointer-events-none absolute top-0 bottom-[3px] left-0 z-10 w-9 rounded-r-2xl bg-gradient-to-r from-background/85 via-background/45 to-transparent transition-opacity duration-300 ease-out',
+              'from-background/85 via-background/45 pointer-events-none absolute top-0 bottom-[3px] left-0 z-10 w-9 rounded-r-2xl bg-gradient-to-r to-transparent transition-opacity duration-300 ease-out',
               edgeHint.left ? 'opacity-100' : 'opacity-0',
               leftEdgeClassName,
             )}
           />
           <div
             className={cn(
-              'pointer-events-none absolute top-0 right-0 bottom-[3px] z-10 w-10 rounded-l-2xl bg-gradient-to-l from-background/85 via-background/45 to-transparent transition-opacity duration-300 ease-out',
+              'from-background/85 via-background/45 pointer-events-none absolute top-0 right-0 bottom-[3px] z-10 w-10 rounded-l-2xl bg-gradient-to-l to-transparent transition-opacity duration-300 ease-out',
               edgeHint.right ? 'opacity-100' : 'opacity-0',
               rightEdgeClassName,
             )}

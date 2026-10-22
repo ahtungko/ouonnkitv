@@ -40,10 +40,10 @@ const actionLabels: Record<string, string> = {
   delete: '删除账号',
 }
 
-export default function AccountAdmin() {
+export default function AccountAdmin({ showNavigation = true }: { showNavigation?: boolean }) {
   const [params, setParams] = useSearchParams()
   const id = params.get('id') || ''
-  const auditView = !id && params.get('view') === 'audit'
+  const auditView = !id && (params.get('view') === 'audit' || params.get('tab') === 'audit')
   const pageValue = Number(params.get('page') || 1)
   const page = Number.isSafeInteger(pageValue) && pageValue > 0 ? pageValue : 1
   const offset = (page - 1) * 20
@@ -130,7 +130,7 @@ export default function AccountAdmin() {
     setParams(next)
   }
   function returnToList() {
-    navigate({ id: '', view: '', page: params.get('listPage') || '1', listPage: '' })
+    navigate({ id: '', view: '', tab: 'users', page: params.get('listPage') || '1', listPage: '' })
   }
   async function run(body: unknown, success: string) {
     if (busy) return
@@ -159,18 +159,22 @@ export default function AccountAdmin() {
       tone="violet"
       description="创建用户、查看近期设备、结束会话，并记录管理员操作。"
     >
-      <div className="mb-5 flex flex-wrap gap-2">
-        <Button variant="outline" disabled={busy} onClick={returnToList}>
-          账号列表
-        </Button>
-        <Button
-          variant="outline"
-          disabled={busy}
-          onClick={() => navigate({ id: '', view: 'audit' })}
-        >
-          操作记录
-        </Button>
-      </div>
+      {(showNavigation || id) && (
+        <div className="mb-5 flex flex-wrap gap-2">
+          <Button variant="outline" disabled={busy} onClick={returnToList}>
+            账号列表
+          </Button>
+          {showNavigation && (
+            <Button
+              variant="outline"
+              disabled={busy}
+              onClick={() => navigate({ id: '', view: 'audit' })}
+            >
+              操作记录
+            </Button>
+          )}
+        </div>
+      )}
       {!id && !auditView && (
         <div className="mb-5 space-y-5">
           <details>
