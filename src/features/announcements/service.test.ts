@@ -24,6 +24,41 @@ beforeEach(() => {
 })
 
 describe('公告 RPC 错误提示', () => {
+  it('维护公告使用固定标题，正文可留空', async () => {
+    const value = {
+      ...announcement,
+      kind: 'maintenance' as const,
+      title: '',
+      content: '   ',
+      maintenance_start: '2026-10-22T08:00:00Z',
+      maintenance_end: '2026-10-22T09:00:00Z',
+    }
+    mocks.result.mockResolvedValue({
+      data: { ...value, title: '系统维护', content: '' },
+      error: null,
+    })
+    await saveAnnouncement(ownerId, value)
+    expect(mocks.rpc).toHaveBeenCalledWith(
+      'save_site_announcement',
+      expect.objectContaining({ p_title: '系统维护', p_content: '' }),
+    )
+  })
+
+  it.each(['notice', 'version_update'] as const)('%s 正文可留空但发布时标题仍必填', async kind => {
+    const value = { ...announcement, kind, content: '' }
+    mocks.result.mockResolvedValue({ data: value, error: null })
+    await saveAnnouncement(ownerId, value)
+    expect(mocks.rpc).toHaveBeenCalledWith(
+      'save_site_announcement',
+      expect.objectContaining({ p_content: '' }),
+    )
+    mocks.rpc.mockClear()
+    await expect(saveAnnouncement(ownerId, { ...value, title: ' ' })).rejects.toThrow(
+      '请填写公告标题',
+    )
+    expect(mocks.rpc).not.toHaveBeenCalled()
+  })
+
   it('维护公告发布时必须填写两个时间，草稿仍可暂存', async () => {
     await expect(
       saveAnnouncement(ownerId, { ...announcement, kind: 'maintenance' }),

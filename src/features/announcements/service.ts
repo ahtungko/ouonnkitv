@@ -25,7 +25,7 @@ function credentials(ownerId: string) {
 
 function announcementError(error: { code?: string; message: string }) {
   if (['PGRST202', '42P01', '42883'].includes(error.code || ''))
-    return new Error('请先在 Supabase 执行公告迁移 202610200001 和 202610200002')
+    return new Error('请先在 Supabase 依次执行公告迁移 202610200001 至 202610220001')
   if (error.message.includes('Announcement changed'))
     return new Error('公告已在其他页面更新。请重新加载后再编辑，本次修改尚未保存。')
   if (error.message.includes('Invalid announcement'))
@@ -49,14 +49,13 @@ export async function saveAnnouncement(ownerId: string, value: Announcement) {
   const { client, token } = credentials(ownerId)
   const parsed = announcementSchema.parse({
     ...value,
-    title: value.title.trim(),
+    title: value.kind === 'maintenance' ? '系统维护' : value.title.trim(),
     content: value.content.trim(),
     version_label: value.kind === 'version_update' ? value.version_label?.trim() || null : null,
     maintenance_start: value.kind === 'maintenance' ? value.maintenance_start : null,
     maintenance_end: value.kind === 'maintenance' ? value.maintenance_end : null,
   })
-  if (parsed.published && (!parsed.title || !parsed.content))
-    throw new Error('请填写公告标题和正文')
+  if (parsed.published && !parsed.title) throw new Error('请填写公告标题')
   if (
     parsed.published &&
     parsed.kind === 'maintenance' &&

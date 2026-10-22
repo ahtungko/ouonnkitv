@@ -43,13 +43,21 @@ function AnnouncementEditor({
   const [error, setError] = useState('')
 
   const draft = {
-    title: title.trim(),
+    title: kind === 'maintenance' ? '系统维护' : title.trim(),
     content: content.trim(),
     kind,
     version_label: kind === 'version_update' ? versionLabel.trim() || null : null,
     maintenance_start: kind === 'maintenance' ? isoDateTime(maintenanceStart) : null,
     maintenance_end: kind === 'maintenance' ? isoDateTime(maintenanceEnd) : null,
   }
+
+  const canPreview = kind === 'maintenance' || !!draft.title
+  const canPublish =
+    canPreview &&
+    (kind !== 'maintenance' ||
+      (!!draft.maintenance_start &&
+        !!draft.maintenance_end &&
+        Date.parse(draft.maintenance_end) > Date.parse(draft.maintenance_start)))
 
   async function save(published: boolean, unpublish = false) {
     if (busy) return
@@ -164,22 +172,28 @@ function AnnouncementEditor({
             </p>
           </div>
         )}
+        {kind !== 'maintenance' && (
+          <label className="block space-y-2 text-sm">
+            <span>公告标题</span>
+            <Input
+              value={title}
+              maxLength={100}
+              placeholder="例如：本周维护通知"
+              onChange={event => setTitle(event.target.value)}
+            />
+          </label>
+        )}
         <label className="block space-y-2 text-sm">
-          <span>公告标题</span>
-          <Input
-            value={title}
-            maxLength={100}
-            placeholder="例如：本周维护通知"
-            onChange={event => setTitle(event.target.value)}
-          />
-        </label>
-        <label className="block space-y-2 text-sm">
-          <span>公告正文</span>
+          <span>{kind === 'maintenance' ? '维护说明（可选）' : '公告正文（可选）'}</span>
           <Textarea
             value={content}
             maxLength={10000}
             className="max-h-80 min-h-40 overflow-y-auto"
-            placeholder="填写要通知用户的内容，支持换行。"
+            placeholder={
+              kind === 'maintenance'
+                ? '可补充维护原因或注意事项，留空仅展示维护时间和倒计时。'
+                : '可补充公告内容，支持换行；也可以留空。'
+            }
             onChange={event => setContent(event.target.value)}
           />
           <span className="text-muted-foreground block text-xs">{content.length} / 10000</span>
@@ -187,14 +201,14 @@ function AnnouncementEditor({
         <div className="flex flex-wrap gap-2">
           <Dialog>
             <DialogTrigger asChild>
-              <Button type="button" variant="outline" disabled={!title.trim() || !content.trim()}>
+              <Button type="button" variant="outline" disabled={!canPreview}>
                 <Eye className="size-4" />
                 预览公告
               </Button>
             </DialogTrigger>
             <AnnouncementDialogContent announcement={{ ...saved, ...draft }} preview />
           </Dialog>
-          <Button type="submit" disabled={busy || !title.trim() || !content.trim()}>
+          <Button type="submit" disabled={busy || !canPublish}>
             {busy ? '正在保存…' : saved.published ? '发布更新' : '发布公告'}
           </Button>
           {saved.published ? (

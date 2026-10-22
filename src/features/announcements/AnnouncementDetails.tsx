@@ -49,9 +49,11 @@ export function AnnouncementDetails({ announcement }: { announcement: Announceme
             <p className="text-muted-foreground text-xs">时间按当前设备时区显示</p>
           </div>
         )}
-      <div className="text-sm leading-relaxed break-words whitespace-pre-wrap">
-        {announcement.content}
-      </div>
+      {announcement.content.trim() && (
+        <div className="text-sm leading-relaxed [overflow-wrap:anywhere] whitespace-pre-wrap">
+          {announcement.content}
+        </div>
+      )}
     </div>
   )
 }

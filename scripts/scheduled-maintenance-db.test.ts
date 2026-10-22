@@ -9,6 +9,7 @@ const sid = (id: string) => id.replace('00000000-', '10000000-')
 const migration = (name: string) =>
   readFileSync(new URL(`../supabase/migrations/${name}.sql`, import.meta.url), 'utf8')
 const maintenanceMigration = migration('202610200003_scheduled_maintenance')
+const optionalContentMigration = migration('202610220001_optional_announcement_content')
 let db: PGlite
 async function asUser(id: string) {
   await db.exec('reset role; set role authenticated')
@@ -65,6 +66,7 @@ beforeAll(async () => {
     `insert into public.user_accounts(id, username, role) values ('${admin}', 'admin', 'admin'), ('${user}', 'user', 'user')`,
   )
   await db.exec(maintenanceMigration)
+  await db.exec(optionalContentMigration)
 }, 45000)
 beforeEach(async () => {
   await db.exec(`reset role;
@@ -81,6 +83,62 @@ afterAll(async () => {
 })
 
 describe('定时维护的真实数据库权限', () => {
+  it('维护可不填标题与正文，服务器保存固定标题，迁移重跑保留版本和内容', async () => {
+    await asUser(admin)
+    const result = (
+      await db.query<{ value: { title: string; content: string; revision: number } }>(
+        "select public.save_site_announcement('', '', true, 0, 'maintenance', null, clock_timestamp() - interval '1 hour', clock_timestamp() + interval '1 hour') as value",
+      )
+    ).rows[0].value
+    expect(result).toMatchObject({ title: '系统维护', content: '', revision: 1 })
+    await db.exec('reset role')
+    await db.exec(optionalContentMigration)
+    await asUser(user)
+    expect(await active()).toBe(false)
+    const snapshot = (
+      await db.query<{ value: { maintenance: { title: string; content: string } } }>(
+        'select public.get_site_maintenance_status() as value',
+      )
+    ).rows[0].value
+    expect(snapshot.maintenance).toMatchObject({ title: '系统维护', content: '' })
+    await asUser(admin)
+    const saved = (
+      await db.query<{ value: { revision: number } }>(
+        'select public.get_site_announcement() as value',
+      )
+    ).rows[0].value
+    expect(saved.revision).toBe(1)
+  })
+
+  it.each(['notice', 'version_update'])(
+    '%s 接受空正文但仍拒绝空标题、超长内容及旧版本覆盖',
+    async kind => {
+      await asUser(admin)
+      const sql =
+        'select public.save_site_announcement($1, $2, true, $3, $4, null, null, null) as value'
+      await expect(db.query(sql, ['', '', 0, kind])).rejects.toThrow('Invalid announcement')
+      await expect(db.query(sql, ['标题', 'x'.repeat(10001), 0, kind])).rejects.toThrow(
+        'Invalid announcement',
+      )
+      await expect(db.query(sql, ['x'.repeat(101), '', 0, kind])).rejects.toThrow(
+        'Invalid announcement',
+      )
+      const result = (
+        await db.query<{ value: { title: string; content: string } }>(sql, ['标题', '', 0, kind])
+      ).rows[0].value
+      expect(result).toMatchObject({ title: '标题', content: '' })
+      await expect(db.query(sql, ['新标题', '', 0, kind])).rejects.toThrow('Announcement changed')
+    },
+  )
+
+  it('旧版四参数 RPC 也接受空正文，普通用户不能发布', async () => {
+    const sql = "select public.save_site_announcement('标题', '', true, 0) as value"
+    await expect(db.query(sql)).rejects.toThrow('Admin required')
+    await asUser(admin)
+    const result = (await db.query<{ value: { kind: string; content: string } }>(sql)).rows[0].value
+    expect(result).toMatchObject({ kind: 'notice', content: '' })
+  })
+
   it('开始前与结束后正常访问，维护区间内服务器拒绝普通用户', async () => {
     await window("clock_timestamp() + interval '1 hour'", "clock_timestamp() + interval '2 hour'")
     await asUser(user)

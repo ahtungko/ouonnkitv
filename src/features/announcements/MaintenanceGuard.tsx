@@ -40,7 +40,11 @@ function MaintenanceCountdown({
   return (
     <div className="space-y-1">
       <p className="text-muted-foreground text-sm">预计恢复倒计时</p>
-      <p role="timer" aria-label="预计恢复倒计时" className="text-3xl font-semibold tabular-nums">
+      <p
+        role="timer"
+        aria-label="预计恢复倒计时"
+        className="text-3xl leading-tight font-semibold tracking-tight break-words tabular-nums sm:text-4xl"
+      >
         {days > 0 && `${days} 天 `}
         {time}
       </p>
@@ -129,64 +133,98 @@ function UserMaintenanceGuard({ ownerId, children }: { ownerId: string; children
   const maintenance = active ? snapshot.status.maintenance : null
 
   return (
-    <div className="bg-background flex min-h-dvh items-center justify-center px-6 py-12">
+    <div className="bg-background flex min-h-dvh items-center justify-center px-4 py-6 sm:px-6 sm:py-10">
       <main
-        className="w-full max-w-lg space-y-5 rounded-2xl border p-6 sm:p-8"
+        className="w-full max-w-xl min-w-0 overflow-hidden rounded-2xl border shadow-sm"
         aria-label="网站维护状态"
       >
-        <OkiLogo size={48} />
-        <Wrench className="size-8 text-amber-500" />
-        <h1 className="text-2xl font-semibold break-words">
-          {maintenance ? maintenance.title : error ? '暂时无法连接网站' : '正在检查网站状态…'}
-        </h1>
-        {maintenance && snapshot && (
-          <>
-            <p className="text-sm leading-relaxed break-words whitespace-pre-wrap">
-              {maintenance.content}
+        <header className="flex items-center justify-between gap-4 border-b px-5 py-4 sm:px-8">
+          <OkiLogo size={32} />
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-700 dark:text-amber-300">
+            <Wrench className="size-3.5" aria-hidden="true" />
+            维护通知
+          </span>
+        </header>
+        <div className="min-w-0 space-y-5 p-5 sm:p-8">
+          <h1 className="text-2xl font-semibold tracking-tight break-words">
+            {maintenance ? '系统维护' : error ? '暂时无法连接网站' : '正在检查网站状态…'}
+          </h1>
+          {maintenance && snapshot && (
+            <>
+              <p className="text-muted-foreground text-sm leading-relaxed">
+                维护结束后自动恢复访问，无需重新登录。
+              </p>
+              <section
+                className="space-y-4 rounded-xl border bg-amber-500/5 p-4 sm:p-5"
+                aria-label="维护时间"
+              >
+                <MaintenanceCountdown
+                  endsAt={maintenance.ends_at}
+                  serverTime={snapshot.status.server_time}
+                  receivedAt={snapshot.receivedAt}
+                />
+                <dl className="grid min-w-0 gap-3 border-t pt-4 text-sm sm:grid-cols-2">
+                  <div className="min-w-0 space-y-1">
+                    <dt className="text-muted-foreground text-xs">开始时间</dt>
+                    <dd className="break-words">
+                      {new Date(maintenance.starts_at).toLocaleString()}
+                    </dd>
+                  </div>
+                  <div className="min-w-0 space-y-1">
+                    <dt className="text-muted-foreground text-xs">预计结束</dt>
+                    <dd className="break-words">
+                      {new Date(maintenance.ends_at).toLocaleString()}
+                    </dd>
+                  </div>
+                </dl>
+                <p className="text-muted-foreground text-xs">时间按当前设备时区显示</p>
+              </section>
+              {maintenance.content.trim() && (
+                <section aria-label="维护说明" className="min-w-0 space-y-2">
+                  <h2 className="text-muted-foreground text-xs font-medium">维护说明</h2>
+                  <div
+                    role="region"
+                    aria-label="维护说明正文"
+                    tabIndex={0}
+                    className="max-h-[min(28dvh,14rem)] overflow-y-auto overscroll-contain rounded-lg border p-3 text-sm leading-7 [overflow-wrap:anywhere] whitespace-pre-wrap focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-500"
+                  >
+                    {maintenance.content}
+                  </div>
+                </section>
+              )}
+            </>
+          )}
+          {error && (
+            <p role="alert" className="text-destructive text-sm">
+              {error}
             </p>
-            <div className="bg-muted space-y-1 rounded-lg p-3 text-sm">
-              <p>开始时间：{new Date(maintenance.starts_at).toLocaleString()}</p>
-              <p>结束时间：{new Date(maintenance.ends_at).toLocaleString()}</p>
-              <p className="text-muted-foreground text-xs">时间按当前设备时区显示</p>
-            </div>
-            <MaintenanceCountdown
-              endsAt={maintenance.ends_at}
-              serverTime={snapshot.status.server_time}
-              receivedAt={snapshot.receivedAt}
-            />
-            <p className="text-muted-foreground text-sm">维护结束后自动恢复访问，无需重新登录。</p>
-          </>
-        )}
-        {error && (
-          <p role="alert" className="text-destructive text-sm">
-            {error}
-          </p>
-        )}
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => setRefresh(value => value + 1)}>
-            重新检查
-          </Button>
-          <Button
-            variant="ghost"
-            disabled={busy}
-            onClick={() => {
-              setBusy(true)
-              setLogoutError('')
-              void useAuthStore
-                .getState()
-                .logout()
-                .catch(() => setLogoutError('退出失败，请稍后重试'))
-                .finally(() => setBusy(false))
-            }}
-          >
-            切换账号 / 管理员登录
-          </Button>
+          )}
+          <div className="flex flex-col gap-2 border-t pt-4 sm:flex-row sm:flex-wrap">
+            <Button variant="outline" onClick={() => setRefresh(value => value + 1)}>
+              重新检查
+            </Button>
+            <Button
+              variant="ghost"
+              disabled={busy}
+              onClick={() => {
+                setBusy(true)
+                setLogoutError('')
+                void useAuthStore
+                  .getState()
+                  .logout()
+                  .catch(() => setLogoutError('退出失败，请稍后重试'))
+                  .finally(() => setBusy(false))
+              }}
+            >
+              切换账号 / 管理员登录
+            </Button>
+          </div>
+          {logoutError && (
+            <p role="alert" className="text-destructive text-sm">
+              {logoutError}
+            </p>
+          )}
         </div>
-        {logoutError && (
-          <p role="alert" className="text-destructive text-sm">
-            {logoutError}
-          </p>
-        )}
       </main>
     </div>
   )

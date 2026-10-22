@@ -18,16 +18,25 @@ export function AnnouncementDialogContent({
   preview?: boolean
 }) {
   return (
-    <DialogContent className="top-1/2 right-auto bottom-auto left-1/2 max-h-[85dvh] w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border-b sm:bottom-auto sm:w-full">
+    <DialogContent className="top-1/2 right-auto bottom-auto left-1/2 max-h-[85dvh] w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-xl border-b sm:bottom-auto sm:w-full">
       <DialogHeader>
-        <DialogTitle className="pr-6 leading-snug break-words">{announcement.title}</DialogTitle>
+        <DialogTitle className="pr-6 leading-snug break-words">
+          {announcement.kind === 'maintenance' ? '系统维护' : announcement.title}
+        </DialogTitle>
         <DialogDescription>
           {preview
             ? '公告预览 · 仅供查看，不会保存或发布'
             : `站内公告 · ${new Date(announcement.updated_at).toLocaleString()}`}
         </DialogDescription>
       </DialogHeader>
-      <AnnouncementDetails announcement={announcement} />
+      <div
+        className="min-h-0 overflow-y-auto overscroll-contain [overflow-wrap:anywhere]"
+        role="region"
+        aria-label="公告内容"
+        tabIndex={0}
+      >
+        <AnnouncementDetails announcement={announcement} />
+      </div>
       <DialogFooter>
         <DialogClose asChild>
           <Button type="button">{preview ? '返回编辑' : '我知道了'}</Button>

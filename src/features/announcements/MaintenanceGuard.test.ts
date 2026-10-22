@@ -67,6 +67,30 @@ afterEach(async () => {
 })
 
 describe('定时维护访问控制', () => {
+  it('空正文不显示说明区，旧自定义标题也使用固定维护标题', async () => {
+    const value = status(-10_000, 60_000)
+    value.maintenance!.title = '旧的自定义标题'
+    value.maintenance!.content = '   '
+    mocks.read.mockResolvedValue(value)
+    await mount()
+    expect(host.querySelector('h1')?.textContent).toBe('系统维护')
+    expect(host.querySelector('[aria-label="维护说明"]')).toBeNull()
+    expect(host.querySelector('[role="timer"]')).not.toBeNull()
+  })
+
+  it('长正文保留全文和换行，以独立区域呈现，时间和按钮不在正文中', async () => {
+    const value = status(-10_000, 60_000)
+    value.maintenance!.content = '维护说明\n' + 'https://example.com/'.repeat(400)
+    mocks.read.mockResolvedValue(value)
+    await mount()
+    const body = host.querySelector<HTMLElement>('[aria-label="维护说明正文"]')!
+    expect(body.textContent).toBe(value.maintenance!.content)
+    expect(body.tabIndex).toBe(0)
+    expect(body.querySelector('[role="timer"]')).toBeNull()
+    expect(body.querySelector('button')).toBeNull()
+    expect(host.textContent).toContain('重新检查')
+  })
+
   it('倒计时按服务器时间逐秒更新，不受本机时钟修改影响，到时自动恢复访问', async () => {
     mocks.read.mockImplementation(async () => status(-10_000, 3500))
     await mount()
@@ -100,7 +124,7 @@ describe('定时维护访问控制', () => {
     await advance(9999)
     expect(host.textContent).toContain('网站内容')
     await advance(1)
-    expect(host.textContent).toContain('网站维护中')
+    expect(host.textContent).toContain('系统维护')
     expect(host.querySelector('[data-testid="app"]')).toBeNull()
     expect(mocks.dispose).toHaveBeenCalledTimes(1)
     await advance(10_000)
@@ -112,7 +136,7 @@ describe('定时维护访问控制', () => {
     mocks.read.mockImplementation(async () => status(-10_000, 60_000))
     localStorage.setItem(`ouonnki-tv-announcement-dismissed:${owner}`, '100')
     await mount()
-    expect(host.textContent).toContain('网站维护中')
+    expect(host.textContent).toContain('系统维护')
     await act(async () => login(owner, 'admin'))
     expect(host.textContent).toContain('网站内容')
     mocks.read.mockClear()
@@ -124,7 +148,7 @@ describe('定时维护访问控制', () => {
   it('管理员提前下架维护后，在下一次检查恢复访问', async () => {
     mocks.read.mockImplementation(async () => status(-10_000, 60_000))
     await mount()
-    expect(host.textContent).toContain('网站维护中')
+    expect(host.textContent).toContain('系统维护')
     mocks.read.mockImplementation(async () => ({
       server_time: new Date(base + performance.now()).toISOString(),
       maintenance: null,

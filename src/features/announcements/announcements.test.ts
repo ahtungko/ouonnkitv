@@ -275,10 +275,10 @@ describe('管理员公告编辑', () => {
       }
       const title = host.querySelector<HTMLInputElement>('input[placeholder="例如：本周维护通知"]')!
       const content = host.querySelector('textarea')!
-      await change(title, ' 当前草稿标题 ')
+      if (kind !== 'maintenance') await change(title, ' 当前草稿标题 ')
       await change(content, '第一行\n<img src=x onerror=alert(1)>')
       await click('预览公告')
-      expect(dialog()?.textContent).toContain('当前草稿标题')
+      expect(dialog()?.textContent).toContain(kind === 'maintenance' ? '系统维护' : '当前草稿标题')
       expect(dialog()?.textContent).toContain('仅供查看，不会保存或发布')
       expect(dialog()?.textContent).toContain('第一行\n<img src=x onerror=alert(1)>')
       expect(dialog()?.querySelector('img')).toBeNull()
@@ -297,7 +297,7 @@ describe('管理员公告编辑', () => {
         )
       else await click('返回编辑')
       expect(dialog()).toBeNull()
-      expect(title.value).toBe(' 当前草稿标题 ')
+      if (kind !== 'maintenance') expect(title.value).toBe(' 当前草稿标题 ')
       expect(content.value).toBe('第一行\n<img src=x onerror=alert(1)>')
       expect(select.value).toBe(kind)
       expect(mocks.save).not.toHaveBeenCalled()
@@ -306,7 +306,7 @@ describe('管理员公告编辑', () => {
     },
   )
 
-  it('填写标题和正文后即可预览，不要求先保存或填完维护时间', async () => {
+  it('维护隐藏标题、正文可留空，未填时间可预览但不能发布', async () => {
     login(alice, 'admin')
     mocks.read.mockResolvedValue({
       ...announcement(0, false),
@@ -315,14 +315,53 @@ describe('管理员公告编辑', () => {
       content: '',
     })
     await mount(AnnouncementAdmin)
-    expect(button('预览公告').disabled).toBe(true)
-    await change(host.querySelector('input[placeholder="例如：本周维护通知"]')!, '维护草稿')
-    expect(button('预览公告').disabled).toBe(true)
-    await change(host.querySelector('textarea')!, '尚未决定具体时间')
+    expect(host.querySelector('input[placeholder="例如：本周维护通知"]')).toBeNull()
+    expect(host.textContent).toContain('维护说明（可选）')
+    expect(button('预览公告').disabled).toBe(false)
+    expect(button('发布公告').disabled).toBe(true)
     await click('预览公告')
-    expect(dialog()?.textContent).toContain('维护草稿')
+    expect(dialog()?.textContent).toContain('系统维护')
     expect(dialog()?.textContent).not.toContain('Invalid Date')
-    expect(mocks.save).not.toHaveBeenCalled()
+    await click('返回编辑')
+    await click('现在起 30 分钟')
+    expect(button('发布公告').disabled).toBe(false)
+    await click('发布公告')
+    expect(mocks.save).toHaveBeenLastCalledWith(
+      alice,
+      expect.objectContaining({
+        title: '系统维护',
+        content: '',
+        kind: 'maintenance',
+        published: true,
+      }),
+    )
+  })
+
+  it('普通公告和版本更新无需正文即可预览和发布，切换维护不会覆盖未保存标题', async () => {
+    login(alice, 'admin')
+    mocks.read.mockResolvedValue({ ...announcement(0, false), content: '' })
+    await mount(AnnouncementAdmin)
+    const title = host.querySelector<HTMLInputElement>('input[placeholder="例如：本周维护通知"]')!
+    await change(title, '保留的普通公告标题')
+    const select = host.querySelector('select')!
+    for (const kind of ['maintenance', 'version_update', 'notice']) {
+      await act(async () => {
+        select.value = kind
+        select.dispatchEvent(new Event('change', { bubbles: true }))
+      })
+      expect(button('预览公告').disabled).toBe(false)
+      if (kind !== 'maintenance') {
+        expect(
+          host.querySelector<HTMLInputElement>('input[placeholder="例如：本周维护通知"]')!.value,
+        ).toBe('保留的普通公告标题')
+        expect(button('发布公告').disabled).toBe(false)
+      }
+    }
+    await click('发布公告')
+    expect(mocks.save).toHaveBeenLastCalledWith(
+      alice,
+      expect.objectContaining({ title: '保留的普通公告标题', content: '', published: true }),
+    )
   })
 
   it('公告类型显示对应字段，重新加载重置类型和版本号', async () => {

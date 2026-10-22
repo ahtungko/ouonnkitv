@@ -28,8 +28,9 @@
 - 新公告自动弹窗；点击「我知道了」、关闭按钮或按 Escape 后，本机当前账号不再重复弹出当前版本。顶部导航保留查看入口，发布新版本后重新提醒；播放期间延后至退出播放页再展示。
 - 维护公告发布时需填写开始和结束时间：按服务器时间自动进入维护、到时恢复；普通用户显示维护页并停止播放，管理员始终可用。下架可提前恢复访问，维护前的公告已读状态不影响维护限制。
 - 维护时间提供「现在起 30 分钟 / 1 小时 / 2 小时」快捷设置，按点击时刻同时更新开始与结束的日期和时间，确认后再发布。
+- 维护类型固定显示「系统维护」，无需填写公告标题；所有类型的正文均可留空。维护页集中显示倒计时和起止时间，长说明在独立限高区域滚动，长链接自动换行；公告弹窗的标题与底部按钮保持可见。
 - 维护页显示按服务器时间校准的预计恢复倒计时，每秒更新；跨天维护显示剩余天数，结束后自动恢复访问。
-- 网站打开期间每分钟及回到页面、网络恢复时刷新公告；维护状态每 15 秒检查，已知的起止时间由本机依据服务器时钟定时切换。需要依次执行[公告基础迁移](supabase/migrations/202610200001_site_announcement.sql)、[公告类型升级](supabase/migrations/202610200002_announcement_types.sql)和[定时维护迁移](supabase/migrations/202610200003_scheduled_maintenance.sql)，详见[配置指南](docs/cloud-sync.md#site-announcement)。
+- 网站打开期间每分钟及回到页面、网络恢复时刷新公告；维护状态每 15 秒检查，已知的起止时间由本机依据服务器时钟定时切换。需要依次执行[公告基础迁移](supabase/migrations/202610200001_site_announcement.sql)、[公告类型升级](supabase/migrations/202610200002_announcement_types.sql)、[定时维护迁移](supabase/migrations/202610200003_scheduled_maintenance.sql)和[正文可选迁移](supabase/migrations/202610220001_optional_announcement_content.sql)，详见[配置指南](docs/cloud-sync.md#site-announcement)。
 
 ### 追剧更新
 
