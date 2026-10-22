@@ -71,6 +71,7 @@ beforeEach(() => {
 afterEach(async () => {
   await act(async () => root.unmount())
   host.remove()
+  vi.useRealTimers()
 })
 
 const dialog = () => document.body.querySelector('[role="dialog"]')
@@ -215,6 +216,44 @@ describe('公告弹窗', () => {
 })
 
 describe('管理员公告编辑', () => {
+  it.each([
+    { minutes: 30, label: '现在起 30 分钟' },
+    { minutes: 60, label: '现在起 1 小时' },
+    { minutes: 120, label: '现在起 2 小时' },
+  ])(
+    '快捷设置 $label 使用点击时的日期和时间覆盖旧维护时段，不自动保存',
+    async ({ minutes, label }) => {
+      vi.useFakeTimers({ toFake: ['Date'] })
+      vi.setSystemTime(new Date('2026-10-22T15:20:00Z'))
+      login(alice, 'admin')
+      mocks.read.mockResolvedValue({
+        ...announcement(),
+        kind: 'maintenance',
+        maintenance_start: '2026-10-20T08:00:00Z',
+        maintenance_end: '2026-10-20T09:00:00Z',
+      })
+      await mount(AnnouncementAdmin)
+      const times = host.querySelectorAll<HTMLInputElement>('input[type="datetime-local"]')
+      expect(new Date(times[0].value).toISOString()).toBe('2026-10-20T08:00:00.000Z')
+      // 页面打开后过了半小时，仍须使用点击瞬间而非打开页面时的时间。
+      vi.setSystemTime(new Date('2026-10-22T15:50:00Z'))
+      await click(label)
+      expect(new Date(times[0].value).getTime()).toBe(Date.now())
+      expect(new Date(times[1].value).getTime()).toBe(Date.now() + minutes * 60_000)
+      expect(times[1].min).toBe(times[0].value)
+      expect(mocks.save).not.toHaveBeenCalled()
+      await click('发布更新')
+      expect(mocks.save).toHaveBeenLastCalledWith(
+        alice,
+        expect.objectContaining({
+          maintenance_start: new Date(times[0].value).toISOString(),
+          maintenance_end: new Date(times[1].value).toISOString(),
+          published: true,
+        }),
+      )
+    },
+  )
+
   it.each(['notice', 'maintenance', 'version_update'] as const)(
     '%s 预览展示当前未保存内容，关闭后保留编辑且不发布或标记已读',
     async kind => {

@@ -116,6 +116,28 @@ function AnnouncementEditor({
         )}
         {kind === 'maintenance' && (
           <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-muted-foreground text-xs">快捷设置</span>
+              {[
+                { minutes: 30, label: '现在起 30 分钟' },
+                { minutes: 60, label: '现在起 1 小时' },
+                { minutes: 120, label: '现在起 2 小时' },
+              ].map(({ minutes, label }) => (
+                <Button
+                  key={minutes}
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const now = Date.now()
+                    setMaintenanceStart(localDateTime(new Date(now).toISOString()))
+                    setMaintenanceEnd(localDateTime(new Date(now + minutes * 60_000).toISOString()))
+                  }}
+                >
+                  {label}
+                </Button>
+              ))}
+            </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="block space-y-2 text-sm">
                 <span>维护开始时间</span>
@@ -138,7 +160,7 @@ function AnnouncementEditor({
               </label>
             </div>
             <p className="text-muted-foreground text-xs">
-              按当前设备时区填写。发布后按服务器时间自动进入和结束维护，期间普通用户无法访问；管理员不受限制。下架可提前恢复访问。
+              按当前设备时区填写，快捷设置会同时更新日期和时间。发布后按服务器时间自动进入和结束维护，期间普通用户无法访问；管理员不受限制。下架可提前恢复访问。
             </p>
           </div>
         )}
