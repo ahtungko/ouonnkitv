@@ -3,6 +3,7 @@ import { createBrowserRouter, RouterProvider, Navigate } from 'react-router'
 import { OkiLogo } from '@/shared/components/icons'
 import { useAuthStore } from '@/shared/store/authStore'
 import { PROJECT } from '@/shared/config/project'
+import { adminChildRoutes } from '@/features/auth/admin-routes'
 
 // Layouts
 import MainLayout from '@/app/layouts/MainLayout'
@@ -77,6 +78,7 @@ const router = createBrowserRouter([
             </SuspenseWrapper>
           </AdminOnly>
         ),
+        children: adminChildRoutes,
       },
       {
         path: 'account',

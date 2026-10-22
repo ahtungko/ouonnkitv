@@ -41,14 +41,18 @@ export function buildTmdbPlayPath(
   return search ? `${basePath}?${search}` : basePath
 }
 
-export function buildCmsPlayPath(
-  sourceCode: string,
-  vodId: string,
-  episodeIndex?: number,
-): string {
+export function buildCmsPlayPath(sourceCode: string, vodId: string, episodeIndex?: number): string {
   const basePath = `/play/cms/${encodeSegment(sourceCode)}/${encodeSegment(vodId)}`
   if (typeof episodeIndex !== 'number') {
     return basePath
   }
   return `${basePath}?ep=${episodeIndex}`
+}
+
+/** Keep section layouts mounted while navigating between their child routes. */
+export function mainLayoutRouteKey(pathname: string): string {
+  for (const root of ['/settings', '/admin']) {
+    if (pathname === root || pathname.startsWith(`${root}/`)) return root
+  }
+  return pathname
 }

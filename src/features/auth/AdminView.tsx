@@ -1,49 +1,33 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router'
+import { Outlet, useLocation, useNavigate } from 'react-router'
 import { ArrowLeft } from 'lucide-react'
-import AccountAdmin from '@/features/settings/components/AccountAdmin'
 import AnnouncementAdmin from '@/features/announcements/AnnouncementAdmin'
 import { Button } from '@/shared/components/ui/button'
 import { UnderlineTabs } from '@/shared/components/common/UnderlineTabs'
 
-const modules = [
-  { key: 'announcements', name: '站内公告', color: 'bg-amber-500' },
-  { key: 'users', name: '用户管理', color: 'bg-violet-500' },
-  { key: 'audit', name: '操作记录', color: 'bg-sky-500' },
-] as const
+import { adminModules as modules } from './admin-routes'
+
 type AdminTab = (typeof modules)[number]['key']
 
 export default function AdminView() {
   const navigate = useNavigate()
-  const [params, setParams] = useSearchParams()
-  // Keep existing account-detail and audit links working.
-  const activeTab: AdminTab = params.get('id')
-    ? 'users'
-    : params.get('view') === 'audit' || params.get('tab') === 'audit'
-      ? 'audit'
-      : params.get('tab') === 'announcements'
-        ? 'announcements'
-        : params.get('tab') === 'users' ||
-            (!params.has('tab') &&
-              ['search', 'enabled', 'nsfw', 'page', 'listPage'].some(key => params.has(key)))
-          ? 'users'
-          : 'announcements'
-  const [announcementOpened, setAnnouncementOpened] = useState(activeTab === 'announcements')
+  const location = useLocation()
+  const pathname = location.pathname.replace(/\/+$/, '')
+  const activeTab: AdminTab =
+    modules.find(module => module.path === pathname)?.key || 'announcements'
+  const announcementActive = pathname === '/admin/announcements'
+  const [announcementOpened, setAnnouncementOpened] = useState(announcementActive)
 
   useEffect(() => {
-    if (activeTab === 'announcements') setAnnouncementOpened(true)
-  }, [activeTab])
+    if (announcementActive) setAnnouncementOpened(true)
+  }, [announcementActive])
 
   function selectTab(nextTab: AdminTab) {
     if (nextTab === activeTab) return
-    setParams(previous => {
-      const next = new URLSearchParams(previous)
-      // Account filters survive tab changes; pagination and detail state do not.
-      for (const key of ['tab', 'view', 'id', 'listPage', 'page']) next.delete(key)
-      if (nextTab === 'announcements' || nextTab === 'users') next.set('tab', nextTab)
-      if (nextTab === 'audit') next.set('view', 'audit')
-      return next
-    })
+    const params = new URLSearchParams(location.search)
+    // Preserve account filters; module navigation resets pagination and details.
+    for (const key of ['tab', 'view', 'id', 'listPage', 'page']) params.delete(key)
+    navigate({ pathname: `/admin/${nextTab}`, search: params.toString() })
   }
 
   return (
@@ -93,13 +77,9 @@ export default function AdminView() {
         </div>
       </header>
       <main className="mx-auto w-full max-w-5xl px-0 pt-2 md:px-4 md:pt-4">
-        {activeTab !== 'announcements' && (
-          <section aria-label={activeTab === 'audit' ? '操作记录' : '用户管理'}>
-            <AccountAdmin showNavigation={false} />
-          </section>
-        )}
-        {(announcementOpened || activeTab === 'announcements') && (
-          <section aria-label="站内公告" hidden={activeTab !== 'announcements'}>
+        <Outlet />
+        {(announcementOpened || announcementActive) && (
+          <section aria-label="站内公告" hidden={!announcementActive}>
             <AnnouncementAdmin />
           </section>
         )}

@@ -36,6 +36,7 @@ beforeEach(() => {
   root = createRoot(container)
   fetchMock = vi.fn(async (url: string) => {
     const query = new URL(url, 'https://test.invalid').searchParams
+    if (query.get('view') === 'audit') return response({ audit: [], total: 0 })
     if (query.has('id')) return response({ account: { ...account, devices: [] }, total: 0 })
     return response({ accounts: [account], total: 21 })
   })
@@ -46,7 +47,7 @@ afterEach(async () => {
   container.remove()
   vi.unstubAllGlobals()
 })
-async function mount(path = '/admin') {
+async function mount(path = '/admin/users') {
   await act(async () =>
     root.render(
       createElement(MemoryRouter, { initialEntries: [path] }, createElement(AccountAdmin)),
@@ -61,6 +62,16 @@ async function click(text: string) {
   await act(async () => (element as HTMLElement).click())
 }
 describe('admin account navigation', () => {
+  it('内部导航使用子路径，账号列表与操作记录内容和地址一致', async () => {
+    await mount()
+    await click('操作记录')
+    expect(fetchMock.mock.lastCall![0]).toContain('view=audit')
+    expect(container.textContent).toContain('管理员操作记录')
+    await click('账号列表')
+    expect(fetchMock.mock.lastCall![0]).not.toContain('view=audit')
+    expect(container.textContent).toContain('alice')
+  })
+
   it('loads only summaries, pages on the server and loads details on demand', async () => {
     await mount()
     expect(fetchMock).toHaveBeenCalledTimes(1)
@@ -79,7 +90,7 @@ describe('admin account navigation', () => {
     expect(fetchMock.mock.lastCall?.[0]).toContain('offset=20')
   })
   it('resets pagination when filtering and preserves the search term', async () => {
-    await mount('/admin?page=2&search=alice')
+    await mount('/admin/users?page=2&search=alice')
     await act(async () => {
       const select = container.querySelector('select')!
       select.value = 'false'

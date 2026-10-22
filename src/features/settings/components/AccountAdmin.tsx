@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link, useSearchParams } from 'react-router'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router'
 import { History, Search, Users } from 'lucide-react'
 import { Button } from '@/shared/components/ui/button'
 import { Input } from '@/shared/components/ui/input'
@@ -42,8 +42,10 @@ const actionLabels: Record<string, string> = {
 
 export default function AccountAdmin({ showNavigation = true }: { showNavigation?: boolean }) {
   const [params, setParams] = useSearchParams()
-  const id = params.get('id') || ''
-  const auditView = !id && (params.get('view') === 'audit' || params.get('tab') === 'audit')
+  const navigateTo = useNavigate()
+  const location = useLocation()
+  const auditView = location.pathname.replace(/\/+$/, '') === '/admin/audit'
+  const id = auditView ? '' : params.get('id') || ''
   const pageValue = Number(params.get('page') || 1)
   const page = Number.isSafeInteger(pageValue) && pageValue > 0 ? pageValue : 1
   const offset = (page - 1) * 20
@@ -121,16 +123,17 @@ export default function AccountAdmin({ showNavigation = true }: { showNavigation
   useEffect(() => {
     setSearch(term)
   }, [term])
-  function navigate(changes: Record<string, string>) {
+  function navigate(changes: Record<string, string>, pathname?: string) {
     const next = new URLSearchParams(params)
-    next.delete('page')
+    for (const key of ['page', 'tab', 'view']) next.delete(key)
     Object.entries(changes).forEach(([key, value]) =>
       value ? next.set(key, value) : next.delete(key),
     )
-    setParams(next)
+    if (pathname) navigateTo({ pathname, search: next.toString() })
+    else setParams(next)
   }
   function returnToList() {
-    navigate({ id: '', view: '', tab: 'users', page: params.get('listPage') || '1', listPage: '' })
+    navigate({ id: '', page: params.get('listPage') || '1', listPage: '' }, '/admin/users')
   }
   async function run(body: unknown, success: string) {
     if (busy) return
@@ -168,7 +171,7 @@ export default function AccountAdmin({ showNavigation = true }: { showNavigation
             <Button
               variant="outline"
               disabled={busy}
-              onClick={() => navigate({ id: '', view: 'audit' })}
+              onClick={() => navigate({ id: '', listPage: '' }, '/admin/audit')}
             >
               操作记录
             </Button>
