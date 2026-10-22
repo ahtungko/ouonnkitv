@@ -35,7 +35,7 @@ export default function AboutProject() {
 
             <div className="hidden flex-wrap gap-2 md:flex">
               <Badge variant="outline">当前版本 v{currentVersion}</Badge>
-              <Badge variant="outline">累计发布 {updateHistory.length} 个版本</Badge>
+              <Badge variant="outline">近期更新 {PROJECT.changes.length} 条</Badge>
             </div>
           </div>
 
@@ -47,11 +47,15 @@ export default function AboutProject() {
               </p>
             </div>
             <div className="bg-muted/35 rounded-xl px-4 py-3">
-              <p className="text-muted-foreground text-xs">累计发布版本</p>
-              <p className="mt-1 text-base font-semibold">{updateHistory.length} 个版本</p>
+              <p className="text-muted-foreground text-xs">近期更新条目</p>
+              <p className="mt-1 text-base font-semibold">
+                {PROJECT.changes.length ? `${PROJECT.changes.length} 条` : '未提供记录'}
+              </p>
             </div>
             <div className="bg-muted/35 rounded-xl px-4 py-3">
-              <p className="text-muted-foreground text-xs">最近更新日期</p>
+              <p className="text-muted-foreground text-xs">
+                {PROJECT.updatedAt ? '代码更新日期' : '构建日期'}
+              </p>
               <p className="mt-1 text-base font-semibold">{latestUpdate?.date ?? '-'}</p>
             </div>
           </div>
@@ -103,7 +107,7 @@ export default function AboutProject() {
               </div>
               <div className="space-y-0.5">
                 <p className="text-sm font-semibold">版本日志</p>
-                <p className="text-muted-foreground text-xs">查看每次迭代内容</p>
+                <p className="text-muted-foreground text-xs">自动汇总最近 20 条提交</p>
               </div>
             </div>
           </button>

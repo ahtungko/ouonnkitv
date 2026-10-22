@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { devtools, persist } from 'zustand/middleware'
 import { immer } from 'zustand/middleware/immer'
+import { PROJECT } from '@/shared/config/project'
 
 export interface VersionLink {
   label: string
@@ -54,26 +55,26 @@ const formatDate = (dateStr: string) => {
   return date.toLocaleDateString('zh-CN', options)
 }
 
-// 本站更新记录；上游历史见项目来源链接。
+// 与当前构建一起打包，不在浏览器请求 GitHub 或重复维护版本说明。
+const isFix = (subject: string) => /^fix(?:\([^)]*\))?!?:/i.test(subject)
+const summary = (subject: string) => subject.replace(/^[a-z]+(?:\([^)]*\))?!?:\s*/i, '')
 const VERSION_UPDATES: VersionUpdate[] = [
   {
-    version: '2.1.0',
-    title: 'xkaTV 账号同步、追剧提醒与站内公告',
-    date: formatDate('2026-10-20'),
-    features: [
-      '账号登录与管理员中心，支持账号管理、跨设备同步和播放会话控制。',
-      '收藏追剧支持按季绑定资源、检查新集、校准观看进度及跨设备已读同步。',
-      '站内公告支持普通公告、维护通知和版本更新，新公告自动弹窗，播放期间延后提醒。',
-      '维护按服务器时间自动开始和结束，管理员可正常访问，普通用户到时自动恢复。',
-      '关于项目、反馈入口和文档统一为 xkaTV，由 ahtungko 维护。',
-    ],
-    fixes: [
-      '兼容视频源及旧缓存中的数字资源 ID，修复登录加载时的校验异常。',
-      '修复公告同版本重新加载无法丢弃草稿的问题，完善维护时间与表单校验。',
-    ],
+    version: PROJECT.version,
+    title: PROJECT.changes[0] ? summary(PROJECT.changes[0].subject) : PROJECT.name + ' 构建信息',
+    date: formatDate(PROJECT.updatedAt || PROJECT.builtAt),
+    features: PROJECT.changes
+      .filter(change => !isFix(change.subject))
+      .map(change => summary(change.subject)),
+    fixes: PROJECT.changes
+      .filter(change => isFix(change.subject))
+      .map(change => summary(change.subject)),
     links: [
-      { label: '项目仓库', href: 'https://github.com/ahtungko/ouonnkitv' },
-      { label: '问题反馈', href: 'https://github.com/ahtungko/ouonnkitv/issues' },
+      ...(PROJECT.commit && PROJECT.repository
+        ? [{ label: '当前提交', href: PROJECT.repository + '/commit/' + PROJECT.commit }]
+        : []),
+      ...(PROJECT.repository ? [{ label: '项目仓库', href: PROJECT.repository }] : []),
+      ...(PROJECT.issues ? [{ label: '问题反馈', href: PROJECT.issues }] : []),
     ],
   },
 ]

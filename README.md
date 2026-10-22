@@ -63,6 +63,8 @@
 
 ## 📖 文档
 
+「关于项目」随构建自动读取 `package.json` 中的品牌与仓库信息，并从 Git 生成版本标识、代码更新日期和最近提交日志，无需另行维护前端版本说明。详见[项目信息生成说明](docs/development.md#项目展示信息)。
+
 跨设备云同步（Vercel + Supabase）：[配置指南](docs/cloud-sync.md)
 
 | 文档 | 说明 |

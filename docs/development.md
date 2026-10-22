@@ -120,9 +120,15 @@ ouonnkitv/
 
 ## 项目展示信息
 
-本站名称、维护者、简介、仓库及反馈链接集中在 `src/shared/config/project.ts`，供登录页、导航、页面标题和关于页使用。变更品牌时同步更新 `index.html`、`public/site.webmanifest`、`package.json` 和 README 的静态信息。
+本站名称、维护者、简介、仓库及反馈链接统一从根目录 `package.json` 的 `name`、`author`、`description`、`repository`、`bugs` 读取。登录页、导航、页面标题、关于页以及构建产物中的 HTML 标题/元信息、PWA 清单自动使用这些字段。`src/shared/config/project.ts` 只保留原项目来源链接，并导出构建时生成的信息。
 
-站内版本日志在 `src/shared/store/versionStore.ts` 维护，发布时同步更新根目录 `package.json` 的版本号。本地存储键名与 `OKI_*` 环境变量保持兼容，升级后可继续使用已有配置。
+每次开发启动或生产构建时，`scripts/project-metadata.mjs` 自动读取 Git 信息：版本为 `package.json` 基础版号加提交标识（例如 `2.1.0+git.abc1234`），日期使用当前代码的提交时间，日志汇总最多 20 条可用的第一父链提交标题，`fix:` 项归入修复。同一提交重复部署不会重复提示新版本；需要调整基础版号时只修改 `package.json`。构建元数据生成后会打包进前端，不在浏览器请求 GitHub，也不自动修改 Git、发布 Release 或创建提交。
+
+提交标题会直接展示在版本日志中，请写明实际改动。关于页显示的是可用的近期更新条目数，不是累计发布版本数。未提供 Git 历史时明确显示「未提供记录」，日期回退为构建日期，不编造更新内容。只导出公开项目信息，不包含构建环境密钥。
+
+CI 的 Docker 构建会自动生成 `.generated/project-metadata.json` 快照；该目录不提交 Git。源码环境手动构建 Docker 时，可先运行 `node scripts/project-metadata.mjs --output .generated/project-metadata.json`，再执行 `docker compose up -d --build`。没有快照也能构建，但只能使用可用的基础版号/构建参数，无法展示缺失的提交日志。旧快照与当前版号、仓库或部署提交不匹配时会被忽略。
+
+本地存储键名与 `OKI_*` 环境变量保持兼容，升级后可继续使用已有配置。
 
 ## @ouonnki/cms-core
 

@@ -1,9 +1,5 @@
-/** 本站展示信息；技术依赖与本地存储键名保留原有兼容性。 */
+/** 构建时从 package.json 和 Git 生成，不再重复维护展示信息。 */
 export const PROJECT = {
-  name: 'xkaTV',
-  owner: 'ahtungko',
-  description: '你的私人流媒体影院',
-  repository: 'https://github.com/ahtungko/ouonnkitv',
-  issues: 'https://github.com/ahtungko/ouonnkitv/issues',
+  ...__PROJECT_METADATA__,
   upstream: 'https://github.com/Ouonnki/OuonnkiTV',
 } as const

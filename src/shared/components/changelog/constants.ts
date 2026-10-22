@@ -6,7 +6,7 @@ export type CategoryKey = 'features' | 'fixes' | 'breaking'
 /** 分类配置 */
 export const CATEGORY_CONFIG = {
   features: {
-    title: '新功能',
+    title: '功能与改进',
     icon: Sparkles,
     line: 'from-emerald-500/30 to-transparent',
     text: 'text-emerald-700 dark:text-emerald-300',
