@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import type { AppendToResponseMovieKey, AppendToResponseTvKey } from 'tmdb-ts'
 import { useTmdbStore } from '../store/tmdbStore'
 import { getTmdbClient, normalizeToMediaItem } from '../lib/tmdb'
@@ -95,29 +96,21 @@ export function useTmdbDiscover() {
 }
 
 /**
- * 热映/热门 Hook
+ * 趋势 Hook：搜索页与首页头图只加载实际使用的趋势数据。
  */
-export function useTmdbNowPlaying() {
-  const movies = useTmdbStore(s => s.nowPlayingMovies)
-  const tv = useTmdbStore(s => s.popularTv)
+export function useTmdbTrending() {
   const trending = useTmdbStore(s => s.trending)
-  const loading = useTmdbStore(s => s.loading)
+  const loading = useTmdbStore(s => s.loading.trending)
 
-  const fetchNowPlaying = useTmdbStore(s => s.fetchNowPlaying)
   const fetchTrending = useTmdbStore(s => s.fetchTrending)
 
   useEffect(() => {
-    // 惰性加载，如果有数据暂不刷新，或者可以添加 forceRefresh 参数
-    if (movies.length === 0) fetchNowPlaying()
     if (trending.length === 0) fetchTrending()
-  }, [fetchNowPlaying, fetchTrending, movies.length, trending.length])
+  }, [fetchTrending, trending.length])
 
   return {
-    movies,
-    tv,
     trending,
     loading,
-    refreshNowPlaying: fetchNowPlaying,
     refreshTrending: fetchTrending,
   }
 }
@@ -130,7 +123,14 @@ export function useTmdbMovieLists() {
   const popular = useTmdbStore(s => s.popularMovies)
   const topRated = useTmdbStore(s => s.topRatedMovies)
   const upcoming = useTmdbStore(s => s.upcomingMovies)
-  const loading = useTmdbStore(s => s.loading)
+  const loading = useTmdbStore(
+    useShallow(s => ({
+      nowPlaying: s.loading.nowPlaying,
+      popularMovies: s.loading.popularMovies,
+      topRatedMovies: s.loading.topRatedMovies,
+      upcomingMovies: s.loading.upcomingMovies,
+    })),
+  )
 
   const fetchNowPlaying = useTmdbStore(s => s.fetchNowPlaying)
   const fetchPopular = useTmdbStore(s => s.fetchPopularMovies)
@@ -139,19 +139,16 @@ export function useTmdbMovieLists() {
 
   useEffect(() => {
     if (nowPlaying.length === 0) fetchNowPlaying()
+  }, [nowPlaying.length, fetchNowPlaying])
+  useEffect(() => {
     if (popular.length === 0) fetchPopular()
+  }, [popular.length, fetchPopular])
+  useEffect(() => {
     if (topRated.length === 0) fetchTopRated()
+  }, [topRated.length, fetchTopRated])
+  useEffect(() => {
     if (upcoming.length === 0) fetchUpcoming()
-  }, [
-    nowPlaying.length,
-    popular.length,
-    topRated.length,
-    upcoming.length,
-    fetchNowPlaying,
-    fetchPopular,
-    fetchTopRated,
-    fetchUpcoming,
-  ])
+  }, [upcoming.length, fetchUpcoming])
 
   return {
     nowPlaying,
@@ -173,7 +170,13 @@ export function useTmdbTvLists() {
   const airingToday = useTmdbStore(s => s.airingTodayTv)
   const popular = useTmdbStore(s => s.popularTv)
   const topRated = useTmdbStore(s => s.topRatedTv)
-  const loading = useTmdbStore(s => s.loading)
+  const loading = useTmdbStore(
+    useShallow(s => ({
+      airingTodayTv: s.loading.airingTodayTv,
+      popularTv: s.loading.popularTv,
+      topRatedTv: s.loading.topRatedTv,
+    })),
+  )
 
   const fetchAiringToday = useTmdbStore(s => s.fetchAiringTodayTv)
   const fetchPopular = useTmdbStore(s => s.fetchPopularTv)
@@ -181,16 +184,13 @@ export function useTmdbTvLists() {
 
   useEffect(() => {
     if (airingToday.length === 0) fetchAiringToday()
+  }, [airingToday.length, fetchAiringToday])
+  useEffect(() => {
     if (popular.length === 0) fetchPopular()
+  }, [popular.length, fetchPopular])
+  useEffect(() => {
     if (topRated.length === 0) fetchTopRated()
-  }, [
-    airingToday.length,
-    popular.length,
-    topRated.length,
-    fetchAiringToday,
-    fetchPopular,
-    fetchTopRated,
-  ])
+  }, [topRated.length, fetchTopRated])
 
   return {
     airingToday,

@@ -19,7 +19,6 @@ export default defineConfig({
   define: { __PROJECT_METADATA__: JSON.stringify(project) },
   envPrefix: 'OKI_',
   resolve: {
-    conditions: ['development'],
     alias: {
       '@': path.resolve(process.cwd(), 'src'),
     },
@@ -49,6 +48,7 @@ export default defineConfig({
     },
   ],
   build: {
+    manifest: true,
     // 优化构建性能
     rollupOptions: {
       output: {

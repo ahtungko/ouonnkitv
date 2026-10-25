@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { X } from 'lucide-react'
 import { useDocumentTitle, useSearchHistory } from '@/shared/hooks'
 import { useTmdbEnabled } from '@/shared/hooks/useTmdbMode'
-import { useTmdbNowPlaying } from '@/shared/hooks/useTmdb'
+import { useTmdbTrending } from '@/shared/hooks/useTmdb'
 import { useSearchStore } from '@/shared/store/searchStore'
 import { OkiLogo } from '@/shared/components/icons'
 import { normalizeSearchMode } from '../lib/searchMode'
@@ -61,7 +61,7 @@ export default function SearchHubView() {
   }, [modeParam, defaultMode, setSearchParams])
 
   // Trending Hook（仅 TMDB 模式可用时调用）
-  const { trending } = useTmdbNowPlaying()
+  const { trending } = useTmdbTrending()
 
   // 动态更新页面标题
   useDocumentTitle(query ? `${query} - 搜索` : '搜索中心')

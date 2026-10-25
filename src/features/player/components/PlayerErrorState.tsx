@@ -1,5 +1,5 @@
 import { Link } from 'react-router'
-import { VideoCameraSlash } from '@phosphor-icons/react'
+import { VideoCameraSlash } from '@phosphor-icons/react/dist/csr/VideoCameraSlash'
 import { Button } from '@/shared/components/ui/button'
 import { cn } from '@/shared/lib/utils'
 

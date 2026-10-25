@@ -42,7 +42,7 @@ import type { ViewingHistoryItem } from '@/shared/types'
 import type { VideoItem } from '@/shared/types/video'
 import { useTmdbRecommendations } from '@/shared/hooks/useTmdb'
 import { toast } from 'sonner'
-import _ from 'lodash'
+import throttle from 'lodash/throttle'
 import {
   PlayerEpisodePanel,
   PlayerErrorState,
@@ -897,7 +897,7 @@ export default function UnifiedPlayer() {
       syncFullscreenMiniProgressBar()
     }
 
-    const handleControlViewportChange = _.throttle(() => {
+    const handleControlViewportChange = throttle(() => {
       syncMobileControlBar()
     }, 120)
 
@@ -1114,7 +1114,7 @@ export default function UnifiedPlayer() {
       }
     }
 
-    const throttledTimeUpdate = _.throttle(timeUpdateHandler, TIME_UPDATE_INTERVAL)
+    const throttledTimeUpdate = throttle(timeUpdateHandler, TIME_UPDATE_INTERVAL)
     art.on('video:timeupdate', throttledTimeUpdate)
 
     // 手动实现 autoMini：Artplayer 内置 autoMini 监听 window.scroll，
@@ -1152,12 +1152,12 @@ export default function UnifiedPlayer() {
           miniEl.style.top = `${rect.top}px`
           miniEl.style.left = `${rect.left}px`
         }
-        const handleViewportChange = _.throttle(() => {
+        const handleViewportChange = throttle(() => {
           if (!isMini) return
           requestAnimationFrame(applyMiniPosition)
         }, 120)
 
-        const checkVisibility = _.throttle(() => {
+        const checkVisibility = throttle(() => {
           if (!playerRef.current) return
 
           const scrollRect = scrollViewport.getBoundingClientRect()

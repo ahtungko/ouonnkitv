@@ -1,5 +1,5 @@
 import {
-  useTmdbNowPlaying,
+  useTmdbTrending,
   useTmdbMovieLists,
   useTmdbTvLists,
   useTmdbRecommendations,
@@ -23,7 +23,7 @@ import { useMemo } from 'react'
 function TmdbHomeContent() {
   const favorites = useFavoritesStore(state => state.favorites)
   const viewingHistory = useViewingHistoryStore(state => state.viewingHistory)
-  const { trending, loading } = useTmdbNowPlaying()
+  const { trending, loading } = useTmdbTrending()
   const {
     nowPlaying,
     popular: popularMovies,
@@ -66,7 +66,7 @@ function TmdbHomeContent() {
   return (
     <div className="flex flex-col gap-6">
       {/* 首页趋势轮播 */}
-      <FeaturedCarousel items={trending} loading={loading.trending} />
+      <FeaturedCarousel items={trending} loading={loading} />
       {/* 继续观看 */}
       <ContinueWatching />
       <SeriesUpdates />

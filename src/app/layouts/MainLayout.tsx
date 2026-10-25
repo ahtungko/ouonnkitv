@@ -5,7 +5,8 @@ import SideBar from '@/shared/components/SideBar'
 import { ScrollArea } from '@/shared/components/ui/scroll-area'
 import { CustomAnimatedOutlet } from '@/shared/components/AnimatedOutlet'
 import BackToTopButton from '@/shared/components/BackToTopButton'
-import { lazy, Suspense, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
+import UpdateModalHost from '@/shared/components/UpdateModalHost'
 import { useVersionStore } from '@/shared/store/versionStore'
 import { useSettingStore } from '@/shared/store/settingStore'
 import { useApiStore } from '@/shared/store/apiStore'
@@ -16,17 +17,19 @@ import { useLocation } from 'react-router'
 import { getInitialContentConfigId } from '@/shared/config/runtimeEnv'
 import { useSeriesUpdateChecker } from '@/features/favorites/hooks/useSeriesUpdateChecker'
 
-const UpdateModal = lazy(() => import('@/shared/components/UpdateModal'))
-
 export default function MainLayout() {
-  const { hasNewVersion, setShowUpdateModal } = useVersionStore()
-  const { system } = useSettingStore()
-  const { initializeEnvSources } = useApiStore()
-  const { initializeEnvSubscriptions } = useSubscriptionStore()
+  const hasNewVersion = useVersionStore(state => state.hasNewVersion)
+  const setShowUpdateModal = useVersionStore(state => state.setShowUpdateModal)
+  const isUpdateLogEnabled = useSettingStore(state => state.system.isUpdateLogEnabled)
+  const isScrollChromeAnimationEnabled = useSettingStore(
+    state => state.system.isScrollChromeAnimationEnabled,
+  )
+  const initializeEnvSources = useApiStore(state => state.initializeEnvSources)
+  const initializeEnvSubscriptions = useSubscriptionStore(state => state.initializeEnvSubscriptions)
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const isChromeVisible = useScrollChromeVisibility({
-    enabled: system.isScrollChromeAnimationEnabled,
+    enabled: isScrollChromeAnimationEnabled,
     scrollRootSelector: '[data-main-scroll-area]',
     resetKey: location.pathname,
   })
@@ -52,10 +55,10 @@ export default function MainLayout() {
 
   // 版本更新检查
   useEffect(() => {
-    if (hasNewVersion() && system.isUpdateLogEnabled) {
+    if (hasNewVersion() && isUpdateLogEnabled) {
       setShowUpdateModal(true)
     }
-  }, [hasNewVersion, setShowUpdateModal, system.isUpdateLogEnabled])
+  }, [hasNewVersion, setShowUpdateModal, isUpdateLogEnabled])
 
   return (
     <SidebarProvider
@@ -70,21 +73,19 @@ export default function MainLayout() {
     >
       <Navigation
         hidden={!isChromeVisible}
-        enableScrollAnimation={system.isScrollChromeAnimationEnabled}
+        enableScrollAnimation={isScrollChromeAnimationEnabled}
       />
       <div className="flex flex-1 overflow-hidden">
         <SideBar
           hidden={!isChromeVisible}
-          enableScrollAnimation={system.isScrollChromeAnimationEnabled}
+          enableScrollAnimation={isScrollChromeAnimationEnabled}
         />
         <SidebarInset className="h-full overflow-hidden">
           <div className="h-full p-2 md:pl-1">
             <div className="border-border bg-sidebar relative h-full rounded-lg border py-2 shadow-sm">
               <ScrollArea data-main-scroll-area className="h-full rounded-lg px-2">
                 <CustomAnimatedOutlet routeKey={mainLayoutRouteKey} />
-                <Suspense fallback={null}>
-                  <UpdateModal />
-                </Suspense>
+                <UpdateModalHost />
               </ScrollArea>
               <BackToTopButton scrollRootSelector="[data-main-scroll-area]" />
             </div>

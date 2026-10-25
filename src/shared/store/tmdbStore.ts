@@ -369,24 +369,18 @@ export const useTmdbStore = create<TmdbState & TmdbActions>()(
       },
 
       fetchNowPlaying: async () => {
+        if (get().loading.nowPlaying) return
         const client = getTmdbClient()
         set(state => {
           state.loading.nowPlaying = true
         })
 
         try {
-          // 并行获取电影热映和剧集热门
-          const [moviesRes, tvRes] = await Promise.all([
-            client.movies.nowPlaying({ language: getTmdbLanguage() }),
-            client.tvShows.popular({ language: getTmdbLanguage() }),
-          ])
+          const moviesRes = await client.movies.nowPlaying({ language: getTmdbLanguage() })
 
           set(state => {
             state.nowPlayingMovies = moviesRes.results.map(i =>
               normalizeToMediaItem(i as unknown as Record<string, unknown>, 'movie'),
-            )
-            state.popularTv = tvRes.results.map(i =>
-              normalizeToMediaItem(i as unknown as Record<string, unknown>, 'tv'),
             )
             state.loading.nowPlaying = false
           })
@@ -400,6 +394,7 @@ export const useTmdbStore = create<TmdbState & TmdbActions>()(
 
       // 电影：最受欢迎
       fetchPopularMovies: async () => {
+        if (get().loading.popularMovies) return
         const client = getTmdbClient()
         set(state => {
           state.loading.popularMovies = true
@@ -423,6 +418,7 @@ export const useTmdbStore = create<TmdbState & TmdbActions>()(
 
       // 电影：口碑最佳
       fetchTopRatedMovies: async () => {
+        if (get().loading.topRatedMovies) return
         const client = getTmdbClient()
         set(state => {
           state.loading.topRatedMovies = true
@@ -446,6 +442,7 @@ export const useTmdbStore = create<TmdbState & TmdbActions>()(
 
       // 电影：即将上映
       fetchUpcomingMovies: async () => {
+        if (get().loading.upcomingMovies) return
         const client = getTmdbClient()
         set(state => {
           state.loading.upcomingMovies = true
@@ -469,6 +466,7 @@ export const useTmdbStore = create<TmdbState & TmdbActions>()(
 
       // 剧集：最受欢迎
       fetchPopularTv: async () => {
+        if (get().loading.popularTv) return
         const client = getTmdbClient()
         set(state => {
           state.loading.popularTv = true
@@ -492,6 +490,7 @@ export const useTmdbStore = create<TmdbState & TmdbActions>()(
 
       // 剧集：口碑最佳
       fetchTopRatedTv: async () => {
+        if (get().loading.topRatedTv) return
         const client = getTmdbClient()
         set(state => {
           state.loading.topRatedTv = true
@@ -515,6 +514,7 @@ export const useTmdbStore = create<TmdbState & TmdbActions>()(
 
       // 剧集：今日播出
       fetchAiringTodayTv: async () => {
+        if (get().loading.airingTodayTv) return
         const client = getTmdbClient()
         set(state => {
           state.loading.airingTodayTv = true
@@ -537,6 +537,7 @@ export const useTmdbStore = create<TmdbState & TmdbActions>()(
       },
 
       fetchTrending: async (timeWindow = 'day') => {
+        if (get().loading.trending) return
         const client = getTmdbClient()
         set(state => {
           state.loading.trending = true
