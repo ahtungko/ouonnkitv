@@ -2,12 +2,14 @@ import { readFileSync, readdirSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { gzipSync } from 'node:zlib'
 
-const directory = resolve(process.argv[2] || 'dist')
+const directory = resolve(process.argv[2] || '.generated/bundle-analysis')
 let manifest
 try {
   manifest = JSON.parse(readFileSync(resolve(directory, '.vite/manifest.json'), 'utf8'))
 } catch (error) {
-  throw new Error('请先运行 pnpm build，或传入包含 .vite/manifest.json 的构建目录。', { cause: error })
+  throw new Error('请先运行 pnpm build:analyze，或传入包含 .vite/manifest.json 的分析构建目录。', {
+    cause: error,
+  })
 }
 
 // Follow static imports only: lazy routes and HLS are loaded when requested.
@@ -41,9 +43,10 @@ function size(files) {
 function findChunk(source, name, required = false) {
   if (manifest[source]) return source
   const matches = Object.entries(manifest).filter(([, chunk]) => chunk.src === source)
-  const candidates = matches.length > 0
-    ? matches
-    : Object.entries(manifest).filter(([, chunk]) => chunk.name === name)
+  const candidates =
+    matches.length > 0
+      ? matches
+      : Object.entries(manifest).filter(([, chunk]) => chunk.name === name)
   if (candidates.length > 1) throw new Error(`构建清单中的模块名称不唯一：${name}`)
   if (candidates.length === 1) return candidates[0][0]
   if (required) throw new Error(`构建清单缺少入口：${source}（模块名：${name}）`)
@@ -71,16 +74,18 @@ const rows = [
 ]
 
 console.log(`构建目录：${directory}`)
-console.table(rows.map(([scope, files]) => {
-  if (!files) return { 范围: scope, 文件数: '不可用', '原始 kB': '—', 'gzip kB': '—' }
-  const bytes = size(files)
-  return {
-    范围: scope,
-    文件数: files.length,
-    '原始 kB': (bytes.raw / 1000).toFixed(2),
-    'gzip kB': (bytes.gzip / 1000).toFixed(2),
-  }
-}))
+console.table(
+  rows.map(([scope, files]) => {
+    if (!files) return { 范围: scope, 文件数: '不可用', '原始 kB': '—', 'gzip kB': '—' }
+    const bytes = size(files)
+    return {
+      范围: scope,
+      文件数: files.length,
+      '原始 kB': (bytes.raw / 1000).toFixed(2),
+      'gzip kB': (bytes.gzip / 1000).toFixed(2),
+    }
+  }),
+)
 console.log('按依赖去重统计，1 kB = 1000 字节；不含图片、字体、CSS 和运行时 API 请求。')
 console.log('首页不含按状态弹出的公告/更新日志；gzip 为逐文件压缩估算，非浏览器测速。')
 if (!player) console.log('该构建未包含独立的播放器页面分块，播放器自身大小不可单独统计。')

@@ -9,7 +9,7 @@
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue" alt="License"/></a>
-  <img src="https://img.shields.io/badge/node-%3E%3D20-brightgreen" alt="Node.js >=20"/>
+  <img src="https://img.shields.io/badge/node-22_LTS-brightgreen" alt="Node.js 22 LTS (22.12+) or 24+"/>
   <img src="https://img.shields.io/badge/pnpm-%3E%3D9.15.4-blue" alt="pnpm >=9.15.4"/>
   <img src="https://img.shields.io/badge/vite-%5E6.3.5-yellowgreen" alt="Vite"/>
   <a href="https://github.com/ahtungko/ouonnkitv/stargazers"><img src="https://img.shields.io/github/stars/ahtungko/ouonnkitv?style=social" alt="GitHub stars"/></a>

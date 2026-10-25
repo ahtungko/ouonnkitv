@@ -20,7 +20,7 @@
 | React Hook Form + Zod | 7 / 4 | 表单验证 |
 | tmdb-ts | 2 | TMDB API 客户端 |
 | hls.js | 1 | HLS 流媒体支持 |
-| Vitest | 2 | 单元测试 |
+| Vitest | 4 | 单元测试 |
 
 **代理架构：**
 
@@ -120,11 +120,21 @@ ouonnkitv/
 
 ## 性能检查
 
-生产构建会生成 `dist/.vite/manifest.json`。运行 `pnpm build` 后，可用 `pnpm analyze:bundle` 查看入口、登录页、首页及播放器的 JavaScript 体积；也可运行 `pnpm analyze:bundle <构建目录>` 对比保留的构建产物。脚本优先按源文件键定位分块，再按清单中的源文件或模块名回退查找，兼容带哈希的共享分块键；没有独立播放器分块时显示「不可用」。统计会沿静态依赖递归去重，gzip 按文件估算，不包含图片、字体、CSS、运行时接口请求或按状态显示的公告与更新日志，不等同于浏览器加载耗时。
+普通生产构建 `pnpm build` 不生成 `.vite/manifest.json`，发布目录 `dist` 只保留站点运行所需产物。运行 `pnpm build:analyze` 会在独立的 `.generated/bundle-analysis` 目录构建、生成清单并输出体积分析，不修改 `dist`。之后可用 `pnpm analyze:bundle` 重读分析结果，也可运行 `pnpm analyze:bundle <分析构建目录>` 对比其他产物。分析目录不应作为 Vercel、Netlify、Cloudflare 或 Nginx 的发布目录；Docker/Nginx 另外拒绝 `/.vite/` 请求，防止旧产物残留时被读取。
+
+脚本优先按源文件键定位分块，再按清单中的源文件或模块名回退查找，兼容带哈希的共享分块键；没有独立播放器分块时显示「不可用」。统计会沿静态依赖递归去重，gzip 按文件估算，不包含图片、字体、CSS、运行时接口请求或按状态显示的公告与更新日志，不等同于浏览器加载耗时。
 
 认证守卫先加载，登录成功后才加载应用路由和主布局；设置布局随设置页加载，更新日志弹窗在首次显示时才加载，关闭后保留组件以完成退出过渡。保持这些按需加载边界，避免在入口通过静态导入重新引入完整页面。Radix 使用独立组件包，Phosphor 图标使用已导出的单图标路径，Lodash 只导入使用的函数。
 
 TMDB 趋势、电影榜单和剧集榜单分别请求实际使用的接口。各榜单独立触发加载，并在 store 中阻止同一榜单的重叠请求，避免其他榜单返回结果时反复请求空列表或仍在加载的列表；手动刷新和失败后的重试仍可使用。
+
+## 依赖安全维护
+
+开发、CI 和 Docker 构建以 Node.js 22 LTS（22.12+）为基线，也支持 Node.js 24+。Node.js 20 已停止维护，不再作为项目的构建和镜像版本。Docker 中独立安装的 Express/CORS 需与根项目的代理依赖一起升级，不能只修改 pnpm 锁文件；代理回归测试会实际启动 Node 服务并验证本机上游转发。
+
+运行 `pnpm audit` 与 `pnpm audit --prod` 分别检查完整依赖和生产依赖，并核对告警的实际触发条件。安全升级按运行依赖、构建工具、测试工具分组验证；`package.json` 的 `pnpm.overrides` 只为已确认的间接依赖设置同主版本内的安全下限，上游依赖更新后应重新审视这些约束，不强制跨主版本替换。`pnpm-lock.yaml` 必须随依赖声明一并提交。
+
+四个 Vercel API 使用 `shared/serverless-http.ts` 中基于 Node HTTP 的窄接口类型，只声明项目实际使用的请求字段和平台响应 helper；请求体保持 `unknown`，由各端点的 Zod schema 校验。类型导入会在构建时擦除，平台仍提供实际请求/响应实现，项目不再仅为类型安装整套 `@vercel/node` 构建 SDK。`pnpm check:api-types` 覆盖这四个 API，并保留对 Vercel 风格依赖解析的检查。
 
 ## 项目展示信息
 
@@ -256,7 +266,7 @@ pnpm --filter @ouonnki/cms-core build
 
 ```bash
 # 环境要求
-# Node.js >= 20.0.0
+# Node.js 22 LTS（22.12+）或 24+
 # pnpm >= 9.15.4
 
 # 安装依赖

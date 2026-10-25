@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { VercelRequest, VercelResponse } from '@vercel/node'
+import type { ApiRequest, ApiResponse } from '../shared/serverless-http'
 import handler from '../api/account-password'
 
 const mocks = vi.hoisted(() => ({
@@ -43,7 +43,7 @@ async function request(input: unknown = body, token: string | null = 'Bearer tok
   }
   const res = { status: vi.fn(), json: vi.fn(), setHeader: vi.fn() }
   res.status.mockReturnValue(res)
-  await handler(req as unknown as VercelRequest, res as unknown as VercelResponse)
+  await handler(req as unknown as ApiRequest, res as unknown as ApiResponse)
   return res
 }
 describe('self-service password changes', () => {

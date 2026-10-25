@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { VercelRequest, VercelResponse } from '@vercel/node'
+import type { ApiRequest, ApiResponse } from '../shared/serverless-http'
 import handler from '../api/accounts'
 import { accountEmail, usernameSchema } from '../shared/account-rules'
 
@@ -119,10 +119,10 @@ async function request(body?: unknown, authorization: string | null = 'Bearer to
     query,
     body,
     headers: { ...(authorization ? { authorization } : {}), 'content-type': 'application/json' },
-  } as unknown as VercelRequest
+  } as unknown as ApiRequest
   const res = { setHeader: vi.fn(), status: vi.fn(), json: vi.fn() }
   res.status.mockReturnValue(res)
-  await handler(req, res as unknown as VercelResponse)
+  await handler(req, res as unknown as ApiResponse)
   return res
 }
 

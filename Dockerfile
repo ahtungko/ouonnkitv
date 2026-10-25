@@ -1,6 +1,6 @@
 # 多阶段构建
 # 第一阶段：构建应用
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 
 # 构建参数
 ARG BUILD_DATE
@@ -29,7 +29,7 @@ COPY . .
 RUN pnpm build
 
 # 第二阶段：运行时环境
-FROM node:20-alpine AS production
+FROM node:22-alpine AS production
 
 # Re-declare ARGs for use in labels
 ARG BUILD_DATE
@@ -68,7 +68,7 @@ COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN echo '{"type":"module"}' > package.json
 
 # 只安装代理所需的依赖（使用 npm 而非 pnpm，避免额外安装 pnpm）
-RUN npm install --no-audit --no-fund express@4.21.2 cors@2.8.5 && \
+RUN npm install --no-audit --no-fund express@4.22.3 cors@2.8.6 && \
     npm cache clean --force
 
 # 复制构建产物到 nginx 静态文件目录

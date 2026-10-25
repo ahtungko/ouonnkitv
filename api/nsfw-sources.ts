@@ -1,4 +1,4 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node'
+import type { ApiRequest, ApiResponse } from '../shared/serverless-http.js'
 import { createClient } from '@supabase/supabase-js'
 import { z } from 'zod'
 import { accountSchema } from '../shared/account-rules.js'
@@ -43,7 +43,7 @@ async function loadSources() {
   })
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(req: ApiRequest, res: ApiResponse) {
   res.setHeader('Cache-Control', 'private, no-store')
   if (req.method !== 'GET') {
     res.setHeader('Allow', 'GET')

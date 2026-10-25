@@ -46,7 +46,7 @@ ADMIN_USERNAME=admin
 ADMIN_PASSWORD="A_NEW_UNIQUE_PASSWORD_AT_LEAST_10_CHARACTERS"
 ```
 
-Run from the project directory with Node 20.6+:
+Run from the project directory with Node 22.12+:
 
 ```sh
 node --env-file=.env.admin scripts/create-admin.mjs

@@ -48,7 +48,8 @@ export default defineConfig({
     },
   ],
   build: {
-    manifest: true,
+    // Analysis builds opt in via --manifest and use a separate output directory.
+    manifest: false,
     // 优化构建性能
     rollupOptions: {
       output: {

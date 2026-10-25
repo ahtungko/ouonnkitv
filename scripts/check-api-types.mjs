@@ -1,16 +1,19 @@
 import ts from 'typescript'
 import { resolve } from 'node:path'
 
-// Model @vercel/node's language-service host, which does not provide realpath.
+// Model Vercel's language-service host, which does not provide realpath.
 // Unlike tsc, it resolves declarations through pnpm's public package links.
 const cwd = process.cwd()
 const configPath = resolve('tsconfig.json')
 const config = ts.readConfigFile(configPath, ts.sys.readFile)
 if (config.error) throw new Error(ts.flattenDiagnosticMessageText(config.error.messageText, '\n'))
 const parsed = ts.parseJsonConfigFileContent(config.config, ts.sys, cwd)
-const files = ['api/accounts.ts', 'api/account-password.ts', 'api/proxy.ts'].map(file =>
-  resolve(file),
-)
+const files = [
+  'api/accounts.ts',
+  'api/account-password.ts',
+  'api/nsfw-sources.ts',
+  'api/proxy.ts',
+].map(file => resolve(file))
 const service = ts.createLanguageService({
   getScriptFileNames: () => files,
   getScriptVersion: () => '1',
