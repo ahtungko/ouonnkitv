@@ -1,8 +1,8 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { Lock } from 'lucide-react'
 import { Input } from '@/shared/components/ui/input'
 import { Button } from '@/shared/components/ui/button'
 import { OkiLogo } from '@/shared/components/icons'
+import AdminEntry from '@/shared/components/AdminEntry'
 import { startAuth, useAuthStore } from '@/shared/store/authStore'
 import { startSync } from '@/shared/sync/service'
 import { syncClient } from '@/shared/sync/client'
@@ -12,6 +12,7 @@ import { PROJECT } from '@/shared/config/project'
 
 export default function AuthGuard({ children }: { children: ReactNode }) {
   const { account, initialized, error, login } = useAuthStore()
+  const adminLogin = window.location.pathname.replace(/\/+$/, '') === '/admin/login'
   const clearRestrictedSources = useApiStore(state => state.clearRestrictedSources)
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -28,8 +29,9 @@ export default function AuthGuard({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (initialized && !account) clearRestrictedSources()
   }, [account, clearRestrictedSources, initialized])
-  if (account) return <MaintenanceGuard>{children}</MaintenanceGuard>
-  return (
+  if (account && (!adminLogin || account.role === 'admin'))
+    return <MaintenanceGuard>{children}</MaintenanceGuard>
+  const loginPage = (
     <div className="bg-background flex min-h-dvh flex-col md:flex-row">
       <div className="bg-muted/40 flex flex-col items-center justify-center gap-4 px-8 py-12 md:w-1/2">
         <OkiLogo size={80} />
@@ -45,18 +47,24 @@ export default function AuthGuard({ children }: { children: ReactNode }) {
             setBusy(true)
             setMessage('')
             void login(username, password)
-              .then(() => setPassword(''))
+              .then(() => {
+                setPassword('')
+                if (adminLogin && useAuthStore.getState().account?.role !== 'admin')
+                  setMessage('此入口仅供管理员使用，请返回主站登录。')
+              })
               .catch(error => {
                 setMessage(error instanceof Error ? error.message : '登录失败')
               })
               .finally(() => setBusy(false))
           }}
         >
-          <Lock className="text-muted-foreground size-6" />
+          <AdminEntry adminLogin={adminLogin} />
           <div>
-            <h1 className="text-2xl font-semibold">登录账号</h1>
+            <h1 className="text-2xl font-semibold">{adminLogin ? '管理员登录' : '登录账号'}</h1>
             <p className="text-muted-foreground mt-2 text-sm">
-              使用管理员分配的账号登录，自动同步你的收藏与观看进度。
+              {adminLogin
+                ? '使用管理员账号进入管理中心。'
+                : '使用管理员分配的账号登录，自动同步你的收藏与观看进度。'}
             </p>
           </div>
           <label className="block space-y-2 text-sm">
@@ -83,7 +91,7 @@ export default function AuthGuard({ children }: { children: ReactNode }) {
             />
           </label>
           <Button className="w-full" type="submit" disabled={busy || !initialized || !syncClient}>
-            {busy || !initialized ? '正在验证…' : '登录'}
+            {busy || !initialized ? '正在验证…' : adminLogin ? '登录管理中心' : '登录'}
           </Button>
           {(message || error) && (
             <p role="alert" className="text-destructive text-sm">
@@ -95,4 +103,5 @@ export default function AuthGuard({ children }: { children: ReactNode }) {
       </div>
     </div>
   )
+  return adminLogin ? loginPage : <MaintenanceGuard>{loginPage}</MaintenanceGuard>
 }

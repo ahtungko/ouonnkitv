@@ -23,6 +23,7 @@ const accountPage = (
 
 export const adminChildRoutes: RouteObject[] = [
   { index: true, element: <AdminIndexRedirect /> },
+  { path: 'login', element: <Navigate to="/admin/announcements" replace /> },
   { path: 'announcements', element: null },
   { path: 'users', element: accountPage },
   { path: 'audit', element: accountPage },

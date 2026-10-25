@@ -6,10 +6,16 @@ import { accountSchema } from '../../../shared/account-rules'
 import { MaintenanceGuard } from './MaintenanceGuard'
 import { maintenanceIsActive, type MaintenanceStatus } from './maintenance'
 
-const mocks = vi.hoisted(() => ({ read: vi.fn(), logout: vi.fn(), dispose: vi.fn() }))
+const mocks = vi.hoisted(() => ({
+  read: vi.fn(),
+  readPublic: vi.fn(),
+  logout: vi.fn(),
+  dispose: vi.fn(),
+}))
 vi.mock('./maintenance', async importOriginal => ({
   ...(await importOriginal<typeof import('./maintenance')>()),
   readMaintenance: mocks.read,
+  readPublicMaintenance: mocks.readPublic,
 }))
 const owner = '00000000-0000-4000-8000-000000000001'
 const other = '00000000-0000-4000-8000-000000000002'
@@ -53,6 +59,7 @@ beforeEach(() => {
   })
   vi.setSystemTime(new Date('2040-01-01T00:00:00Z'))
   mocks.read.mockReset().mockImplementation(async () => status())
+  mocks.readPublic.mockReset().mockImplementation(async () => status())
   mocks.logout.mockReset().mockResolvedValue(undefined)
   mocks.dispose.mockClear()
   login()
@@ -67,6 +74,62 @@ afterEach(async () => {
 })
 
 describe('定时维护访问控制', () => {
+  it('访客先检查公开维护状态，维护中不挂载登录内容或调用已登录接口', async () => {
+    useAuthStore.setState({ account: null, session: null })
+    mocks.readPublic.mockImplementation(async () => status(-10_000, 60_000))
+    await mount()
+    expect(host.textContent).toContain('系统维护')
+    expect(host.querySelector('[data-testid="app"]')).toBeNull()
+    expect(host.querySelector('a[href="/admin/login"]')?.getAttribute('aria-label')).toBe(
+      '管理入口',
+    )
+    expect(host.querySelector('a[href="/admin/login"] img')).not.toBeNull()
+    expect(host.querySelector('footer')).toBeNull()
+    expect(mocks.read).not.toHaveBeenCalled()
+    expect(mocks.readPublic).toHaveBeenCalledTimes(1)
+  })
+
+  it('访客等待公开查询时不提前显示登录内容，维护结束后自动恢复入口', async () => {
+    useAuthStore.setState({ account: null, session: null })
+    let finish!: (value: MaintenanceStatus) => void
+    mocks.readPublic.mockImplementationOnce(
+      () =>
+        new Promise(resolve => {
+          finish = resolve
+        }),
+    )
+    await mount()
+    expect(host.querySelector('[data-testid="app"]')).toBeNull()
+    await act(async () => finish(status(-10_000, 1000)))
+    expect(host.textContent).toContain('系统维护')
+    await advance(1000)
+    expect(host.querySelector('[data-testid="app"]')).not.toBeNull()
+  })
+
+  it('访客在计划维护前可以登录，到开始时间会自动隐藏登录内容', async () => {
+    useAuthStore.setState({ account: null, session: null })
+    await mount()
+    expect(host.querySelector('[data-testid="app"]')).not.toBeNull()
+    await advance(10_000)
+    expect(host.textContent).toContain('系统维护')
+    expect(host.querySelector('[data-testid="app"]')).toBeNull()
+  })
+
+  it('公开查询失败时保留维护检查页与管理员入口，网络恢复后重试', async () => {
+    useAuthStore.setState({ account: null, session: null })
+    mocks.readPublic.mockRejectedValueOnce(new Error('offline'))
+    await mount()
+    expect(host.textContent).toContain('暂时无法确认网站状态')
+    expect(host.querySelector('[data-testid="app"]')).toBeNull()
+    expect(host.querySelector('a[href="/admin/login"]')).not.toBeNull()
+    mocks.readPublic.mockResolvedValue({
+      server_time: new Date(base).toISOString(),
+      maintenance: null,
+    })
+    await act(async () => window.dispatchEvent(new Event('online')))
+    expect(host.querySelector('[data-testid="app"]')).not.toBeNull()
+  })
+
   it('空正文不显示说明区，旧自定义标题也使用固定维护标题', async () => {
     const value = status(-10_000, 60_000)
     value.maintenance!.title = '旧的自定义标题'
@@ -182,14 +245,17 @@ describe('定时维护访问控制', () => {
     expect(host.textContent).toContain('网站内容')
   })
 
-  it('维护页可以切换账号以使用管理员身份登录', async () => {
+  it('维护页保留退出账号按钮和顶部 Logo 管理入口', async () => {
     mocks.read.mockImplementation(async () => status(-10_000, 60_000))
     await mount()
     const button = Array.from(host.querySelectorAll('button')).find(item =>
-      item.textContent?.includes('管理员登录'),
+      item.textContent?.includes('退出账号'),
     )!
     await act(async () => button.click())
     expect(mocks.logout).toHaveBeenCalledTimes(1)
+    expect(host.querySelector('a[href="/admin/login"]')?.getAttribute('aria-label')).toBe(
+      '管理入口',
+    )
   })
 
   it('维护窗口采用开始包含、结束排除规则', () => {

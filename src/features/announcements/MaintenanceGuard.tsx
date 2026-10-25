@@ -2,8 +2,14 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { Wrench } from 'lucide-react'
 import { Button } from '@/shared/components/ui/button'
 import { OkiLogo } from '@/shared/components/icons'
+import AdminEntry from '@/shared/components/AdminEntry'
 import { useAuthStore } from '@/shared/store/authStore'
-import { maintenanceIsActive, readMaintenance, type MaintenanceStatus } from './maintenance'
+import {
+  maintenanceIsActive,
+  readMaintenance,
+  readPublicMaintenance,
+  type MaintenanceStatus,
+} from './maintenance'
 
 function MaintenanceCountdown({
   endsAt,
@@ -52,7 +58,13 @@ function MaintenanceCountdown({
   )
 }
 
-function UserMaintenanceGuard({ ownerId, children }: { ownerId: string; children: ReactNode }) {
+function VisitorMaintenanceGuard({
+  ownerId,
+  children,
+}: {
+  ownerId: string | null
+  children: ReactNode
+}) {
   const [snapshot, setSnapshot] = useState<{
     status: MaintenanceStatus
     receivedAt: number
@@ -73,7 +85,9 @@ function UserMaintenanceGuard({ ownerId, children }: { ownerId: string; children
       request = new AbortController()
       const timeout = window.setTimeout(() => request?.abort(), 8000)
       try {
-        const status = await readMaintenance(ownerId, request.signal)
+        const status = ownerId
+          ? await readMaintenance(ownerId, request.signal)
+          : await readPublicMaintenance(request.signal)
         if (!stopped) {
           setSnapshot({ status, receivedAt: performance.now() })
           setError('')
@@ -139,7 +153,9 @@ function UserMaintenanceGuard({ ownerId, children }: { ownerId: string; children
         aria-label="网站维护状态"
       >
         <header className="flex items-center justify-between gap-4 border-b px-5 py-4 sm:px-8">
-          <OkiLogo size={32} />
+          <AdminEntry>
+            <OkiLogo size={32} />
+          </AdminEntry>
           <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-700 dark:text-amber-300">
             <Wrench className="size-3.5" aria-hidden="true" />
             维护通知
@@ -152,7 +168,9 @@ function UserMaintenanceGuard({ ownerId, children }: { ownerId: string; children
           {maintenance && snapshot && (
             <>
               <p className="text-muted-foreground text-sm leading-relaxed">
-                维护结束后自动恢复访问，无需重新登录。
+                {ownerId
+                  ? '维护结束后自动恢复访问，无需重新登录。'
+                  : '维护结束后将自动显示登录入口。'}
               </p>
               <section
                 className="space-y-4 rounded-xl border bg-amber-500/5 p-4 sm:p-5"
@@ -203,21 +221,23 @@ function UserMaintenanceGuard({ ownerId, children }: { ownerId: string; children
             <Button variant="outline" onClick={() => setRefresh(value => value + 1)}>
               重新检查
             </Button>
-            <Button
-              variant="ghost"
-              disabled={busy}
-              onClick={() => {
-                setBusy(true)
-                setLogoutError('')
-                void useAuthStore
-                  .getState()
-                  .logout()
-                  .catch(() => setLogoutError('退出失败，请稍后重试'))
-                  .finally(() => setBusy(false))
-              }}
-            >
-              切换账号 / 管理员登录
-            </Button>
+            {ownerId && (
+              <Button
+                variant="ghost"
+                disabled={busy}
+                onClick={() => {
+                  setBusy(true)
+                  setLogoutError('')
+                  void useAuthStore
+                    .getState()
+                    .logout()
+                    .catch(() => setLogoutError('退出失败，请稍后重试'))
+                    .finally(() => setBusy(false))
+                }}
+              >
+                退出账号
+              </Button>
+            )}
           </div>
           {logoutError && (
             <p role="alert" className="text-destructive text-sm">
@@ -232,11 +252,10 @@ function UserMaintenanceGuard({ ownerId, children }: { ownerId: string; children
 
 export function MaintenanceGuard({ children }: { children: ReactNode }) {
   const account = useAuthStore(state => state.account)
-  if (!account) return null
-  if (account.role === 'admin') return <>{children}</>
+  if (account?.role === 'admin') return <>{children}</>
   return (
-    <UserMaintenanceGuard key={account.id} ownerId={account.id}>
+    <VisitorMaintenanceGuard key={account?.id ?? 'guest'} ownerId={account?.id ?? null}>
       {children}
-    </UserMaintenanceGuard>
+    </VisitorMaintenanceGuard>
   )
 }

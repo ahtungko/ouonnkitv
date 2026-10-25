@@ -10,6 +10,7 @@ const migration = (name: string) =>
   readFileSync(new URL(`../supabase/migrations/${name}.sql`, import.meta.url), 'utf8')
 const maintenanceMigration = migration('202610200003_scheduled_maintenance')
 const optionalContentMigration = migration('202610220001_optional_announcement_content')
+const publicStatusMigration = migration('202610250001_public_maintenance_status')
 let db: PGlite
 async function asUser(id: string) {
   await db.exec('reset role; set role authenticated')
@@ -67,6 +68,7 @@ beforeAll(async () => {
   )
   await db.exec(maintenanceMigration)
   await db.exec(optionalContentMigration)
+  await db.exec(publicStatusMigration)
 }, 45000)
 beforeEach(async () => {
   await db.exec(`reset role;
@@ -83,6 +85,74 @@ afterAll(async () => {
 })
 
 describe('定时维护的真实数据库权限', () => {
+  it('匿名访客只能获取公开维护投影，不能读取账号、公告表或已登录接口', async () => {
+    await window()
+    await db.exec('reset role; set role anon')
+    const result = (
+      await db.query<{ value: Record<string, unknown> }>(
+        'select public.get_public_site_maintenance_status() as value',
+      )
+    ).rows[0].value
+    expect(Object.keys(result).sort()).toEqual(['maintenance', 'server_time'])
+    expect(result.maintenance).toEqual({
+      title: '系统维护',
+      content: '服务升级',
+      starts_at: expect.any(String),
+      ends_at: expect.any(String),
+    })
+    for (const statement of [
+      'select * from public.site_announcement',
+      'select * from public.user_accounts',
+      'select public.get_site_maintenance_status()',
+      "select public.sync_user_records('[]')",
+    ])
+      await expect(db.query(statement)).rejects.toThrow(/permission denied/)
+  })
+
+  it.each(['draft', 'notice', 'expired', 'incomplete'])(
+    '公开查询不返回 %s 维护信息',
+    async kind => {
+      await window()
+      await db.exec(
+        `reset role; update public.site_announcement set ${
+          kind === 'draft'
+            ? 'published = false'
+            : kind === 'notice'
+              ? "kind = 'notice', maintenance_start = null, maintenance_end = null"
+              : kind === 'expired'
+                ? "maintenance_start = now() - interval '2 hours', maintenance_end = now() - interval '1 hour'"
+                : 'maintenance_start = null, maintenance_end = null'
+        }`,
+      )
+      await db.exec('set role anon')
+      const result = (
+        await db.query<{ value: { maintenance: unknown } }>(
+          'select public.get_public_site_maintenance_status() as value',
+        )
+      ).rows[0].value
+      expect(result.maintenance).toBeNull()
+    },
+  )
+
+  it('公开查询保留未来维护窗口，迁移重跑不改变公告版本和账号权限', async () => {
+    await window("now() + interval '1 hour'", "now() + interval '2 hours'")
+    await db.exec('reset role')
+    await db.exec(publicStatusMigration)
+    await db.exec('set role anon')
+    const result = (
+      await db.query<{ value: { server_time: string; maintenance: { starts_at: string } } }>(
+        'select public.get_public_site_maintenance_status() as value',
+      )
+    ).rows[0].value
+    expect(Date.parse(result.maintenance.starts_at)).toBeGreaterThan(Date.parse(result.server_time))
+    await db.exec('reset role')
+    expect(
+      (await db.query<{ revision: number }>('select revision from public.site_announcement'))
+        .rows[0].revision,
+    ).toBe(0)
+    await asUser(user)
+    expect(await active()).toBe(true)
+  })
   it('维护可不填标题与正文，服务器保存固定标题，迁移重跑保留版本和内容', async () => {
     await asUser(admin)
     const result = (
