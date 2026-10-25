@@ -7,7 +7,6 @@
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
     "jsx": "react-jsx",
-    "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
       "@ouonnki/cms-core": ["./packages/cms-core/src/index.ts"],
