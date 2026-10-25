@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { normalizeVodId } from '@ouonnki/cms-core'
 import { useFavoritesStore } from '@/features/favorites/store/favoritesStore'
 import type { FavoriteItem } from '@/features/favorites/types/favorites'
 import { useViewingHistoryStore } from '@/shared/store/viewingHistoryStore'
@@ -13,8 +14,8 @@ const favoriteBase = {
   updatedAt: z.number(),
   watchStatus: z.enum(['not_watched', 'watching', 'completed']),
   tags: z.array(z.string()),
-  notes: z.string().nullable().optional(),
-  rating: z.number().nullable().optional(),
+  notes: z.string().nullish().transform(value => value ?? undefined),
+  rating: z.number().nullish().transform(value => value ?? undefined),
   tracking: z
     .object({
       enabled: z.boolean(),
@@ -25,7 +26,10 @@ const favoriteBase = {
           z.object({
             sourceCode: z.string().min(1),
             sourceName: z.string().min(1),
-            vodId: z.string().regex(/^[\w-]+$/),
+            vodId: z.preprocess(
+              value => normalizeVodId(value) ?? value,
+              z.string().regex(/^[\w-]+$/).max(512),
+            ),
             title: z.string().min(1),
           }),
         )
@@ -50,11 +54,11 @@ const favoriteSchema = z.discriminatedUnion('sourceType', [
       id: z.number(),
       mediaType: z.enum(['movie', 'tv']),
       title: z.string(),
-      originalTitle: z.string(),
-      posterPath: z.string().nullable(),
-      backdropPath: z.string().nullable(),
-      releaseDate: z.string(),
-      voteAverage: z.number(),
+      originalTitle: z.string().nullish().transform(value => value ?? ''),
+      posterPath: z.string().nullish().transform(value => value ?? null),
+      backdropPath: z.string().nullish().transform(value => value ?? null),
+      releaseDate: z.string().nullish().transform(value => value ?? ''),
+      voteAverage: z.number().nullish().transform(value => value ?? 0),
     }),
   }),
   z.object({
@@ -65,10 +69,10 @@ const favoriteSchema = z.discriminatedUnion('sourceType', [
       vodName: z.string(),
       sourceCode: z.string(),
       sourceName: z.string(),
-      vodPic: z.string().nullable().optional(),
-      typeName: z.string().nullable().optional(),
-      vodYear: z.string().nullable().optional(),
-      vodArea: z.string().nullable().optional(),
+      vodPic: z.string().nullish().transform(value => value ?? undefined),
+      typeName: z.string().nullish().transform(value => value ?? undefined),
+      vodYear: z.string().nullish().transform(value => value ?? undefined),
+      vodArea: z.string().nullish().transform(value => value ?? undefined),
     }),
   }),
 ])
@@ -114,12 +118,38 @@ const preferenceSchemas: Record<string, z.ZodType> = {
 
 export type Snapshot = Record<string, Pick<SyncRecord, 'kind' | 'item_key' | 'value'>>
 
+function normalizedFavorite(value: unknown, itemKey: string): FavoriteItem | null {
+  const parsed = favoriteSchema.safeParse(value)
+  return parsed.success && parsed.data.id === itemKey ? (parsed.data as FavoriteItem) : null
+}
+
+// Keep record clocks and mutation IDs intact when repairing older payloads.
+export function normalizeFavoriteRecord(row: SyncRecord): SyncRecord {
+  if (row.kind !== 'favorite' || row.deleted) return row
+  const value = normalizedFavorite(row.value, row.item_key)
+  return value ? { ...row, value } : row
+}
+
+export function payloadErrorDetails(row: SyncRecord): string {
+  if (row.kind === 'favorite') {
+    const parsed = favoriteSchema.safeParse(row.value)
+    if (!parsed.success) {
+      const paths = [...new Set(parsed.error.issues.map(issue => issue.path.join('.') || 'value'))]
+      return `字段：${paths.slice(0, 5).join('、')}`
+    }
+    if (parsed.data.id !== row.item_key) return 'id 与记录标识不一致'
+  }
+  return '记录字段或标识不符合当前格式'
+}
+
 export function snapshot(): Snapshot {
   const result: Snapshot = {}
   const add = (kind: SyncRecord['kind'], item_key: string, value: unknown) => {
     result[recordKey({ kind, item_key })] = { kind, item_key, value }
   }
-  useFavoritesStore.getState().favorites.forEach(item => add('favorite', item.id, item))
+  useFavoritesStore.getState().favorites.forEach(item =>
+    add('favorite', item.id, normalizedFavorite(item, item.id) ?? item),
+  )
   useViewingHistoryStore
     .getState()
     .viewingHistory.forEach(item => add('history', getHistoryItemKey(item), item))
@@ -135,8 +165,7 @@ export function snapshot(): Snapshot {
 export function validPayload(row: SyncRecord): boolean {
   if (row.deleted) return true
   if (row.kind === 'favorite') {
-    const parsed = favoriteSchema.safeParse(row.value)
-    return parsed.success && parsed.data.id === row.item_key
+    return normalizedFavorite(row.value, row.item_key) !== null
   }
   if (row.kind === 'history') {
     const parsed = normalizedLegacyHistory(row.value, row.item_key)
@@ -195,7 +224,10 @@ export function applyJournal(journal: Journal) {
   const playback: Record<string, unknown> = {}
   for (const row of Object.values(journal)) {
     if (row.deleted || !validPayload(row)) continue
-    if (row.kind === 'favorite') favorites.push(row.value as FavoriteItem)
+    if (row.kind === 'favorite') {
+      const item = normalizedFavorite(row.value, row.item_key)
+      if (item) favorites.push(item)
+    }
     if (row.kind === 'history') {
       const item = normalizedLegacyHistory(row.value, row.item_key)
       if (item) history.push(item)

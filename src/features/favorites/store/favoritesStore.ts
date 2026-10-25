@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { devtools, persist } from 'zustand/middleware'
 import { immer } from 'zustand/middleware/immer'
+import { normalizeVodId } from '@ouonnki/cms-core'
 import type { FavoriteItem, FavoriteList, FavoriteFilterOptions, FavoriteStats } from '../types/favorites'
 import { FavoriteWatchStatus } from '../types/favorites'
 import type { TmdbFavoriteItem, CmsFavoriteItem, SeriesTracking, TrackingBinding } from '../types/favorites'
@@ -158,11 +159,11 @@ function createTmdbMediaSnapshot(media: TmdbMediaItem): TmdbFavoriteItem['media'
     id: media.id,
     mediaType: media.mediaType,
     title: media.title,
-    originalTitle: media.originalTitle,
-    posterPath: media.posterPath,
-    backdropPath: media.backdropPath,
-    releaseDate: media.releaseDate,
-    voteAverage: media.voteAverage,
+    originalTitle: media.originalTitle ?? '',
+    posterPath: media.posterPath ?? null,
+    backdropPath: media.backdropPath ?? null,
+    releaseDate: media.releaseDate ?? '',
+    voteAverage: media.voteAverage ?? 0,
   }
 }
 
@@ -263,6 +264,7 @@ export const useFavoritesStore = create<FavoritesStore>()(
         },
 
         setTrackingBinding: (id, binding, expectedSeasonKey, completedEpisode) => {
+          const vodId = binding ? normalizeVodId(binding.vodId) : null
           if (
             !Number.isSafeInteger(completedEpisode) ||
             completedEpisode < 0 ||
@@ -270,7 +272,7 @@ export const useFavoritesStore = create<FavoritesStore>()(
               (!binding.sourceCode.trim() ||
                 !binding.sourceName.trim() ||
                 !binding.title.trim() ||
-                !/^[\w-]+$/.test(binding.vodId)))
+                vodId === null))
           ) return false
           let saved = false
           set(state => {
@@ -280,12 +282,12 @@ export const useFavoritesStore = create<FavoritesStore>()(
               !canTrackFavorite(item) ||
               trackingSeasonKey(item) !== expectedSeasonKey
             ) return
-            if (binding) {
+            if (binding && vodId !== null) {
               item.tracking.bindings ??= {}
               item.tracking.bindings[expectedSeasonKey] = {
                 sourceCode: binding.sourceCode,
                 sourceName: binding.sourceName,
-                vodId: binding.vodId,
+                vodId,
                 title: binding.title,
               }
             } else if (item.tracking.bindings) {

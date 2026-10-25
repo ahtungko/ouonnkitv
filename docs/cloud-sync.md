@@ -135,6 +135,8 @@ Keep the first two migrations if they are already applied; run the third provisi
 
 ## Verify after deployment
 
+Older favorites with numeric video IDs in their tracking bindings are normalized to string IDs when reading cloud records or local sync caches. Missing/null TMDB display metadata receives empty defaults; notes, tags, tracking progress, record clocks and pending offline edits are retained. New tracking bindings and TMDB snapshots use the canonical format from the start. This frontend compatibility fix does not require SQL changes or clearing account data. If a record is still incompatible, the sync error identifies the record and affected field paths without printing its values; the record is not silently deleted or overwritten. Deploy the updated frontend and use **Sync now (立即同步)** to retry.
+
 The build runs `pnpm check:api-types` to check API routes with Vercel-style dependency resolution. Keep the `@supabase/*` public-hoist rule in `.npmrc`: Vercel's TypeScript language-service host needs these transitive declarations at public package paths under pnpm. If a cached deployment reports missing `SupabaseAuthClient` methods (`admin`, `signInWithPassword`, `updateUser`, or `signOut`), redeploy the updated code without the existing build cache so the corrected dependency layout is installed. No database migration is needed for this build fix.
 
 1. Create `a` and `b`; sign into `a` on two devices and `b` in a separate browser profile.

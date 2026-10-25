@@ -51,6 +51,18 @@ const item = (vodId: string): ViewingHistoryItem => ({
   playbackPosition: 30,
   duration: 120,
 })
+const legacyFavorite = (): SyncRecord => ({
+  kind: 'favorite', item_key: 'tmdb_tv_282326', modified_at: 100, mutation_id: 'legacy', deleted: false,
+  value: {
+    id: 'tmdb_tv_282326', addedAt: 1, updatedAt: 2, sourceType: 'tmdb',
+    watchStatus: 'watching', tags: ['追更'], notes: '保留备注',
+    tracking: { enabled: true, seasonNumber: 1,
+      bindings: { '1': { sourceCode: 's', sourceName: 'S', vodId: 12345, title: '剧' } },
+      progress: { '1': { completedEpisode: 12, calibratedAt: 100 } },
+    },
+    media: { id: 282326, mediaType: 'tv', title: '剧' },
+  },
+})
 const session = (id: string) =>
   ({ access_token: `token-${id}`, user: { id, email: `${id}@example.com` } }) as Session
 let stop: (() => void) | undefined
@@ -89,6 +101,63 @@ afterEach(() => {
 })
 
 describe('cloud sync lifecycle', () => {
+  it('旧云端收藏可正常下载、恢复进度并保留原记录时钟，不再阻塞历史同步', async () => {
+    const favorite = legacyFavorite()
+    const history: SyncRecord = {
+      kind: 'history', item_key: 'cms::source::movie::0', value: item('movie'),
+      modified_at: 100, mutation_id: 'history', deleted: false,
+    }
+    mocks.range.mockResolvedValue({ data: [favorite, history], error: null })
+    mocks.authCallback!('SIGNED_IN', session('alice'))
+    await syncNow()
+    expect(useSyncStatus.getState()).toMatchObject({ status: '已同步', error: null })
+    expect(useFavoritesStore.getState().favorites[0]).toMatchObject({
+      id: 'tmdb_tv_282326', notes: '保留备注',
+      tracking: { bindings: { '1': { vodId: '12345' } },
+        progress: { '1': { completedEpisode: 12 } } },
+    })
+    expect(useViewingHistoryStore.getState().viewingHistory[0].vodId).toBe('movie')
+    const cache = JSON.parse(localStorage.getItem('ouonnki-cloud-v1:alice')!)
+    expect(cache[recordKey(favorite)]).toMatchObject({
+      modified_at: 100, mutation_id: 'legacy', pending: false,
+      value: { tracking: { bindings: { '1': { vodId: '12345' } } } },
+    })
+    expect(mocks.rpc.mock.calls.filter(([name]) => name === 'sync_user_records')).toHaveLength(0)
+  })
+
+  it('旧本机缓存中的待上传收藏先规范化，再上传且保留离线编辑', async () => {
+    const favorite = legacyFavorite()
+    localStorage.setItem('ouonnki-cloud-v1:alice', JSON.stringify({
+      [recordKey(favorite)]: { ...favorite, pending: true },
+    }))
+    mocks.authCallback!('SIGNED_IN', session('alice'))
+    expect(useFavoritesStore.getState().favorites[0].id).toBe(favorite.item_key)
+    await syncNow()
+    const uploads = mocks.rpc.mock.calls.filter(([name]) => name === 'sync_user_records')
+    expect(uploads).toHaveLength(1)
+    expect(uploads[0][1].changes[0]).toMatchObject({
+      modified_at: 100, mutation_id: 'legacy',
+      value: { notes: '保留备注', tracking: { bindings: { '1': { vodId: '12345' } } } },
+    })
+    expect(useSyncStatus.getState().error).toBeNull()
+  })
+
+  it('不可修复的数据提示具体字段，不修改云端记录或制造删除标记', async () => {
+    const favorite = legacyFavorite()
+    const value = favorite.value as Record<string, unknown>
+    value.tracking = { enabled: true, bindings: {
+      '1': { sourceCode: 's', sourceName: 'S', vodId: 'https://example.com/private', title: '剧' },
+    } }
+    mocks.range.mockResolvedValue({ data: [favorite], error: null })
+    mocks.authCallback!('SIGNED_IN', session('alice'))
+    await syncNow()
+    expect(useSyncStatus.getState().error).toContain('favorite/tmdb_tv_282326')
+    expect(useSyncStatus.getState().error).toContain('tracking.bindings.1.vodId')
+    expect(useSyncStatus.getState().error).not.toContain('https://example.com/private')
+    expect(mocks.rpc.mock.calls.filter(([name]) => name === 'sync_user_records')).toHaveLength(0)
+    const cache = JSON.parse(localStorage.getItem('ouonnki-cloud-v1:alice')!)
+    expect(cache[recordKey(favorite)]).toBeUndefined()
+  })
   it('replaces stale progress on disk with the server playback owner after a rejected upload', async () => {
     mocks.authCallback!('SIGNED_IN', session('alice'))
     const oldLease = '00000000-0000-4000-8000-000000000001'

@@ -77,6 +77,24 @@ describe('favoritesStore cms id encoding', () => {
     expect(favorite?.id).toBe(legacyId)
   })
 
+  it('视频源返回数字绑定ID时保存字符串，非法数字不会替换已有绑定', () => {
+    const store = useFavoritesStore.getState()
+    store.addCmsFavorite(createCmsVideo())
+    const id = useFavoritesStore.getState().favorites[0].id
+    store.setTracking(id, { enabled: true })
+    const binding = {
+      sourceCode: 's', sourceName: 'S', title: '视频源资源',
+      // CMS responses can contain numbers despite the public string-ID interface.
+      vodId: 12345 as unknown as string,
+    }
+    expect(store.setTrackingBinding(id, binding, 'cms', 3)).toBe(true)
+    const tracking = useFavoritesStore.getState().favorites[0].tracking
+    expect(tracking?.bindings?.cms.vodId).toBe('12345')
+    expect(tracking?.progress?.cms.completedEpisode).toBe(3)
+    expect(store.setTrackingBinding(id, { ...binding, vodId: 1.5 as unknown as string }, 'cms', 4)).toBe(false)
+    expect(useFavoritesStore.getState().favorites[0].tracking).toEqual(tracking)
+  })
+
   it('addFavorites 在中文 CMS 条目下可去重', () => {
     const video = createCmsVideo({
       vod_id: '中文-去重',

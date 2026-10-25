@@ -204,8 +204,8 @@ export function normalizeToMediaItem(
     title: title || '',
     originalTitle: originalTitle || '',
     overview: (raw.overview as string) || '',
-    posterPath: raw.poster_path as string | null,
-    backdropPath: raw.backdrop_path as string | null,
+    posterPath: (raw.poster_path as string | null | undefined) ?? null,
+    backdropPath: (raw.backdrop_path as string | null | undefined) ?? null,
     logoPath: (raw.logo_path as string | null) ?? null, // 初始为 null，后续可单独获取
     releaseDate: releaseDate || '',
     voteAverage: (raw.vote_average as number) || 0,

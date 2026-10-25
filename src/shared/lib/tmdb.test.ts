@@ -4,6 +4,7 @@ import {
   DEFAULT_TMDB_API_BASE_URL,
   DEFAULT_TMDB_IMAGE_BASE_URL,
   getTmdbClient,
+  normalizeToMediaItem,
   resolveTmdbApiBaseUrl,
   resolveTmdbImageBaseUrl,
 } from './tmdb'
@@ -12,6 +13,16 @@ const ORIGINAL_ENV_API_BASE = import.meta.env.OKI_TMDB_API_BASE_URL
 const ORIGINAL_ENV_IMAGE_BASE = import.meta.env.OKI_TMDB_IMAGE_BASE_URL
 const ORIGINAL_FETCH = globalThis.fetch
 const ORIGINAL_SYSTEM = structuredClone(useSettingStore.getState().system)
+
+it('TMDB 缺少图片字段时使用 null，确保收藏快照序列化后仍完整', () => {
+  const media = normalizeToMediaItem({ id: 282326, name: '剧' }, 'tv')
+  expect(JSON.parse(JSON.stringify(media))).toMatchObject({
+    posterPath: null,
+    backdropPath: null,
+    releaseDate: '',
+    voteAverage: 0,
+  })
+})
 
 function setSystemSettingsForTest(
   settings: Partial<ReturnType<typeof useSettingStore.getState>['system']>,

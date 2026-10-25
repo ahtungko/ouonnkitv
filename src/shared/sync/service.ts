@@ -5,7 +5,15 @@ import { useViewingHistoryStore } from '@/shared/store/viewingHistoryStore'
 import { useSettingStore } from '@/shared/store/settingStore'
 import { useAuthStore } from '@/shared/store/authStore'
 import { syncClient } from './client'
-import { applyJournal, seedJournal, snapshot, validPayload, type Snapshot } from './data'
+import {
+  applyJournal,
+  normalizeFavoriteRecord,
+  payloadErrorDetails,
+  seedJournal,
+  snapshot,
+  validPayload,
+  type Snapshot,
+} from './data'
 import { acknowledge, mergeRemote, newer, recordSchema, type Journal } from './records'
 import { startSeriesNotificationSync } from './seriesNotifications'
 
@@ -43,8 +51,9 @@ function readJournal(key: string): Journal {
     throw new Error('Invalid local sync cache')
   const result: Journal = {}
   for (const [key, value] of Object.entries(parsed)) {
-    const row = recordSchema.parse(value)
-    if (!validPayload(row)) throw new Error('Invalid local sync record')
+    const row = normalizeFavoriteRecord(recordSchema.parse(value))
+    if (!validPayload(row))
+      throw new Error(`本机同步记录格式不兼容：${row.kind}/${row.item_key}（${payloadErrorDetails(row)}）`)
     result[key] = { ...row, pending: Boolean((value as { pending?: boolean }).pending) }
   }
   return result
@@ -153,10 +162,12 @@ export async function syncNow() {
         .setHeader('Authorization', authorization)
       if (run !== generation) return
       if (error) throw new Error(error.message)
-      const rows = (data ?? []).map(row => recordSchema.parse(row))
+      const rows = (data ?? []).map(row => normalizeFavoriteRecord(recordSchema.parse(row)))
       const invalid = rows.find(row => !validPayload(row))
       if (invalid)
-        throw new Error(`Cloud data is incompatible: ${invalid.kind}/${invalid.item_key}`)
+        throw new Error(
+          `云端数据格式不兼容：${invalid.kind}/${invalid.item_key}（${payloadErrorDetails(invalid)}）`,
+        )
       journal = mergeRemote(journal, rows)
       save()
       if (rows.length < 500) break

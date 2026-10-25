@@ -1,8 +1,70 @@
 import { describe, expect, it } from 'vitest'
-import { applyJournal, validPayload } from './data'
+import { applyJournal, normalizeFavoriteRecord, payloadErrorDetails, snapshot, validPayload } from './data'
 import { useFavoritesStore } from '@/features/favorites/store/favoritesStore'
+import type { SyncRecord } from './records'
+
+function legacyTmdbFavorite(vodId: unknown = 12345): SyncRecord {
+  return {
+    kind: 'favorite', item_key: 'tmdb_tv_282326', modified_at: 123, mutation_id: 'legacy', deleted: false,
+    value: {
+      id: 'tmdb_tv_282326', addedAt: 1, updatedAt: 2, sourceType: 'tmdb',
+      watchStatus: 'watching', notes: '保留备注', rating: 4, tags: ['追更'],
+      tracking: { enabled: true, seasonNumber: 1,
+        bindings: { '1': { sourceCode: 's', sourceName: 'S', vodId, title: '剧' } },
+        progress: { '1': { completedEpisode: 12, calibratedAt: 100 } },
+      },
+      media: { id: 282326, mediaType: 'tv', title: '剧', originalTitle: 'Show',
+        posterPath: null, backdropPath: null, releaseDate: '', voteAverage: 0 },
+    },
+  }
+}
 
 describe('cloud payload compatibility', () => {
+  it('兼容数字追更绑定ID，实际写回收藏和快照时转为字符串且保留用户数据与记录时钟', () => {
+    const row = legacyTmdbFavorite()
+    expect(validPayload(row)).toBe(true)
+    const repaired = normalizeFavoriteRecord(row)
+    expect(repaired).toMatchObject({
+      modified_at: 123, mutation_id: 'legacy',
+      value: { notes: '保留备注', rating: 4, tags: ['追更'],
+        tracking: { bindings: { '1': { vodId: '12345' } },
+          progress: { '1': { completedEpisode: 12, calibratedAt: 100 } } },
+      },
+    })
+    applyJournal({ favorite: { ...row, pending: false } })
+    expect(useFavoritesStore.getState().favorites[0].tracking?.bindings?.['1'].vodId).toBe('12345')
+    expect(Object.values(snapshot()).find(item => item.kind === 'favorite')?.value).toEqual(repaired.value)
+    expect(row.value).toMatchObject({ tracking: { bindings: { '1': { vodId: 12345 } } } })
+  })
+
+  it.each([1.5, NaN, Infinity, false, {}, 'https://example.com/video'])('不会把非法绑定ID %s 强行转成字符串', vodId => {
+    const row = legacyTmdbFavorite(vodId)
+    expect(validPayload(row)).toBe(false)
+    expect(normalizeFavoriteRecord(row)).toBe(row)
+    expect(payloadErrorDetails(row)).toContain('tracking.bindings.1.vodId')
+  })
+
+  it('旧TMDB收藏缺少可选展示信息时补齐默认值，不猜测媒体身份或标题', () => {
+    const row = legacyTmdbFavorite()
+    const raw = row.value as Record<string, unknown>
+    raw.media = { id: 282326, mediaType: 'tv', title: '剧', releaseDate: null, voteAverage: null }
+    expect(validPayload(row)).toBe(true)
+    expect(normalizeFavoriteRecord(row).value).toMatchObject({
+      media: { originalTitle: '', posterPath: null, backdropPath: null, releaseDate: '', voteAverage: 0 },
+    })
+    raw.media = { id: 282326, mediaType: 'tv' }
+    expect(validPayload(row)).toBe(false)
+    expect(payloadErrorDetails(row)).toContain('media.title')
+  })
+
+  it('仍拒绝收藏标识不一致的数据，删除标记不尝试修复内容', () => {
+    const row = legacyTmdbFavorite()
+    expect(validPayload({ ...row, item_key: 'tmdb_tv_other' })).toBe(false)
+    expect(payloadErrorDetails({ ...row, item_key: 'tmdb_tv_other' })).toContain('id 与记录标识不一致')
+    const deleted = { ...row, deleted: true, value: null }
+    expect(validPayload(deleted)).toBe(true)
+    expect(normalizeFavoriteRecord(deleted)).toBe(deleted)
+  })
   it('追更开关与季数可以跨设备同步，检查结果不混入收藏', () => {
     const row = {
       kind: 'favorite' as const, item_key: 'cms_x', modified_at: 1, mutation_id: 'b', deleted: false,
