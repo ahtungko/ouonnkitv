@@ -194,6 +194,8 @@ describe('公告弹窗', () => {
   })
 
   it('维护弹窗显示时间，版本更新显示版本号和对应类型', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-10-20T08:30:00Z'))
     mocks.read.mockResolvedValue({
       ...announcement(),
       kind: 'maintenance',
@@ -212,6 +214,76 @@ describe('公告弹窗', () => {
     expect(dialog()?.textContent).toContain('版本更新')
     expect(dialog()?.textContent).toContain('v2.1.0')
     expect(dialog()?.textContent).not.toContain('开始时间：')
+  })
+
+  it.each(['user', 'admin'])('维护已到结束时间时不再向 %s 提醒，也不保留查看入口', async role => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-10-20T09:00:00Z'))
+    login(alice, role)
+    mocks.read.mockResolvedValue({
+      ...announcement(),
+      kind: 'maintenance',
+      maintenance_start: '2026-10-20T08:00:00Z',
+      maintenance_end: '2026-10-20T09:00:00Z',
+    })
+    await mount()
+    expect(dialog()).toBeNull()
+    expect(button('查看站内公告')).toBeUndefined()
+    expect(localStorage.getItem(dismissalKey(alice))).toBeNull()
+    await act(async () => login(bob, role))
+    expect(dialog()).toBeNull()
+    expect(button('查看站内公告')).toBeUndefined()
+  })
+
+  it('维护到期时自动收起已打开的弹窗，无需等下一次轮询', async () => {
+    vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] })
+    vi.setSystemTime(new Date('2026-10-20T08:59:59Z'))
+    mocks.read.mockResolvedValue({
+      ...announcement(),
+      kind: 'maintenance',
+      maintenance_start: '2026-10-20T08:00:00Z',
+      maintenance_end: '2026-10-20T09:00:00Z',
+    })
+    await mount()
+    expect(dialog()).not.toBeNull()
+    await act(async () => vi.advanceTimersByTimeAsync(1000))
+    expect(dialog()).toBeNull()
+    expect(button('查看站内公告')).toBeUndefined()
+    expect(mocks.read).toHaveBeenCalledTimes(1)
+    expect(localStorage.getItem(dismissalKey(alice))).toBeNull()
+  })
+
+  it('播放期间已过期的维护公告，退出播放后不再补弹', async () => {
+    vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] })
+    vi.setSystemTime(new Date('2026-10-20T08:59:59Z'))
+    mocks.read.mockResolvedValue({
+      ...announcement(),
+      kind: 'maintenance',
+      maintenance_start: '2026-10-20T08:00:00Z',
+      maintenance_end: '2026-10-20T09:00:00Z',
+    })
+    await act(async () => root.render(createElement(AnnouncementCenter, { deferred: true })))
+    await act(async () => vi.advanceTimersByTimeAsync(1000))
+    await act(async () => root.render(createElement(AnnouncementCenter, { deferred: false })))
+    expect(dialog()).toBeNull()
+    expect(button('查看站内公告')).toBeUndefined()
+  })
+
+  it('公告改成普通通知后，旧维护的到期定时器不会关闭新公告', async () => {
+    vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] })
+    vi.setSystemTime(new Date('2026-10-20T08:59:59Z'))
+    mocks.read.mockResolvedValue({
+      ...announcement(),
+      kind: 'maintenance',
+      maintenance_start: '2026-10-20T08:00:00Z',
+      maintenance_end: '2026-10-20T09:00:00Z',
+    })
+    await mount()
+    mocks.read.mockResolvedValue({ ...announcement(2), title: '普通通知' })
+    await act(async () => window.dispatchEvent(new Event('focus')))
+    await act(async () => vi.advanceTimersByTimeAsync(1000))
+    expect(dialog()?.textContent).toContain('普通通知')
+    expect(button('查看站内公告')).toBeDefined()
   })
 })
 

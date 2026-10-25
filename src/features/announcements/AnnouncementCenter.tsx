@@ -3,12 +3,44 @@ import { Megaphone } from 'lucide-react'
 import { Button } from '@/shared/components/ui/button'
 import { Dialog, DialogTrigger } from '@/shared/components/ui/dialog'
 import { useAuthStore } from '@/shared/store/authStore'
-import { dismissAnnouncement, dismissalKey, readDismissal } from './service'
+import { dismissAnnouncement, dismissalKey, readDismissal, type Announcement } from './service'
 import { useAnnouncement } from './useAnnouncement'
 import { AnnouncementDialogContent } from './AnnouncementDialogContent'
 
+function useMaintenanceExpired(announcement: Announcement | null) {
+  const endsAt = announcement?.kind === 'maintenance' && announcement.maintenance_end
+    ? Date.parse(announcement.maintenance_end)
+    : NaN
+  const [, tick] = useState(0)
+
+  useEffect(() => {
+    if (!Number.isFinite(endsAt)) return
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const schedule = () => {
+      const remaining = endsAt - Date.now()
+      if (remaining > 0) timer = setTimeout(update, Math.min(remaining, 2_147_483_647))
+    }
+    const update = () => {
+      clearTimeout(timer)
+      tick(value => value + 1)
+      schedule()
+    }
+    schedule()
+    window.addEventListener('focus', update)
+    document.addEventListener('visibilitychange', update)
+    return () => {
+      clearTimeout(timer)
+      window.removeEventListener('focus', update)
+      document.removeEventListener('visibilitychange', update)
+    }
+  }, [endsAt])
+
+  return Number.isFinite(endsAt) && Date.now() >= endsAt
+}
+
 function AccountAnnouncement({ ownerId, deferred }: { ownerId: string; deferred: boolean }) {
   const { announcement } = useAnnouncement()
+  const expired = useMaintenanceExpired(announcement)
   const [dismissed, setDismissed] = useState(() => readDismissal(ownerId))
   const [manualRevision, setManualRevision] = useState<number | null>(null)
   useEffect(() => {
@@ -19,7 +51,7 @@ function AccountAnnouncement({ ownerId, deferred }: { ownerId: string; deferred:
     window.addEventListener('storage', onStorage)
     return () => window.removeEventListener('storage', onStorage)
   }, [ownerId])
-  if (!announcement?.published) return null
+  if (!announcement?.published || expired) return null
   const unread = dismissed !== String(announcement.revision)
 
   return (
