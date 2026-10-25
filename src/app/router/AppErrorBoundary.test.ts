@@ -22,6 +22,7 @@ afterEach(async () => {
   await act(async () => root.unmount())
   host.remove()
   vi.restoreAllMocks()
+  vi.unstubAllEnvs()
 })
 
 describe('AppErrorBoundary', () => {
@@ -94,6 +95,37 @@ describe('AppErrorBoundary', () => {
     )
     expect(homeButton).toBeDefined()
     await act(async () => homeButton!.click())
+    expect(onGoHome).toHaveBeenCalledTimes(1)
+  })
+
+  it('生产环境隐藏原始异常详情，保留通用提示与恢复操作', async () => {
+    vi.stubEnv('DEV', false)
+    const error = new Error('Internal request failed: https://internal.invalid/?token=test-secret')
+    const onReload = vi.fn()
+    const onGoHome = vi.fn()
+
+    await act(async () =>
+      root.render(
+        createElement(
+          AppErrorBoundary,
+          { onReload, onGoHome },
+          createElement(ThrowingComponent, { error }),
+        ),
+      ),
+    )
+
+    expect(host.textContent).toContain('页面遇到意外问题')
+    expect(host.textContent).not.toContain(error.message)
+    expect(host.textContent).not.toContain('查看技术错误详情')
+    expect(host.querySelector('details')).toBeNull()
+    expect(host.querySelector('pre')).toBeNull()
+
+    const buttons = Array.from(host.querySelectorAll('button'))
+    await act(async () => {
+      buttons.find(button => button.textContent?.includes('刷新页面'))!.click()
+      buttons.find(button => button.textContent?.includes('返回首页'))!.click()
+    })
+    expect(onReload).toHaveBeenCalledTimes(1)
     expect(onGoHome).toHaveBeenCalledTimes(1)
   })
 

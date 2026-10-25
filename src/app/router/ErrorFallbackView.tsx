@@ -84,7 +84,7 @@ export function ErrorFallbackView({
           )}
         </div>
 
-        {errorMessage && !isChunkError && (
+        {import.meta.env.DEV && errorMessage && !isChunkError && (
           <details className="mt-8 w-full text-left">
             <summary className="text-xs text-muted-foreground/80 cursor-pointer hover:text-foreground transition-colors">
               查看技术错误详情
