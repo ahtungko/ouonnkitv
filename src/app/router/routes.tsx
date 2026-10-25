@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { createBrowserRouter, RouterProvider, Navigate } from 'react-router'
 import { LoadingFallback } from './LoadingFallback'
+import { RootErrorBoundary } from './RootErrorBoundary'
 import { useAuthStore } from '@/shared/store/authStore'
 import { adminChildRoutes } from '@/features/auth/admin-routes'
 
@@ -46,6 +47,7 @@ const router = createBrowserRouter([
   {
     path: '/',
     element: <MainLayout />,
+    ErrorBoundary: RootErrorBoundary,
     children: [
       {
         path: 'admin',

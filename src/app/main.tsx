@@ -7,19 +7,25 @@ import '@fontsource/inter/700.css'
 import '@/app/styles/main.css'
 import { ThemeProvider } from 'next-themes'
 import AppRouter from './router'
+import { AppErrorBoundary } from './router/AppErrorBoundary'
 import { Toaster } from '@/shared/components/ui/sonner'
 import { TooltipProvider } from '@/shared/components/ui/tooltip'
 
 import { Analytics } from '@vercel/analytics/react'
 import { SpeedInsights } from '@vercel/speed-insights/react'
 import { getPublicEnv } from '@/shared/config/runtimeEnv'
+import { registerPreloadRecovery } from '@/shared/lib/preloadRecovery'
+
+registerPreloadRecovery()
 
 const root = document.getElementById('root')!
 
 const app = (
   <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
     <TooltipProvider>
-      <AppRouter />
+      <AppErrorBoundary>
+        <AppRouter />
+      </AppErrorBoundary>
       <Toaster richColors position="top-center" />
       {getPublicEnv('OKI_DISABLE_ANALYTICS') !== 'true' && (
         <>
