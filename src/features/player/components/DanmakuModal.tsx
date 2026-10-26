@@ -28,6 +28,7 @@ import {
   fetchDandanComments,
   fetchBilibiliCidComments,
   resolveDanmakuOptions,
+  rememberPreferredAnime,
 } from '../lib/danmakuService'
 import {
   parseBilibiliXml,
@@ -121,6 +122,7 @@ export function DanmakuModal({
       } else {
         toast.success(`成功加载 ${comments.length} 条弹幕`)
       }
+      rememberPreferredAnime(initialSearchQuery || searchQuery, ep.animeTitle)
       onApplyComments(comments, `${ep.animeTitle} - ${ep.episodeTitle}`)
       onClose()
     } catch {

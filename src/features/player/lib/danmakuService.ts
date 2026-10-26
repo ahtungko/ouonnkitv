@@ -222,6 +222,40 @@ export async function fetchBilibiliCidComments(
   }
 }
 
+const PREFERRED_DANMAKU_KEY = 'oki_danmaku_preferred_source'
+
+/**
+ * 记忆特定剧名首选的弹幕源（如 360影视、腾讯视频等）
+ */
+export function rememberPreferredAnime(title: string, animeTitle: string): void {
+  if (!title || !animeTitle) return
+  try {
+    const raw = sessionStorage.getItem(PREFERRED_DANMAKU_KEY)
+    const map = raw ? JSON.parse(raw) : {}
+    map[title.trim()] = animeTitle.trim()
+    sessionStorage.setItem(PREFERRED_DANMAKU_KEY, JSON.stringify(map))
+  } catch {
+    // ignore sessionStorage errors
+  }
+}
+
+/**
+ * 获取特定剧名已记录的首选弹幕源
+ */
+export function getPreferredAnime(title: string): string | undefined {
+  if (!title) return undefined
+  try {
+    const raw = sessionStorage.getItem(PREFERRED_DANMAKU_KEY)
+    if (raw) {
+      const map = JSON.parse(raw)
+      return map[title.trim()]
+    }
+  } catch {
+    // ignore
+  }
+  return undefined
+}
+
 /**
  * 检验分集标题是否匹配目标集数
  */
@@ -258,14 +292,24 @@ function isEpisodeMatch(epTitle: string, epNum: number): boolean {
 /**
  * 评估弹幕分集源的质量权重（综合剧名与分集名中的平台标签）
  */
-function getSourceScore(ep: DanmakuEpisodeMatch): number {
-  const text = `${ep.animeTitle} ${ep.episodeTitle}`.toLowerCase()
+function getSourceScore(ep: DanmakuEpisodeMatch, preferredAnimeTitle?: string): number {
   let score = 0
-  if (text.includes('qq') || text.includes('tencent') || text.includes('腾讯')) score += 100
-  if (text.includes('bilibili') || text.includes('b站') || text.includes('哔哩')) score += 80
-  if (text.includes('iqiyi') || text.includes('爱奇艺')) score += 60
-  if (text.includes('youku') || text.includes('优酷')) score += 40
-  if (text.includes('mgtv') || text.includes('芒果')) score += 20
+  if (preferredAnimeTitle && ep.animeTitle === preferredAnimeTitle) {
+    score += 500
+  }
+
+  const text = `${ep.animeTitle} ${ep.episodeTitle}`.toLowerCase()
+  // 360影视、腾讯视频、B站是弹幕库三大主力，尤其短剧和热播剧 360 覆盖最全
+  if (text.includes('360')) score += 100
+  if (text.includes('qq') || text.includes('tencent') || text.includes('腾讯')) score += 95
+  if (text.includes('bilibili') || text.includes('b站') || text.includes('哔哩')) score += 90
+  if (text.includes('iqiyi') || text.includes('爱奇艺')) score += 75
+  if (text.includes('youku') || text.includes('优酷')) score += 70
+  if (text.includes('mgtv') || text.includes('芒果') || text.includes('imgo')) score += 55
+  if (text.includes('sohu') || text.includes('搜狐')) score += 40
+  if (text.includes('migu') || text.includes('咪咕')) score += 30
+  if (text.includes('douban') || text.includes('豆瓣')) score += 25
+  if (text.includes('renren') || text.includes('人人')) score += 20
   return score
 }
 
@@ -287,7 +331,7 @@ export async function autoMatchDanmaku(
     return { comments: [] }
   }
 
-  // 找出所有匹配目标集数的候选分集（可能聚合自腾讯、爱奇艺、优酷、B站等不同平台源）
+  // 找出所有匹配目标集数的候选分集（可能聚合自 360、腾讯、爱奇艺、优酷、B站等不同平台源）
   const candidates = episodes.filter(ep => isEpisodeMatch(ep.episodeTitle, episodeNumber))
 
   // 若未按集数文本匹配到，则按列表顺序降级尝试
@@ -299,11 +343,12 @@ export async function autoMatchDanmaku(
     return { comments: [] }
   }
 
-  // 优质源优先排序（腾讯、B站、爱奇艺、优酷弹幕更丰富且成功率更高）
-  candidates.sort((a, b) => getSourceScore(b) - getSourceScore(a))
+  // 优质源优先排序（已记住的首选源 > 360 > 腾讯 > B站 > 爱奇艺 > 优酷）
+  const preferred = getPreferredAnime(title)
+  candidates.sort((a, b) => getSourceScore(b, preferred) - getSourceScore(a, preferred))
 
-  // 并发尝试获取前 6 个候选分集的弹幕（每批 3 个并发请求），找到有弹幕的候选者，并优先选择弹幕量最多的
-  const candidateList = candidates.slice(0, 6)
+  // 并发尝试获取前 15 个候选分集的弹幕（每批 3 个并发请求），找到有弹幕的候选者，并优先选择弹幕量最多的
+  const candidateList = candidates.slice(0, 15)
   for (let i = 0; i < candidateList.length; i += 3) {
     const batch = candidateList.slice(i, i + 3)
     const batchResults = await Promise.all(
@@ -322,6 +367,7 @@ export async function autoMatchDanmaku(
       .sort((a, b) => b.comments.length - a.comments.length)
 
     if (validMatches.length > 0) {
+      rememberPreferredAnime(title, validMatches[0].candidate.animeTitle)
       return {
         comments: validMatches[0].comments,
         match: validMatches[0].candidate,
