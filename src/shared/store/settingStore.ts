@@ -132,7 +132,7 @@ export const useSettingStore = create<SettingStore>()(
       })),
       {
         name: 'ouonnki-tv-setting-store',
-        version: 16,
+        version: 17,
         migrate: (persistedState: unknown, version: number) => {
           const state = persistedState as Record<string, unknown>
           if (version < 2 && state.playback) {
@@ -237,6 +237,12 @@ export const useSettingStore = create<SettingStore>()(
           if (version < 16) {
             const playback = (state.playback ?? {}) as Record<string, unknown>
             playback.dandanApiBaseUrl ??= DEFAULT_SETTINGS.playback.dandanApiBaseUrl
+            state.playback = playback
+          }
+          if (version < 17) {
+            const playback = (state.playback ?? {}) as Record<string, unknown>
+            // 确保弹幕默认关闭（将历史版本缓存中默认开启的值强制重置为默认关闭）
+            playback.isDanmakuEnabled = false
             state.playback = playback
           }
           return state

@@ -295,4 +295,24 @@ describe('settingStore migrate', () => {
     expect(migrated.playback.isDanmakuEnabled).toBe(false)
     expect(migrated.playback.danmakuSpeed).toBe(5)
   })
+
+  it('v16 -> v17 会将弹幕默认重置为关闭状态', async () => {
+    const migrate = useSettingStore.persist.getOptions().migrate
+
+    const legacyState = {
+      network: DEFAULT_SETTINGS.network,
+      search: DEFAULT_SETTINGS.search,
+      playback: {
+        ...DEFAULT_SETTINGS.playback,
+        isDanmakuEnabled: true,
+      },
+      system: DEFAULT_SETTINGS.system,
+    }
+
+    const migrated = (await Promise.resolve(migrate?.(legacyState, 16))) as {
+      playback: { isDanmakuEnabled?: boolean }
+    }
+
+    expect(migrated.playback.isDanmakuEnabled).toBe(false)
+  })
 })

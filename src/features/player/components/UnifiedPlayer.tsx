@@ -223,7 +223,7 @@ export default function UnifiedPlayer() {
   const tmdbEnabled = useTmdbEnabled()
   const { videoAPIs, adFilteringEnabled } = useApiStore()
   const { addViewingHistory, viewingHistory } = useViewingHistoryStore()
-  const { playback } = useSettingStore()
+  const { playback, setPlaybackSettings } = useSettingStore()
   const account = useAuthStore(state => state.account)
   const isAdmin = !syncClient || account?.role === 'admin'
   const isAdminRef = useRef(isAdmin)
@@ -976,9 +976,12 @@ export default function UnifiedPlayer() {
     art.on('artplayerPluginDanmuku:show', () => {
       setIsDanmakuVisible(true)
       setIsDanmakuRequested(true)
+      setPlaybackSettings({ isDanmakuEnabled: true })
     })
     art.on('artplayerPluginDanmuku:hide', () => {
       setIsDanmakuVisible(false)
+      setIsDanmakuRequested(false)
+      setPlaybackSettings({ isDanmakuEnabled: false })
     })
     window.addEventListener('resize', handleControlViewportChange, { passive: true })
     window.addEventListener('orientationchange', handleControlViewportChange)
@@ -1389,11 +1392,14 @@ export default function UnifiedPlayer() {
     playback.dandanAppSecret,
   ])
 
-  // 当用户在设置中开启默认弹幕时，同步激活请求状态
+  // 当设置中弹幕开关变化时，同步激活或停用请求状态与视图状态
   useEffect(() => {
     if (playback.isDanmakuEnabled) {
       setIsDanmakuVisible(true)
       setIsDanmakuRequested(true)
+    } else {
+      setIsDanmakuVisible(false)
+      setIsDanmakuRequested(false)
     }
   }, [playback.isDanmakuEnabled])
 
@@ -1933,7 +1939,8 @@ export default function UnifiedPlayer() {
             isDanmakuVisible={isDanmakuVisible}
             onToggleVisible={visible => {
               setIsDanmakuVisible(visible)
-              if (visible) setIsDanmakuRequested(true)
+              setIsDanmakuRequested(visible)
+              setPlaybackSettings({ isDanmakuEnabled: visible })
               const artWithHls = activeArt as ArtplayerWithHls | null
               if (artWithHls?.plugins?.artplayerPluginDanmuku) {
                 if (visible) {
@@ -1946,6 +1953,7 @@ export default function UnifiedPlayer() {
             onApplyComments={(comments, matchInfo) => {
               setIsDanmakuVisible(true)
               setIsDanmakuRequested(true)
+              setPlaybackSettings({ isDanmakuEnabled: true })
               const artWithHls = activeArt as ArtplayerWithHls | null
               if (artWithHls?.plugins?.artplayerPluginDanmuku) {
                 artWithHls.plugins.artplayerPluginDanmuku.show()
