@@ -3,6 +3,9 @@ import {
   autoMatchDanmaku,
   fetchBilibiliCidComments,
   fetchDandanComments,
+  getPreferredAnime,
+  isEpisodeMatch,
+  rememberPreferredAnime,
   searchDandanEpisodes,
 } from './danmakuService'
 
@@ -176,5 +179,146 @@ describe('danmakuService', () => {
     expect(result.match?.episodeId).toBe(2002)
     expect(result.comments).toHaveLength(1)
     expect(result.comments[0].text).toBe('第2集打卡')
+  })
+
+  describe('isEpisodeMatch', () => {
+    it('matches episode 3 with standard and relaxed formats', () => {
+      expect(isEpisodeMatch('3', 3)).toBe(true)
+      expect(isEpisodeMatch('03', 3)).toBe(true)
+      expect(isEpisodeMatch('003', 3)).toBe(true)
+      expect(isEpisodeMatch('第3集', 3)).toBe(true)
+      expect(isEpisodeMatch('第03集', 3)).toBe(true)
+      expect(isEpisodeMatch('第 3 集', 3)).toBe(true)
+      expect(isEpisodeMatch('EP03', 3)).toBe(true)
+      expect(isEpisodeMatch('ep 3', 3)).toBe(true)
+      expect(isEpisodeMatch('【第3集】', 3)).toBe(true)
+      expect(isEpisodeMatch('(第3集)', 3)).toBe(true)
+      expect(isEpisodeMatch('第3话', 3)).toBe(true)
+      expect(isEpisodeMatch('第3期', 3)).toBe(true)
+      expect(isEpisodeMatch('嫁金钗 第3集 抢先看', 3)).toBe(true)
+    })
+
+    it('does not falsely match episode 13 or 30 as episode 3', () => {
+      expect(isEpisodeMatch('第13集', 3)).toBe(false)
+      expect(isEpisodeMatch('第30集', 3)).toBe(false)
+      expect(isEpisodeMatch('13', 3)).toBe(false)
+      expect(isEpisodeMatch('30', 3)).toBe(false)
+      expect(isEpisodeMatch('EP13', 3)).toBe(false)
+    })
+  })
+
+  it('selects candidate with comments even when earlier candidates have 0 comments (e.g. 360 at index 4)', async () => {
+    const mockSearch = {
+      animes: [
+        {
+          animeId: 101,
+          animeTitle: '[优酷] 嫁金钗',
+          episodes: [{ episodeId: 10001, episodeTitle: '第03集' }],
+        },
+        {
+          animeId: 102,
+          animeTitle: '[腾讯] 嫁金钗',
+          episodes: [{ episodeId: 10002, episodeTitle: '第03集' }],
+        },
+        {
+          animeId: 103,
+          animeTitle: '[爱奇艺] 嫁金钗',
+          episodes: [{ episodeId: 10003, episodeTitle: '第03集' }],
+        },
+        {
+          animeId: 104,
+          animeTitle: '[芒果] 嫁金钗',
+          episodes: [{ episodeId: 10004, episodeTitle: '第03集' }],
+        },
+        {
+          animeId: 105,
+          animeTitle: '[360] 嫁金钗',
+          episodes: [{ episodeId: 10005, episodeTitle: '第03集' }],
+        },
+      ],
+    }
+
+    // 优酷、腾讯、爱奇艺、芒果均为 0 条弹幕，360 有 50 条弹幕
+    vi.mocked(globalThis.fetch).mockImplementation(async (input) => {
+      const urlStr = decodeURIComponent(String(input))
+      if (urlStr.includes('/api/v2/search/episodes')) {
+        return {
+          ok: true,
+          json: async () => mockSearch,
+        } as Response
+      }
+      if (urlStr.includes('/10005')) {
+        return {
+          ok: true,
+          json: async () => ({
+            count: 2,
+            comments: [
+              { cid: 1, p: '1,1,16777215,u,2026-01-01', m: '360第一条' },
+              { cid: 2, p: '2,1,16777215,u,2026-01-01', m: '360第二条' },
+            ],
+          }),
+        } as Response
+      }
+      // 其他源返回 0 条弹幕
+      return {
+        ok: true,
+        json: async () => ({ count: 0, comments: [] }),
+      } as Response
+    })
+
+    const result = await autoMatchDanmaku('嫁金钗', 3, {
+      appId: 'testApp',
+      appSecret: 'testSecret',
+    })
+
+    expect(result.match?.animeTitle).toBe('[360] 嫁金钗')
+    expect(result.match?.episodeId).toBe(10005)
+    expect(result.comments).toHaveLength(2)
+    // 应该将 360 记录为首选源
+    expect(getPreferredAnime('嫁金钗')).toBe('[360] 嫁金钗')
+  })
+
+  it('prioritizes remembered preferred source for subsequent episodes', async () => {
+    rememberPreferredAnime('嫁金钗', '[360] 嫁金钗')
+
+    const mockSearch = {
+      animes: [
+        {
+          animeId: 102,
+          animeTitle: '[腾讯] 嫁金钗',
+          episodes: [{ episodeId: 10002, episodeTitle: '第04集' }],
+        },
+        {
+          animeId: 105,
+          animeTitle: '[360] 嫁金钗',
+          episodes: [{ episodeId: 10005, episodeTitle: '第04集' }],
+        },
+      ],
+    }
+
+    vi.mocked(globalThis.fetch).mockImplementation(async (input) => {
+      const urlStr = decodeURIComponent(String(input))
+      if (urlStr.includes('/api/v2/search/episodes')) {
+        return {
+          ok: true,
+          json: async () => mockSearch,
+        } as Response
+      }
+      return {
+        ok: true,
+        json: async () => ({
+          count: 1,
+          comments: [{ cid: 1, p: '1,1,16777215,u,2026-01-01', m: '弹幕' }],
+        }),
+      } as Response
+    })
+
+    const result = await autoMatchDanmaku('嫁金钗', 4, {
+      appId: 'testApp',
+      appSecret: 'testSecret',
+    })
+
+    expect(result.match?.animeTitle).toBe('[360] 嫁金钗')
+    expect(result.match?.episodeId).toBe(10005)
   })
 })

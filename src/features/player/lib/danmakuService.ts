@@ -122,6 +122,17 @@ async function buildDandanHeaders(
   return headers
 }
 
+function createTimeoutSignal(timeoutMs: number): AbortSignal | undefined {
+  if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') {
+    try {
+      return AbortSignal.timeout(timeoutMs)
+    } catch {
+      // ignore
+    }
+  }
+  return undefined
+}
+
 /**
  * 在弹弹play 搜索剧集及分集列表
  */
@@ -142,7 +153,10 @@ export async function searchDandanEpisodes(
   const headers = await buildDandanHeaders(path, resolved.appId, resolved.appSecret)
 
   try {
-    const res = await fetch(requestUrl, { headers })
+    const res = await fetch(requestUrl, {
+      headers,
+      signal: createTimeoutSignal(8000),
+    })
     if (!res.ok) {
       return []
     }
@@ -188,7 +202,10 @@ export async function fetchDandanComments(
   const headers = await buildDandanHeaders(path, resolved.appId, resolved.appSecret)
 
   try {
-    const res = await fetch(requestUrl, { headers })
+    const res = await fetch(requestUrl, {
+      headers,
+      signal: createTimeoutSignal(6000),
+    })
     if (!res.ok) {
       return []
     }
@@ -213,7 +230,9 @@ export async function fetchBilibiliCidComments(
   const requestUrl = buildProxyUrl(targetUrl, options.proxyUrl ?? '/proxy?url=')
 
   try {
-    const res = await fetch(requestUrl)
+    const res = await fetch(requestUrl, {
+      signal: createTimeoutSignal(6000),
+    })
     if (!res.ok) return []
     const xml = await res.text()
     return parseBilibiliXml(xml)
@@ -224,6 +243,10 @@ export async function fetchBilibiliCidComments(
 
 const PREFERRED_DANMAKU_KEY = 'oki_danmaku_preferred_source'
 
+function normalizeTitleKey(title: string): string {
+  return title.trim().toLowerCase().replace(/\s+/g, '')
+}
+
 /**
  * 记忆特定剧名首选的弹幕源（如 360影视、腾讯视频等）
  */
@@ -233,6 +256,7 @@ export function rememberPreferredAnime(title: string, animeTitle: string): void 
     const raw = sessionStorage.getItem(PREFERRED_DANMAKU_KEY)
     const map = raw ? JSON.parse(raw) : {}
     map[title.trim()] = animeTitle.trim()
+    map[normalizeTitleKey(title)] = animeTitle.trim()
     sessionStorage.setItem(PREFERRED_DANMAKU_KEY, JSON.stringify(map))
   } catch {
     // ignore sessionStorage errors
@@ -248,7 +272,7 @@ export function getPreferredAnime(title: string): string | undefined {
     const raw = sessionStorage.getItem(PREFERRED_DANMAKU_KEY)
     if (raw) {
       const map = JSON.parse(raw)
-      return map[title.trim()]
+      return map[title.trim()] || map[normalizeTitleKey(title)]
     }
   } catch {
     // ignore
@@ -259,39 +283,33 @@ export function getPreferredAnime(title: string): string | undefined {
 /**
  * 检验分集标题是否匹配目标集数
  */
-function isEpisodeMatch(epTitle: string, epNum: number): boolean {
+export function isEpisodeMatch(epTitle: string, epNum: number): boolean {
+  if (!epTitle || epNum <= 0) return false
+  const trimmed = epTitle.trim()
   const numStr = String(epNum)
   const pad2 = numStr.padStart(2, '0')
   const pad3 = numStr.padStart(3, '0')
-  const trimmed = epTitle.trim()
 
   if (trimmed === numStr || trimmed === pad2 || trimmed === pad3) return true
-  if (
-    trimmed.includes(`第${numStr}集`) ||
-    trimmed.includes(`第${pad2}集`) ||
-    trimmed.includes(`第${pad3}集`) ||
-    trimmed.includes(`第${numStr}话`) ||
-    trimmed.includes(`第${pad2}话`) ||
-    trimmed.includes(`第${numStr}期`) ||
-    trimmed.includes(`第${pad2}期`) ||
-    trimmed.includes(`EP${pad2}`) ||
-    trimmed.includes(`EP${numStr}`) ||
-    trimmed.includes(`ep${pad2}`) ||
-    trimmed.includes(`ep${numStr}`) ||
-    trimmed.includes(`E${pad2}`) ||
-    trimmed.includes(`E${numStr}`) ||
-    trimmed.includes(`${numStr}集`)
-  ) {
-    return true
-  }
 
-  const regex = new RegExp(`(?:第|ep|e|^|\\s)0*${numStr}(?:集|话|期|$|\\s|\\))`, 'i')
+  // 避免将第 13 集误判为第 3 集：数字前必须是非数字或边界，数字后必须是非数字或边界
+  const regex = new RegExp(
+    `(?:^|[^0-9])(?:第|ep|e)?\\s*0*${numStr}\\s*(?:集|话|期|\\)|】|\\]|$|\\s)`,
+    'i',
+  )
   return regex.test(trimmed)
 }
 
 /**
  * 自动根据剧名与集数匹配弹幕
- * 直接遵从 danmu_api 服务端定义的源排序（SOURCE_ORDER），不进行任何硬编码评分猜源
+ * 
+ * 逻辑：
+ * 1. 检索该剧所有相关分集候选；
+ * 2. 筛选出匹配当前集数的候选源；
+ * 3. 若用户之前选择或成功匹配过特定源，优先排序；
+ * 4. 并发探测前 10 个候选分集（单次 6s 超时），彻底杜绝串行逐个请求导致漫长等待；
+ * 5. 命中且弹幕数量 > 0 的候选集才被接纳；优先选用记忆源，其次选用弹幕数最丰富的源；
+ * 6. 成功后记住该源，后续分集无缝衔接。
  */
 export async function autoMatchDanmaku(
   title: string,
@@ -308,7 +326,7 @@ export async function autoMatchDanmaku(
     return { comments: [] }
   }
 
-  // 找出所有匹配目标集数的分集，保持 danmu_api 服务端返回的原始源优先级顺序
+  // 找出所有匹配目标集数的分集
   const candidates = episodes.filter(ep => isEpisodeMatch(ep.episodeTitle, episodeNumber))
 
   // 若未按集数文本匹配到，则按列表顺序降级尝试
@@ -320,30 +338,73 @@ export async function autoMatchDanmaku(
     return { comments: [] }
   }
 
-  // 若用户之前手动指定过或已成功命中过某源，优先使用已绑定的源
+  // 若用户之前手动指定过或已成功命中过某源，优先将该源排在探测队列前列
   const preferred = getPreferredAnime(title)
   if (preferred) {
     candidates.sort((a, b) => {
-      const aPref = a.animeTitle === preferred ? 1 : 0
-      const bPref = b.animeTitle === preferred ? 1 : 0
+      const aPref =
+        a.animeTitle === preferred ||
+        a.animeTitle.includes(preferred) ||
+        preferred.includes(a.animeTitle)
+          ? 1
+          : 0
+      const bPref =
+        b.animeTitle === preferred ||
+        b.animeTitle.includes(preferred) ||
+        preferred.includes(b.animeTitle)
+          ? 1
+          : 0
       return bPref - aPref
     })
   }
 
-  // 严格按 danmu_api 的源顺序逐个尝试拉取弹幕（最多尝试前 4 个源）
-  // 命中第一个有弹幕的源即停止请求，最大化节省网络与 API 资源
-  for (const candidate of candidates.slice(0, 4)) {
-    try {
-      const comments = await fetchDandanComments(candidate.episodeId, resolved)
-      if (comments.length > 0) {
-        rememberPreferredAnime(title, candidate.animeTitle)
-        return { comments, match: candidate }
+  // 取前 10 个候选分集并发探测（覆盖排在后面的 360、腾讯、优酷、B站 等各源）
+  const candidatePool = candidates.slice(0, 10)
+
+  const probeResults = await Promise.all(
+    candidatePool.map(async (candidate, index) => {
+      try {
+        const comments = await fetchDandanComments(candidate.episodeId, resolved)
+        return {
+          candidate,
+          comments,
+          index,
+        }
+      } catch {
+        return { candidate, comments: [], index }
       }
-    } catch {
-      // 失败自动尝试下一个上游源
+    }),
+  )
+
+  const withComments = probeResults.filter(r => r.comments.length > 0)
+  if (withComments.length === 0) {
+    // 所有候选分集均无弹幕时，静默返回
+    return { comments: [] }
+  }
+
+  // 若记忆源存在且有弹幕，优先使用记忆源
+  if (preferred) {
+    const preferredMatch = withComments.find(
+      r =>
+        r.candidate.animeTitle === preferred ||
+        r.candidate.animeTitle.includes(preferred) ||
+        preferred.includes(r.candidate.animeTitle),
+    )
+    if (preferredMatch) {
+      rememberPreferredAnime(title, preferredMatch.candidate.animeTitle)
+      return { comments: preferredMatch.comments, match: preferredMatch.candidate }
     }
   }
 
-  // 所有候选分集均无弹幕时，静默跳过
-  return { comments: [] }
+  // 否则优先选择弹幕数最丰富的候选；弹幕数相同时遵从源原始优先级
+  withComments.sort((a, b) => {
+    if (b.comments.length !== a.comments.length) {
+      return b.comments.length - a.comments.length
+    }
+    return a.index - b.index
+  })
+
+  const best = withComments[0]
+  rememberPreferredAnime(title, best.candidate.animeTitle)
+  return { comments: best.comments, match: best.candidate }
 }
