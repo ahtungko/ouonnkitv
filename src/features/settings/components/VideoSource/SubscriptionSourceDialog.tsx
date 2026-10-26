@@ -5,6 +5,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from '@/shared/components/ui/dialog'
 import { Button } from '@/shared/components/ui/button'
 import SubscriptionSourceDetail from './SubscriptionSourceDetail'
@@ -28,6 +29,7 @@ export default function SubscriptionSourceDialog({
       <DialogContent className="h-fit sm:max-w-md">
         <DialogHeader>
           <DialogTitle>订阅源详情</DialogTitle>
+        <DialogDescription className="sr-only">订阅源详情信息</DialogDescription>
         </DialogHeader>
         <SubscriptionSourceDetail source={source} />
         <DialogFooter>

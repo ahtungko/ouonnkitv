@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/shared/components/ui/dialog'
 import { ScrollArea } from '@/shared/components/ui/scroll-area'
 import { useIsMobile } from '@/shared/hooks/use-mobile'
 import { animationPresets } from '@/shared/lib/animationVariants'
@@ -23,6 +23,7 @@ export function ChangelogDialog({ isOpen, onClose, versions }: ChangelogDialogPr
       <DialogContent className="border-border/70 bg-card/70 flex h-[80vh] max-h-[90vh] w-full flex-col gap-0 p-0 backdrop-blur-xl sm:max-w-3xl sm:rounded-xl">
         <DialogHeader className="shrink-0 border-b px-5 py-4">
           <DialogTitle className="text-base font-semibold">版本日志</DialogTitle>
+          <DialogDescription className="sr-only">版本更新日志</DialogDescription>
         </DialogHeader>
 
         {isMobile ? (

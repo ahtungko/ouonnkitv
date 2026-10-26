@@ -308,7 +308,9 @@ function SourceMatchBlock({
           >
             <DialogHeader>
               <DialogTitle>{sourceMatch.sourceName || sourceMatch.sourceCode}</DialogTitle>
-              {!isSingle && <DialogDescription>共 {totalMatches} 条，按综合分从高到低排序。</DialogDescription>}
+              <DialogDescription className={isSingle ? 'sr-only' : undefined}>
+                {isSingle ? '源匹配详情' : `共 ${totalMatches} 条，按综合分从高到低排序。`}    
+              </DialogDescription>
             </DialogHeader>
 
             {isSingle && best ? (

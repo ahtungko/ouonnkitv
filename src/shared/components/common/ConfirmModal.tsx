@@ -3,6 +3,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from '@/shared/components/ui/dialog'
 import { Button } from '@/shared/components/ui/button'
@@ -33,10 +34,10 @@ export const ConfirmModal = ({
       <DialogContent className="h-fit">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
+          <DialogDescription className="text-muted-foreground text-sm pt-1">
+            {description}
+          </DialogDescription>
         </DialogHeader>
-        <div className="py-2">
-          <p className="text-muted-foreground text-sm">{description}</p>
-        </div>
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>
             {cancelText}
