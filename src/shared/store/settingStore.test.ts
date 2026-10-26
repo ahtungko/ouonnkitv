@@ -274,4 +274,25 @@ describe('settingStore migrate', () => {
 
     expect(migrated.playback.isFullscreenProgressHidden).toBe(true)
   })
+
+  it('v14 -> v15 会补齐弹幕配置默认值', async () => {
+    const migrate = useSettingStore.persist.getOptions().migrate
+
+    const legacyState = {
+      network: DEFAULT_SETTINGS.network,
+      search: DEFAULT_SETTINGS.search,
+      playback: {
+        ...DEFAULT_SETTINGS.playback,
+      },
+      system: DEFAULT_SETTINGS.system,
+    }
+    delete (legacyState.playback as Record<string, unknown>).isDanmakuEnabled
+
+    const migrated = (await Promise.resolve(migrate?.(legacyState, 14))) as {
+      playback: { isDanmakuEnabled?: boolean; danmakuSpeed?: number }
+    }
+
+    expect(migrated.playback.isDanmakuEnabled).toBe(true)
+    expect(migrated.playback.danmakuSpeed).toBe(5)
+  })
 })

@@ -8,6 +8,8 @@ export const PUBLIC_ENV_KEYS = [
   'OKI_TMDB_IMAGE_BASE_URL',
   'OKI_DISABLE_ANALYTICS',
   'OKI_INITIAL_CONFIG',
+  'OKI_DANDAN_APP_ID',
+  'OKI_DANDAN_APP_SECRET',
 ] as const
 
 export type PublicEnvKey = (typeof PUBLIC_ENV_KEYS)[number]
@@ -28,6 +30,8 @@ function getBuildTimeEnv(key: PublicEnvKey): string | undefined {
     OKI_TMDB_IMAGE_BASE_URL: import.meta.env.OKI_TMDB_IMAGE_BASE_URL,
     OKI_DISABLE_ANALYTICS: import.meta.env.OKI_DISABLE_ANALYTICS,
     OKI_INITIAL_CONFIG: import.meta.env.OKI_INITIAL_CONFIG,
+    OKI_DANDAN_APP_ID: import.meta.env.OKI_DANDAN_APP_ID,
+    OKI_DANDAN_APP_SECRET: import.meta.env.OKI_DANDAN_APP_SECRET,
   }
   return buildTimeConfig[key]
 }

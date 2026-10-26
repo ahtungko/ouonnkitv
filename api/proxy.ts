@@ -1,11 +1,26 @@
 import type { ApiRequest, ApiResponse } from '../shared/serverless-http.js'
 import { getProxyTimeoutMs, handleProxyRequest, parseProxyError } from '../shared/proxy-core.js'
 
+function extractForwardHeaders(headers: Record<string, string | string[] | undefined> = {}) {
+  const forward: Record<string, string> = {}
+  for (const [key, val] of Object.entries(headers)) {
+    const lower = key.toLowerCase()
+    if (lower.startsWith('x-app') || lower.startsWith('x-time') || lower.startsWith('x-sig')) {
+      if (typeof val === 'string') {
+        forward[key] = val
+      } else if (Array.isArray(val) && val.length > 0) {
+        forward[key] = val[0]
+      }
+    }
+  }
+  return forward
+}
+
 export default async function handler(req: ApiRequest, res: ApiResponse) {
   // CORS
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-AppId, X-Timestamp, X-Signature')
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end()
@@ -19,7 +34,8 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     }
 
     const targetUrl = decodeURIComponent(url)
-    const response = await handleProxyRequest(targetUrl)
+    const forwardHeaders = extractForwardHeaders(req.headers)
+    const response = await handleProxyRequest(targetUrl, forwardHeaders)
     const text = await response.text()
     const contentType = response.headers.get('content-type') || 'application/json'
 

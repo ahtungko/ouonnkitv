@@ -43,7 +43,10 @@ import type { VideoItem } from '@/shared/types/video'
 import { useTmdbRecommendations } from '@/shared/hooks/useTmdb'
 import { toast } from 'sonner'
 import throttle from 'lodash/throttle'
+import artplayerPluginDanmuku from 'artplayer-plugin-danmuku'
+import { autoMatchDanmaku } from '@/features/player/lib/danmakuService'
 import {
+  DanmakuModal,
   PlayerEpisodePanel,
   PlayerErrorState,
   PlayerHeroSection,
@@ -68,6 +71,16 @@ import {
 
 interface ArtplayerWithHls extends Artplayer {
   hls?: Hls
+  plugins: Artplayer['plugins'] & {
+    artplayerPluginDanmuku?: {
+      load: (danmuku: unknown) => Promise<unknown>
+      config: (option: unknown) => unknown
+      show: () => unknown
+      hide: () => unknown
+      emit: (danmu: unknown) => unknown
+      isHide: boolean
+    }
+  }
 }
 
 interface PlayerRouteParams {
@@ -279,6 +292,20 @@ export default function UnifiedPlayer() {
     conflict: PlaybackConflict
     confirm: () => void
   } | null>(null)
+  const [isDanmakuModalOpen, setIsDanmakuModalOpen] = useState(false)
+  const [danmakuCount, setDanmakuCount] = useState(0)
+  const [matchedDanmakuTitle, setMatchedDanmakuTitle] = useState('')
+  const [isDanmakuVisible, setIsDanmakuVisible] = useState(playback.isDanmakuEnabled)
+  const openDanmakuModalRef = useRef<() => void>(() => {})
+  openDanmakuModalRef.current = () => {
+    if (playerRef.current?.fullscreen) {
+      playerRef.current.fullscreen = false
+    }
+    if (playerRef.current?.fullscreenWeb) {
+      playerRef.current.fullscreenWeb = false
+    }
+    setIsDanmakuModalOpen(true)
+  }
   const selectedEpisode = parseEpisodeIndex(episodeIndexParam)
   const noticeTimersRef = useRef<Map<string, number>>(new Map())
   const noticeAnimationFramesRef = useRef<Map<string, number>>(new Map())
@@ -818,6 +845,30 @@ export default function UnifiedPlayer() {
       moreVideoAttr: {
         crossOrigin: 'anonymous',
       },
+      plugins: [
+        artplayerPluginDanmuku({
+          danmuku: [],
+          speed: playbackRef.current.danmakuSpeed,
+          opacity: playbackRef.current.danmakuOpacity,
+          fontSize: playbackRef.current.danmakuFontSize,
+          antiOverlap: playbackRef.current.isDanmakuAntiOverlap,
+          synchronousPlayback: true,
+          visible: playbackRef.current.isDanmakuEnabled,
+          emitter: false,
+        }),
+      ],
+      controls: [
+        {
+          name: 'danmaku-modal-btn',
+          position: 'right',
+          index: 10,
+          html: '<span class="art-icon danmaku-btn-inner" style="display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;padding:2px 6px;cursor:pointer;border-radius:4px;background:rgba(255,255,255,0.12);line-height:1;">弹</span>',
+          tooltip: '弹幕控制与匹配',
+          click: () => {
+            openDanmakuModalRef.current?.()
+          },
+        },
+      ],
       customType: {
         m3u8: function (video: HTMLMediaElement, url: string, art: Artplayer) {
           const artWithHls = art as ArtplayerWithHls
@@ -1238,6 +1289,77 @@ export default function UnifiedPlayer() {
     tmdbMediaType,
     tmdbSeasonNumberForHistory,
   ])
+
+  const currentMediaTitle = detail?.videoInfo?.title || tmdbPlayback.tmdbDetail?.title || ''
+  const danmakuSearchTitle = useMemo(() => {
+    if (!currentMediaTitle) return ''
+    if (tmdbPlayback.selectedSeasonNumber && tmdbPlayback.selectedSeasonNumber > 1) {
+      return `${currentMediaTitle} 第${tmdbPlayback.selectedSeasonNumber}季`
+    }
+    return currentMediaTitle
+  }, [currentMediaTitle, tmdbPlayback.selectedSeasonNumber])
+
+  // 自动根据剧名与集数检索并加载弹幕
+  useEffect(() => {
+    if (!activeArt || !danmakuSearchTitle || !playback.isDanmakuEnabled) {
+      return
+    }
+
+    let isCancelled = false
+    const artWithHls = activeArt as ArtplayerWithHls
+
+    const runAutoMatch = async () => {
+      try {
+        const { comments, match } = await autoMatchDanmaku(
+          danmakuSearchTitle,
+          selectedEpisode + 1,
+          {
+            appId: playback.dandanAppId,
+            appSecret: playback.dandanAppSecret,
+          },
+        )
+
+        if (isCancelled) return
+
+        if (comments.length > 0) {
+          await artWithHls.plugins?.artplayerPluginDanmuku?.load(comments)
+          setDanmakuCount(comments.length)
+          setMatchedDanmakuTitle(
+            match ? `${match.animeTitle} - ${match.episodeTitle}` : danmakuSearchTitle,
+          )
+        } else {
+          setDanmakuCount(0)
+          setMatchedDanmakuTitle('')
+        }
+      } catch {
+        if (!isCancelled) {
+          setDanmakuCount(0)
+        }
+      }
+    }
+
+    runAutoMatch()
+
+    return () => {
+      isCancelled = true
+    }
+  }, [
+    activeArt,
+    danmakuSearchTitle,
+    selectedEpisode,
+    playback.isDanmakuEnabled,
+    playback.dandanAppId,
+    playback.dandanAppSecret,
+  ])
+
+  // 同步播放器控制栏弹幕按钮状态与条数
+  useEffect(() => {
+    if (!activeArt) return
+    const btn = activeArt.controls['danmaku-modal-btn'] as HTMLElement | undefined
+    if (!btn) return
+    const inner = btn.querySelector('.danmaku-btn-inner') || btn
+    inner.innerHTML = danmakuCount > 0 ? `弹 (${danmakuCount})` : '弹'
+  }, [activeArt, danmakuCount])
 
   const handleEpisodeChange = (displayIndex: number) => {
     pendingSeekRef.current = null
@@ -1746,6 +1868,37 @@ export default function UnifiedPlayer() {
           description={`${takeoverPrompt?.conflict.device_label || '另一台设备'} 正在播放 ${takeoverPrompt?.conflict.title || '视频'}。确认后将在此设备播放，原设备将暂停。`}
           confirmText="在此设备播放"
           cancelText="暂不接管"
+        />
+        <DanmakuModal
+          isOpen={isDanmakuModalOpen}
+          onClose={() => setIsDanmakuModalOpen(false)}
+          currentCount={danmakuCount}
+          matchedTitle={matchedDanmakuTitle}
+          isDanmakuVisible={isDanmakuVisible}
+          onToggleVisible={visible => {
+            setIsDanmakuVisible(visible)
+            const artWithHls = activeArt as ArtplayerWithHls | null
+            if (artWithHls?.plugins?.artplayerPluginDanmuku) {
+              if (visible) {
+                artWithHls.plugins.artplayerPluginDanmuku.show()
+              } else {
+                artWithHls.plugins.artplayerPluginDanmuku.hide()
+              }
+            }
+          }}
+          onApplyComments={(comments, matchInfo) => {
+            const artWithHls = activeArt as ArtplayerWithHls | null
+            if (artWithHls?.plugins?.artplayerPluginDanmuku) {
+              artWithHls.plugins.artplayerPluginDanmuku.load(comments)
+              setDanmakuCount(comments.length)
+              if (matchInfo) setMatchedDanmakuTitle(matchInfo)
+            }
+          }}
+          onUpdateConfig={config => {
+            const artWithHls = activeArt as ArtplayerWithHls | null
+            artWithHls?.plugins?.artplayerPluginDanmuku?.config(config)
+          }}
+          initialSearchQuery={danmakuSearchTitle}
         />
         <div className="min-w-0 space-y-3">
           {playbackNotice && (

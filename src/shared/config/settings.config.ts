@@ -34,6 +34,14 @@ export const DEFAULT_SETTINGS = {
     isMobileGestureEnabled: envSettings?.playback?.isMobileGestureEnabled ?? true,
     longPressPlaybackRate: envSettings?.playback?.longPressPlaybackRate ?? 2,
     isFullscreenProgressHidden: envSettings?.playback?.isFullscreenProgressHidden ?? false,
+    isDanmakuEnabled: envSettings?.playback?.isDanmakuEnabled ?? true,
+    danmakuSpeed: envSettings?.playback?.danmakuSpeed ?? 5,
+    danmakuOpacity: envSettings?.playback?.danmakuOpacity ?? 0.8,
+    danmakuFontSize: envSettings?.playback?.danmakuFontSize ?? 22,
+    isDanmakuAntiOverlap: envSettings?.playback?.isDanmakuAntiOverlap ?? true,
+    dandanAppId: envSettings?.playback?.dandanAppId ?? getPublicEnv('OKI_DANDAN_APP_ID') ?? '',
+    dandanAppSecret:
+      envSettings?.playback?.dandanAppSecret ?? getPublicEnv('OKI_DANDAN_APP_SECRET') ?? '',
   },
   system: {
     tmdbEnabled:

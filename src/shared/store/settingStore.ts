@@ -2,7 +2,6 @@ import { create } from 'zustand'
 import { devtools, persist } from 'zustand/middleware'
 import { immer } from 'zustand/middleware/immer'
 import { DEFAULT_SETTINGS } from '@/shared/config/settings.config'
-import { getPublicEnv } from '@/shared/config/runtimeEnv'
 
 interface NetworkSettings {
   defaultTimeout: number
@@ -34,6 +33,13 @@ interface PlaybackSettings {
   isMobileGestureEnabled: boolean
   longPressPlaybackRate: number
   isFullscreenProgressHidden: boolean
+  isDanmakuEnabled: boolean
+  danmakuSpeed: number
+  danmakuOpacity: number
+  danmakuFontSize: number
+  isDanmakuAntiOverlap: boolean
+  dandanAppId: string
+  dandanAppSecret: string
 }
 
 interface SystemSettings {
@@ -102,16 +108,15 @@ export const useSettingStore = create<SettingStore>()(
 
         setSystemSettings: settings => {
           set(state => {
-            const merged = { ...state.system, ...settings }
-            // 清空 token 且无环境变量 token 时，自动关闭 tmdbEnabled
+            // 如果更新包含 tmdbApiToken，且新值非空，自动开启 tmdbEnabled
             if (
-              'tmdbApiToken' in settings &&
-              !settings.tmdbApiToken &&
-              !getPublicEnv('OKI_TMDB_API_TOKEN')
+              settings.tmdbApiToken !== undefined &&
+              settings.tmdbApiToken !== '' &&
+              settings.tmdbEnabled === undefined
             ) {
-              merged.tmdbEnabled = false
+              settings.tmdbEnabled = true
             }
-            state.system = merged
+            state.system = { ...state.system, ...settings }
           })
         },
 
@@ -126,7 +131,7 @@ export const useSettingStore = create<SettingStore>()(
       })),
       {
         name: 'ouonnki-tv-setting-store',
-        version: 14,
+        version: 15,
         migrate: (persistedState: unknown, version: number) => {
           const state = persistedState as Record<string, unknown>
           if (version < 2 && state.playback) {
@@ -216,6 +221,17 @@ export const useSettingStore = create<SettingStore>()(
               system.tmdbApiToken = DEFAULT_SETTINGS.system.tmdbApiToken
             }
             state.system = system
+          }
+          if (version < 15) {
+            const playback = (state.playback ?? {}) as Record<string, unknown>
+            playback.isDanmakuEnabled ??= DEFAULT_SETTINGS.playback.isDanmakuEnabled
+            playback.danmakuSpeed ??= DEFAULT_SETTINGS.playback.danmakuSpeed
+            playback.danmakuOpacity ??= DEFAULT_SETTINGS.playback.danmakuOpacity
+            playback.danmakuFontSize ??= DEFAULT_SETTINGS.playback.danmakuFontSize
+            playback.isDanmakuAntiOverlap ??= DEFAULT_SETTINGS.playback.isDanmakuAntiOverlap
+            playback.dandanAppId ??= DEFAULT_SETTINGS.playback.dandanAppId
+            playback.dandanAppSecret ??= DEFAULT_SETTINGS.playback.dandanAppSecret
+            state.playback = playback
           }
           return state
         },

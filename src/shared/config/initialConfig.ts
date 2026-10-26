@@ -29,6 +29,13 @@ export interface SettingsConfig {
     isMobileGestureEnabled?: boolean
     longPressPlaybackRate?: number
     isFullscreenProgressHidden?: boolean
+    isDanmakuEnabled?: boolean
+    danmakuSpeed?: number
+    danmakuOpacity?: number
+    danmakuFontSize?: number
+    isDanmakuAntiOverlap?: boolean
+    dandanAppId?: string
+    dandanAppSecret?: string
   }
   system?: {
     tmdbEnabled?: boolean

@@ -49,7 +49,7 @@ export function parseProxyError(error) {
   return payload
 }
 
-export async function handleProxyRequest(targetUrl) {
+export async function handleProxyRequest(targetUrl, customHeaders = {}) {
   try {
     new URL(targetUrl)
   } catch {
@@ -62,6 +62,7 @@ export async function handleProxyRequest(targetUrl) {
       'User-Agent':
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
       Accept: 'application/json, text/plain, */*',
+      ...customHeaders,
     },
     signal: AbortSignal.timeout(timeoutMs),
   })
