@@ -38,6 +38,30 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       ).replace(/\/+$/, '')
       const cleanPath = danmakuPath.startsWith('/') ? danmakuPath : `/${danmakuPath}`
       targetUrl = `${serverBase}${cleanPath}`
+
+      const isCommentReq = cleanPath.includes('/comment/')
+      try {
+        const forwardHeaders = extractForwardHeaders(req.headers)
+        const response = await handleProxyRequest(targetUrl, forwardHeaders)
+        if (!response.ok && isCommentReq) {
+          res.setHeader('Content-Type', 'application/json')
+          res.setHeader('Cache-Control', 'public, max-age=60')
+          return res.status(200).json({ count: 0, comments: [] })
+        }
+        const text = await response.text()
+        const contentType = response.headers.get('content-type') || 'application/json'
+
+        res.setHeader('Content-Type', contentType)
+        res.setHeader('Cache-Control', 'public, max-age=60')
+        return res.status(response.status).send(text)
+      } catch (err) {
+        if (isCommentReq) {
+          res.setHeader('Content-Type', 'application/json')
+          res.setHeader('Cache-Control', 'public, max-age=60')
+          return res.status(200).json({ count: 0, comments: [] })
+        }
+        throw err
+      }
     } else {
       const { url } = req.query
       if (!url || typeof url !== 'string') {
