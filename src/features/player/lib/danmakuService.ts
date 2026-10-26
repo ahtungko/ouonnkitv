@@ -75,7 +75,7 @@ export async function searchDandanEpisodes(
   options: DanmakuServiceOptions = {},
 ): Promise<DanmakuEpisodeMatch[]> {
   const trimmed = title.trim()
-  if (!trimmed) return []
+  if (!trimmed || !options.appId || !options.appSecret) return []
 
   const path = '/api/v2/search/episodes'
   const targetUrl = `https://api.dandanplay.net${path}?anime=${encodeURIComponent(trimmed)}`
@@ -117,7 +117,7 @@ export async function fetchDandanComments(
   episodeId: number,
   options: DanmakuServiceOptions = {},
 ): Promise<DanmakuComment[]> {
-  if (!episodeId || episodeId <= 0) return []
+  if (!episodeId || episodeId <= 0 || !options.appId || !options.appSecret) return []
 
   const path = `/api/v2/comment/${episodeId}`
   const targetUrl = `https://api.dandanplay.net${path}?withRelated=true`
@@ -167,6 +167,10 @@ export async function autoMatchDanmaku(
   episodeNumber: number,
   options: DanmakuServiceOptions = {},
 ): Promise<{ comments: DanmakuComment[]; match?: DanmakuEpisodeMatch }> {
+  if (!options.appId || !options.appSecret) {
+    return { comments: [] }
+  }
+
   const episodes = await searchDandanEpisodes(title, options)
   if (episodes.length === 0) {
     return { comments: [] }

@@ -1301,7 +1301,13 @@ export default function UnifiedPlayer() {
 
   // 自动根据剧名与集数检索并加载弹幕
   useEffect(() => {
-    if (!activeArt || !danmakuSearchTitle || !playback.isDanmakuEnabled) {
+    if (
+      !activeArt ||
+      !danmakuSearchTitle ||
+      !playback.isDanmakuEnabled ||
+      !playback.dandanAppId ||
+      !playback.dandanAppSecret
+    ) {
       return
     }
 

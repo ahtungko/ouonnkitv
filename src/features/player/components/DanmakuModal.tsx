@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react'
+import { useNavigate } from 'react-router'
 import {
   Dialog,
   DialogContent,
@@ -14,6 +15,7 @@ import { ScrollArea } from '@/shared/components/ui/scroll-area'
 import { Spinner } from '@/shared/components/ui/spinner'
 import { toast } from 'sonner'
 import {
+  AlertCircle,
   MessageSquare,
   Search,
   Upload,
@@ -64,7 +66,9 @@ export function DanmakuModal({
   initialSearchQuery = '',
 }: DanmakuModalProps) {
   const { playback, setPlaybackSettings } = useSettingStore()
+  const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState<'status' | 'match' | 'import'>('status')
+  const hasDandanConfig = Boolean(playback.dandanAppId && playback.dandanAppSecret)
 
   // Search match tab
   const [searchQuery, setSearchQuery] = useState(initialSearchQuery)
@@ -79,6 +83,10 @@ export function DanmakuModal({
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleSearch = async () => {
+    if (!hasDandanConfig) {
+      toast.info('请先前往设置配置弹弹play凭据，或使用 CID / 本地文件导入')
+      return
+    }
     if (!searchQuery.trim()) {
       toast.error('请输入剧集搜索关键词')
       return
@@ -319,65 +327,100 @@ export function DanmakuModal({
         {/* Tab 2: 手动检索 */}
         {activeTab === 'match' && (
           <div className="space-y-3 py-2">
-            <div className="flex gap-2">
-              <Input
-                placeholder="输入剧集名称，如: 双城之战 / 庆余年"
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleSearch()}
-              />
-              <Button size="sm" onClick={handleSearch} disabled={isSearching} className="gap-1 px-4">
-                {isSearching ? <Spinner className="size-4" /> : <Search className="size-4" />}
-                搜索
-              </Button>
-            </div>
+            {!hasDandanConfig ? (
+              <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3.5 space-y-2.5">
+                <div className="flex items-center gap-2 text-sm font-medium text-amber-600 dark:text-amber-400">
+                  <AlertCircle className="size-4 shrink-0" />
+                  尚未配置弹弹play凭据
+                </div>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  弹弹play 开放弹幕网络已全面启用应用签名校验。如需全网聚合检索，请先前往播放设置免费配置凭据；或者切换到旁边的「CID / 本地导入」免凭据拉取 B 站弹幕。
+                </p>
+                <div className="flex items-center gap-2 pt-1">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs"
+                    onClick={() => {
+                      onClose()
+                      navigate('/settings/playback')
+                    }}
+                  >
+                    前往配置凭据
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="h-7 text-xs"
+                    onClick={() => setActiveTab('import')}
+                  >
+                    使用免配置 CID 导入
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="输入剧集名称，如: 双城之战 / 庆余年"
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleSearch()}
+                  />
+                  <Button size="sm" onClick={handleSearch} disabled={isSearching} className="gap-1 px-4">
+                    {isSearching ? <Spinner className="size-4" /> : <Search className="size-4" />}
+                    搜索
+                  </Button>
+                </div>
 
-            <ScrollArea className="h-56 rounded-md border border-border/40 p-2">
-              {isSearching ? (
-                <div className="flex h-full items-center justify-center p-8 text-muted-foreground text-sm gap-2">
-                  <Spinner className="size-4" />
-                  正在全网检索弹幕剧集...
-                </div>
-              ) : searchResults.length > 0 ? (
-                <div className="space-y-1.5">
-                  {searchResults.map(ep => (
-                    <div
-                      key={ep.episodeId}
-                      onClick={() => handleSelectEpisode(ep)}
-                      className={cn(
-                        'flex items-center justify-between p-2 rounded-md cursor-pointer transition-colors text-sm',
-                        selectedEpId === ep.episodeId
-                          ? 'bg-primary/10 text-primary border border-primary/30'
-                          : 'hover:bg-muted/60',
-                      )}
-                    >
-                      <div className="space-y-0.5 max-w-[80%]">
-                        <div className="font-medium truncate">{ep.animeTitle}</div>
-                        <div className="text-xs text-muted-foreground truncate">{ep.episodeTitle}</div>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-7 text-xs"
-                        disabled={isLoadingComments && selectedEpId === ep.episodeId}
-                      >
-                        {isLoadingComments && selectedEpId === ep.episodeId ? (
-                          <Spinner className="size-3.5" />
-                        ) : (
-                          '匹配此集'
-                        )}
-                      </Button>
+                <ScrollArea className="h-56 rounded-md border border-border/40 p-2">
+                  {isSearching ? (
+                    <div className="flex h-full items-center justify-center p-8 text-muted-foreground text-sm gap-2">
+                      <Spinner className="size-4" />
+                      正在全网检索弹幕剧集...
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center h-full p-8 text-center text-muted-foreground text-xs gap-1.5">
-                  <Sparkles className="size-6 text-muted-foreground/40" />
-                  <span>输入影视剧名称搜索弹弹play分集</span>
-                  <span>可匹配来自 B站、爱奇艺、腾讯等综合弹幕</span>
-                </div>
-              )}
-            </ScrollArea>
+                  ) : searchResults.length > 0 ? (
+                    <div className="space-y-1.5">
+                      {searchResults.map(ep => (
+                        <div
+                          key={ep.episodeId}
+                          onClick={() => handleSelectEpisode(ep)}
+                          className={cn(
+                            'flex items-center justify-between p-2 rounded-md cursor-pointer transition-colors text-sm',
+                            selectedEpId === ep.episodeId
+                              ? 'bg-primary/10 text-primary border border-primary/30'
+                              : 'hover:bg-muted/60',
+                          )}
+                        >
+                          <div className="space-y-0.5 max-w-[80%]">
+                            <div className="font-medium truncate">{ep.animeTitle}</div>
+                            <div className="text-xs text-muted-foreground truncate">{ep.episodeTitle}</div>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 text-xs"
+                            disabled={isLoadingComments && selectedEpId === ep.episodeId}
+                          >
+                            {isLoadingComments && selectedEpId === ep.episodeId ? (
+                              <Spinner className="size-3.5" />
+                            ) : (
+                              '匹配此集'
+                            )}
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-full p-8 text-center text-muted-foreground text-xs gap-1.5">
+                      <Sparkles className="size-6 text-muted-foreground/40" />
+                      <span>输入影视剧名称搜索弹弹play分集</span>
+                      <span>可匹配来自 B站、爱奇艺、腾讯等综合弹幕</span>
+                    </div>
+                  )}
+                </ScrollArea>
+              </>
+            )}
           </div>
         )}
 

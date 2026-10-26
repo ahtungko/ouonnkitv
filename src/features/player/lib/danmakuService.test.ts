@@ -69,10 +69,25 @@ describe('danmakuService', () => {
       json: async () => mockCommentResponse,
     } as Response)
 
-    const comments = await fetchDandanComments(1001)
+    const comments = await fetchDandanComments(1001, {
+      appId: 'testApp',
+      appSecret: 'testSecret',
+    })
     expect(comments).toHaveLength(1)
     expect(comments[0].text).toBe('测试弹幕')
     expect(comments[0].time).toBe(10.5)
+  })
+
+  it('returns empty and skips fetch when credentials are missing', async () => {
+    const matches = await searchDandanEpisodes('双城之战')
+    expect(matches).toEqual([])
+
+    const comments = await fetchDandanComments(1001)
+    expect(comments).toEqual([])
+
+    const autoResult = await autoMatchDanmaku('双城之战', 1)
+    expect(autoResult.comments).toEqual([])
+    expect(globalThis.fetch).not.toHaveBeenCalled()
   })
 
   it('fetches Bilibili CID XML comments', async () => {
@@ -126,7 +141,10 @@ describe('danmakuService', () => {
         json: async () => mockComments,
       } as Response)
 
-    const result = await autoMatchDanmaku('测试动画', 2)
+    const result = await autoMatchDanmaku('测试动画', 2, {
+      appId: 'testApp',
+      appSecret: 'testSecret',
+    })
     expect(result.match?.episodeId).toBe(2002)
     expect(result.comments).toHaveLength(1)
     expect(result.comments[0].text).toBe('第2集打卡')
