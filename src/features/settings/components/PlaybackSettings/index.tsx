@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { getPublicEnv } from '@/shared/config/runtimeEnv'
 import { useSettingStore } from '@/shared/store/settingStore'
 import { useApiStore } from '@/shared/store/apiStore'
+import { useAuthStore } from '@/shared/store/authStore'
+import { syncClient } from '@/shared/sync/client'
 import { useTmdbEnabled } from '@/shared/hooks/useTmdbMode'
 import { clearBusinessCaches } from '@/shared/lib/cache/businessCache'
 import { ConfirmModal } from '@/shared/components/common/ConfirmModal'
@@ -32,6 +34,8 @@ import { Button } from '@/shared/components/ui/button'
 import { SettingsItem, SettingsPageShell, SettingsSection } from '../common'
 
 export default function PlaybackSettings() {
+  const account = useAuthStore(state => state.account)
+  const isAdmin = !syncClient || account?.role === 'admin'
   const { playback, setPlaybackSettings } = useSettingStore()
   const { adFilteringEnabled, setAdFilteringEnabled } = useApiStore()
   const tmdbEnabled = useTmdbEnabled()
@@ -264,7 +268,11 @@ export default function PlaybackSettings() {
 
       <SettingsSection
         title="弹幕设置"
-        description="配置播放器内置弹幕引擎及弹弹play开放平台凭据。"
+        description={
+          isAdmin
+            ? '配置播放器内置弹幕引擎及弹弹play开放平台凭据。'
+            : '自定义播放器弹幕显示、透明度、字号及滚动速度。'
+        }
         icon={<MessageSquare className="size-4" />}
         tone="violet"
       >
@@ -359,61 +367,65 @@ export default function PlaybackSettings() {
             />
           }
         />
-        <SettingsItem
-          title="弹幕 API 地址"
-          description={
-            envApiBase
-              ? `已通过环境变量注入默认地址 (${envApiBase})。若需覆盖可在下方输入，否则保持留空即可。`
-              : '默认为弹弹play官方接口 (https://api.dandanplay.net)。若部署了 danmu_api 等自建服务 (如 Cloudflare Workers/Vercel/Docker)，可填写自建 API 地址，自建服务无需填写 AppId 与 AppSecret。'
-          }
-          control={
-            <div className="w-full sm:w-80">
-              <Input
-                placeholder={envApiBase ? `已继承环境变量: ${envApiBase}` : 'https://api.dandanplay.net'}
-                value={playback.dandanApiBaseUrl}
-                onChange={e => setPlaybackSettings({ dandanApiBaseUrl: e.target.value.trim() })}
-              />
-            </div>
-          }
-        />
-        <SettingsItem
-          title="弹弹play AppId（官方接口）"
-          description={
-            envAppId
-              ? `已通过环境变量 OKI_DANDAN_APP_ID 注入 (${envAppId.slice(0, 4)}***)。全站已免配生效。`
-              : '弹弹play开放平台申请的应用 ID。使用官方接口时必填；使用自建 danmu_api 时可留空。'
-          }
-          control={
-            <div className="w-full sm:w-80">
-              <Input
-                placeholder={envAppId ? `已由环境变量配置: ${envAppId.slice(0, 4)}***` : '留空使用免鉴权自建源或本地导入'}
-                value={playback.dandanAppId}
-                onChange={e => setPlaybackSettings({ dandanAppId: e.target.value.trim() })}
-              />
-            </div>
-          }
-        />
-        <SettingsItem
-          title="弹弹play AppSecret（官方接口）"
-          description={
-            envAppSecret
-              ? '已通过环境变量 OKI_DANDAN_APP_SECRET 注入密钥。全站已免配生效。'
-              : '弹弹play开放平台生成的应用密钥，前端自动完成 SHA256 签名校验。使用自建 danmu_api 时可留空。'
-          }
-          control={
-            <div className="w-full sm:w-80">
-              <Input
-                type="password"
-                placeholder={envAppSecret ? '已由环境变量配置' : '输入 AppSecret'}
-                value={playback.dandanAppSecret}
-                onChange={e => setPlaybackSettings({ dandanAppSecret: e.target.value.trim() })}
-              />
-            </div>
-          }
-        />
+        {isAdmin && (
+          <>
+            <SettingsItem
+              title="弹幕 API 地址"
+              description={
+                envApiBase
+                  ? `已通过环境变量注入默认地址 (${envApiBase})。若需覆盖可在下方输入，否则保持留空即可。`
+                  : '默认为弹弹play官方接口 (https://api.dandanplay.net)。若部署了 danmu_api 等自建服务 (如 Cloudflare Workers/Vercel/Docker)，可填写自建 API 地址，自建服务无需填写 AppId 与 AppSecret。'
+              }
+              control={
+                <div className="w-full sm:w-80">
+                  <Input
+                    placeholder={envApiBase ? `已继承环境变量: ${envApiBase}` : 'https://api.dandanplay.net'}
+                    value={playback.dandanApiBaseUrl}
+                    onChange={e => setPlaybackSettings({ dandanApiBaseUrl: e.target.value.trim() })}
+                  />
+                </div>
+              }
+            />
+            <SettingsItem
+              title="弹弹play AppId（官方接口）"
+              description={
+                envAppId
+                  ? `已通过环境变量 OKI_DANDAN_APP_ID 注入 (${envAppId.slice(0, 4)}***)。全站已免配生效。`
+                  : '弹弹play开放平台申请的应用 ID。使用官方接口时必填；使用自建 danmu_api 时可留空。'
+              }
+              control={
+                <div className="w-full sm:w-80">
+                  <Input
+                    placeholder={envAppId ? `已由环境变量配置: ${envAppId.slice(0, 4)}***` : '留空使用免鉴权自建源或本地导入'}
+                    value={playback.dandanAppId}
+                    onChange={e => setPlaybackSettings({ dandanAppId: e.target.value.trim() })}
+                  />
+                </div>
+              }
+            />
+            <SettingsItem
+              title="弹弹play AppSecret（官方接口）"
+              description={
+                envAppSecret
+                  ? '已通过环境变量 OKI_DANDAN_APP_SECRET 注入密钥。全站已免配生效。'
+                  : '弹弹play开放平台生成的应用密钥，前端自动完成 SHA256 签名校验。使用自建 danmu_api 时可留空。'
+              }
+              control={
+                <div className="w-full sm:w-80">
+                  <Input
+                    type="password"
+                    placeholder={envAppSecret ? '已由环境变量配置' : '输入 AppSecret'}
+                    value={playback.dandanAppSecret}
+                    onChange={e => setPlaybackSettings({ dandanAppSecret: e.target.value.trim() })}
+                  />
+                </div>
+              }
+            />
+          </>
+        )}
       </SettingsSection>
 
-      {tmdbEnabled && (
+      {tmdbEnabled && isAdmin && (
         <SettingsSection
           title="TMDB 匹配缓存"
           description="缓存详情页和播放器的匹配结果，减少重复检索。"
@@ -460,7 +472,7 @@ export default function PlaybackSettings() {
         </SettingsSection>
       )}
 
-      {tmdbEnabled && (
+      {tmdbEnabled && isAdmin && (
         <ConfirmModal
           isOpen={confirmClearCacheOpen}
           onClose={() => setConfirmClearCacheOpen(false)}
