@@ -30,8 +30,13 @@ async function fetchWithTimeout(
   // 合并外部signal和超时signal
   const originalSignal = options.signal
   if (originalSignal) {
+    if (originalSignal.aborted) {
+      clearTimeout(timeoutId)
+      throw (originalSignal as any).reason || new DOMException('Aborted', 'AbortError')
+    }
     originalSignal.addEventListener('abort', () => {
-      controller.abort(originalSignal.reason)
+      clearTimeout(timeoutId)
+      controller.abort((originalSignal as any).reason)
     })
   }
 
@@ -45,8 +50,20 @@ async function fetchWithTimeout(
   } catch (error) {
     clearTimeout(timeoutId)
 
-    if (retry > 0 && (error as Error).name !== 'AbortError') {
-      console.warn(`请求失败，正在重试 (剩余${retry}次):`, error)
+    // 如果是外部调用方主动取消（比如用户切页面或重新搜索），不进行重试
+    if (originalSignal?.aborted) {
+      throw error
+    }
+
+    if (retry > 0 && (error as Error)?.name !== 'AbortError') {
+      let label = url
+      try {
+        const u = new URL(url)
+        label = u.origin + u.pathname
+      } catch {
+        // keep raw url
+      }
+      console.warn(`[CMS] 源请求超时/失败，正在重试 (剩余${retry}次) [${label}]:`, error)
       return fetchWithTimeout(url, options, timeout, retry - 1)
     }
 
