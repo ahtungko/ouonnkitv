@@ -24,12 +24,23 @@ app.use(cors({ origin: '*', allowedHeaders: ['Content-Type', 'X-AppId', 'X-Times
 
 app.get('/proxy', async (req, res) => {
   try {
-    const { url } = req.query
-    if (!url) {
-      return res.status(400).json({ error: 'URL parameter is required' })
+    const danmakuPath = req.query.danmaku_path
+    let targetUrl
+    if (typeof danmakuPath === 'string' && danmakuPath) {
+      const serverBase = (
+        process.env.DANDAN_API_BASE_URL ||
+        process.env.OKI_DANDAN_API_BASE_URL ||
+        'https://api.dandanplay.net'
+      ).replace(/\/+$/, '')
+      const cleanPath = danmakuPath.startsWith('/') ? danmakuPath : `/${danmakuPath}`
+      targetUrl = `${serverBase}${cleanPath}`
+    } else {
+      const { url } = req.query
+      if (!url) {
+        return res.status(400).json({ error: 'URL parameter is required' })
+      }
+      targetUrl = decodeURIComponent(url)
     }
-
-    const targetUrl = decodeURIComponent(url)
     const forwardHeaders = extractForwardHeaders(req.headers)
     const response = await handleProxyRequest(targetUrl, forwardHeaders)
     const text = await response.text()

@@ -113,7 +113,7 @@ describe('danmakuService', () => {
     expect(matches).toHaveLength(1)
     expect(matches[0].animeTitle).toBe('庆余年')
     expect(globalThis.fetch).toHaveBeenCalledWith(
-      expect.stringContaining('https%3A%2F%2Fdanmu.example.workers.dev%2Fapi%2Fv2%2Fsearch%2Fepisodes'),
+      expect.stringContaining('/proxy?danmaku_path='),
       expect.anything(),
     )
   })

@@ -89,10 +89,13 @@ export interface DandanCommentResponse {
 }
 
 /**
- * 构建请求 URL（若指定 proxyUrl 则走代理，避免跨域）
+ * 构建请求 URL（若指定 proxyUrl 则走代理，避免跨域并可由服务端代理屏蔽 Token）
  */
-function buildProxyUrl(targetUrl: string, proxyUrl?: string): string {
+function buildProxyUrl(targetUrl: string, proxyUrl?: string, danmakuPath?: string): string {
   if (!proxyUrl) return targetUrl
+  if (danmakuPath && (proxyUrl === '/proxy?url=' || proxyUrl === '/proxy')) {
+    return `/proxy?danmaku_path=${encodeURIComponent(danmakuPath)}`
+  }
   return `${proxyUrl}${encodeURIComponent(targetUrl)}`
 }
 
@@ -133,8 +136,9 @@ export async function searchDandanEpisodes(
   if (!resolved.canRequest) return []
 
   const path = '/api/v2/search/episodes'
-  const targetUrl = `${resolved.apiBaseUrl}${path}?anime=${encodeURIComponent(trimmed)}`
-  const requestUrl = buildProxyUrl(targetUrl, resolved.proxyUrl ?? '/proxy?url=')
+  const pathWithQuery = `${path}?anime=${encodeURIComponent(trimmed)}`
+  const targetUrl = `${resolved.apiBaseUrl}${pathWithQuery}`
+  const requestUrl = buildProxyUrl(targetUrl, resolved.proxyUrl ?? '/proxy?url=', pathWithQuery)
   const headers = await buildDandanHeaders(path, resolved.appId, resolved.appSecret)
 
   try {
@@ -178,8 +182,9 @@ export async function fetchDandanComments(
   if (!resolved.canRequest) return []
 
   const path = `/api/v2/comment/${episodeId}`
-  const targetUrl = `${resolved.apiBaseUrl}${path}?withRelated=true`
-  const requestUrl = buildProxyUrl(targetUrl, resolved.proxyUrl ?? '/proxy?url=')
+  const pathWithQuery = `${path}?withRelated=true`
+  const targetUrl = `${resolved.apiBaseUrl}${pathWithQuery}`
+  const requestUrl = buildProxyUrl(targetUrl, resolved.proxyUrl ?? '/proxy?url=', pathWithQuery)
   const headers = await buildDandanHeaders(path, resolved.appId, resolved.appSecret)
 
   try {
@@ -235,28 +240,53 @@ export async function autoMatchDanmaku(
     return { comments: [] }
   }
 
-  // 尝试匹配目标集数：
-  // 1. 查找包含例如 "第01集"、"第1集" 或以数字结尾的分集
   const epNumStr = String(episodeNumber)
   const padEpNumStr = epNumStr.padStart(2, '0')
 
-  const matched =
-    episodes.find(ep => {
-      const epTitle = ep.episodeTitle
-      return (
-        epTitle.includes(`第${epNumStr}集`) ||
-        epTitle.includes(`第${padEpNumStr}集`) ||
-        epTitle.includes(`EP${padEpNumStr}`) ||
-        epTitle.includes(`EP${epNumStr}`) ||
-        epTitle === epNumStr ||
-        epTitle === padEpNumStr
-      )
-    }) || episodes[episodeNumber - 1] // 若未明确匹配到标题，按顺序索引降级尝试
+  // 找出所有匹配目标集数的候选分集（可能聚合自腾讯、爱奇艺、优酷、B站等不同平台源）
+  const candidates = episodes.filter(ep => {
+    const epTitle = ep.episodeTitle
+    return (
+      epTitle.includes(`第${epNumStr}集`) ||
+      epTitle.includes(`第${epNumStr}话`) ||
+      epTitle.includes(`第${padEpNumStr}集`) ||
+      epTitle.includes(`第${padEpNumStr}话`) ||
+      epTitle.includes(`EP${padEpNumStr}`) ||
+      epTitle.includes(`EP${epNumStr}`) ||
+      epTitle === epNumStr ||
+      epTitle === padEpNumStr
+    )
+  })
 
-  if (!matched) {
+  // 若未按集数文本匹配到，则按列表顺序降级尝试
+  if (candidates.length === 0 && episodes[episodeNumber - 1]) {
+    candidates.push(episodes[episodeNumber - 1])
+  }
+
+  if (candidates.length === 0) {
     return { comments: [] }
   }
 
-  const comments = await fetchDandanComments(matched.episodeId, resolved)
-  return { comments, match: matched }
+  // 优质源优先排序（腾讯、B站、爱奇艺、优酷弹幕更丰富且成功率更高）
+  candidates.sort((a, b) => {
+    const getScore = (title: string) => {
+      const lower = title.toLowerCase()
+      if (lower.includes('qq') || lower.includes('tencent')) return 4
+      if (lower.includes('bilibili')) return 3
+      if (lower.includes('iqiyi')) return 2
+      if (lower.includes('youku')) return 1
+      return 0
+    }
+    return getScore(b.episodeTitle) - getScore(a.episodeTitle)
+  })
+
+  // 逐个尝试拉取候选分集弹幕（最多尝试前 4 个），找到有效弹幕立即返回
+  for (const candidate of candidates.slice(0, 4)) {
+    const comments = await fetchDandanComments(candidate.episodeId, resolved)
+    if (comments.length > 0) {
+      return { comments, match: candidate }
+    }
+  }
+
+  return { comments: [] }
 }

@@ -27,13 +27,24 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   }
 
   try {
-    const { url } = req.query
+    const danmakuPath = req.query.danmaku_path
+    let targetUrl: string
 
-    if (!url || typeof url !== 'string') {
-      return res.status(400).json({ error: 'URL parameter is required' })
+    if (typeof danmakuPath === 'string' && danmakuPath) {
+      const serverBase = (
+        process.env.DANDAN_API_BASE_URL ||
+        process.env.OKI_DANDAN_API_BASE_URL ||
+        'https://api.dandanplay.net'
+      ).replace(/\/+$/, '')
+      const cleanPath = danmakuPath.startsWith('/') ? danmakuPath : `/${danmakuPath}`
+      targetUrl = `${serverBase}${cleanPath}`
+    } else {
+      const { url } = req.query
+      if (!url || typeof url !== 'string') {
+        return res.status(400).json({ error: 'URL parameter is required' })
+      }
+      targetUrl = decodeURIComponent(url)
     }
-
-    const targetUrl = decodeURIComponent(url)
     const forwardHeaders = extractForwardHeaders(req.headers)
     const response = await handleProxyRequest(targetUrl, forwardHeaders)
     const text = await response.text()

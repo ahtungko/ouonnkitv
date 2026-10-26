@@ -70,6 +70,17 @@ export async function handleProxyRequest(targetUrl, customHeaders = {}) {
 
 export function getTargetUrl(url) {
   const urlObj = new URL(url, 'http://localhost')
+  const danmakuPath = urlObj.searchParams.get('danmaku_path')
+  if (danmakuPath) {
+    const serverBase = (
+      process.env.DANDAN_API_BASE_URL ||
+      process.env.OKI_DANDAN_API_BASE_URL ||
+      'https://api.dandanplay.net'
+    ).replace(/\/+$/, '')
+    const cleanPath = danmakuPath.startsWith('/') ? danmakuPath : `/${danmakuPath}`
+    return `${serverBase}${cleanPath}`
+  }
+
   const targetUrl = urlObj.searchParams.get('url')
 
   if (!targetUrl) {
