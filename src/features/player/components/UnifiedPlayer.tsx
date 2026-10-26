@@ -37,6 +37,8 @@ import { createPlaybackLease, type PlaybackConflict } from '@/features/player/li
 import { playbackLeaseClient } from '@/features/player/lib/playbackLeaseClient'
 import { getBackdropUrl } from '@/shared/lib/tmdb'
 import { useFavoritesStore } from '@/features/favorites/store/favoritesStore'
+import { useAuthStore } from '@/shared/store/authStore'
+import { syncClient } from '@/shared/sync/client'
 import type { TmdbMediaItem, TmdbMediaType } from '@/shared/types/tmdb'
 import type { ViewingHistoryItem } from '@/shared/types'
 import type { VideoItem } from '@/shared/types/video'
@@ -222,6 +224,10 @@ export default function UnifiedPlayer() {
   const { videoAPIs, adFilteringEnabled } = useApiStore()
   const { addViewingHistory, viewingHistory } = useViewingHistoryStore()
   const { playback } = useSettingStore()
+  const account = useAuthStore(state => state.account)
+  const isAdmin = !syncClient || account?.role === 'admin'
+  const isAdminRef = useRef(isAdmin)
+  isAdminRef.current = isAdmin
 
   const viewingHistoryRef = useRef(viewingHistory)
   const playbackRef = useRef(playback)
@@ -298,6 +304,7 @@ export default function UnifiedPlayer() {
   const [isDanmakuVisible, setIsDanmakuVisible] = useState(playback.isDanmakuEnabled)
   const openDanmakuModalRef = useRef<() => void>(() => {})
   openDanmakuModalRef.current = () => {
+    if (!isAdminRef.current) return
     if (playerRef.current?.fullscreen) {
       playerRef.current.fullscreen = false
     }
@@ -858,16 +865,27 @@ export default function UnifiedPlayer() {
         }),
       ],
       controls: [
-        {
-          name: 'danmaku-modal-btn',
-          position: 'right',
-          index: 10,
-          html: '<span class="art-icon danmaku-btn-inner" style="display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;padding:2px 6px;cursor:pointer;border-radius:4px;background:rgba(255,255,255,0.12);line-height:1;">弹</span>',
-          tooltip: '弹幕控制与匹配',
-          click: () => {
-            openDanmakuModalRef.current?.()
-          },
-        },
+        ...(isAdminRef.current
+          ? [
+              {
+                name: 'danmaku-modal-btn',
+                position: 'right' as const,
+                index: 10,
+                html: `<span class="art-icon" style="display:flex;align-items:center;justify-content:center;position:relative;width:100%;height:100%;">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                    <line x1="8" y1="9" x2="16" y2="9"/>
+                    <line x1="8" y1="13" x2="14" y2="13"/>
+                  </svg>
+                  <span class="danmaku-count-badge" style="position:absolute;top:6px;right:2px;font-size:9px;font-weight:700;line-height:1;padding:1px 3px;border-radius:4px;background:#ef4444;color:#fff;display:none;pointer-events:none;"></span>
+                </span>`,
+                tooltip: '弹幕管理与匹配',
+                click: () => {
+                  openDanmakuModalRef.current?.()
+                },
+              },
+            ]
+          : []),
       ],
       customType: {
         m3u8: function (video: HTMLMediaElement, url: string, art: Artplayer) {
@@ -1361,14 +1379,24 @@ export default function UnifiedPlayer() {
     playback.dandanAppSecret,
   ])
 
-  // 同步播放器控制栏弹幕按钮状态与条数
+  // 同步播放器控制栏弹幕按钮状态与条数（仅管理员）
   useEffect(() => {
-    if (!activeArt) return
+    if (!activeArt || !isAdmin) return
     const btn = activeArt.controls['danmaku-modal-btn'] as HTMLElement | undefined
     if (!btn) return
-    const inner = btn.querySelector('.danmaku-btn-inner') || btn
-    inner.innerHTML = danmakuCount > 0 ? `弹 (${danmakuCount})` : '弹'
-  }, [activeArt, danmakuCount])
+    const badge = btn.querySelector('.danmaku-count-badge') as HTMLElement | null
+    if (badge) {
+      if (danmakuCount > 0) {
+        badge.textContent =
+          danmakuCount >= 10000 ? `${(danmakuCount / 1000).toFixed(0)}k` : String(danmakuCount)
+        badge.style.display = 'block'
+      } else {
+        badge.style.display = 'none'
+      }
+    }
+    const tipText = danmakuCount > 0 ? `弹幕管理与匹配 (${danmakuCount}条)` : '弹幕管理与匹配'
+    btn.dataset.tooltip = tipText
+  }, [activeArt, danmakuCount, isAdmin])
 
   const handleEpisodeChange = (displayIndex: number) => {
     pendingSeekRef.current = null
@@ -1878,37 +1906,39 @@ export default function UnifiedPlayer() {
           confirmText="在此设备播放"
           cancelText="暂不接管"
         />
-        <DanmakuModal
-          isOpen={isDanmakuModalOpen}
-          onClose={() => setIsDanmakuModalOpen(false)}
-          currentCount={danmakuCount}
-          matchedTitle={matchedDanmakuTitle}
-          isDanmakuVisible={isDanmakuVisible}
-          onToggleVisible={visible => {
-            setIsDanmakuVisible(visible)
-            const artWithHls = activeArt as ArtplayerWithHls | null
-            if (artWithHls?.plugins?.artplayerPluginDanmuku) {
-              if (visible) {
-                artWithHls.plugins.artplayerPluginDanmuku.show()
-              } else {
-                artWithHls.plugins.artplayerPluginDanmuku.hide()
+        {isAdmin && (
+          <DanmakuModal
+            isOpen={isDanmakuModalOpen}
+            onClose={() => setIsDanmakuModalOpen(false)}
+            currentCount={danmakuCount}
+            matchedTitle={matchedDanmakuTitle}
+            isDanmakuVisible={isDanmakuVisible}
+            onToggleVisible={visible => {
+              setIsDanmakuVisible(visible)
+              const artWithHls = activeArt as ArtplayerWithHls | null
+              if (artWithHls?.plugins?.artplayerPluginDanmuku) {
+                if (visible) {
+                  artWithHls.plugins.artplayerPluginDanmuku.show()
+                } else {
+                  artWithHls.plugins.artplayerPluginDanmuku.hide()
+                }
               }
-            }
-          }}
-          onApplyComments={(comments, matchInfo) => {
-            const artWithHls = activeArt as ArtplayerWithHls | null
-            if (artWithHls?.plugins?.artplayerPluginDanmuku) {
-              artWithHls.plugins.artplayerPluginDanmuku.load(comments)
-              setDanmakuCount(comments.length)
-              if (matchInfo) setMatchedDanmakuTitle(matchInfo)
-            }
-          }}
-          onUpdateConfig={config => {
-            const artWithHls = activeArt as ArtplayerWithHls | null
-            artWithHls?.plugins?.artplayerPluginDanmuku?.config(config)
-          }}
-          initialSearchQuery={danmakuSearchTitle}
-        />
+            }}
+            onApplyComments={(comments, matchInfo) => {
+              const artWithHls = activeArt as ArtplayerWithHls | null
+              if (artWithHls?.plugins?.artplayerPluginDanmuku) {
+                artWithHls.plugins.artplayerPluginDanmuku.load(comments)
+                setDanmakuCount(comments.length)
+                if (matchInfo) setMatchedDanmakuTitle(matchInfo)
+              }
+            }}
+            onUpdateConfig={config => {
+              const artWithHls = activeArt as ArtplayerWithHls | null
+              artWithHls?.plugins?.artplayerPluginDanmuku?.config(config)
+            }}
+            initialSearchQuery={danmakuSearchTitle}
+          />
+        )}
         <div className="min-w-0 space-y-3">
           {playbackNotice && (
             <p className="rounded-lg border px-3 py-2 text-sm" role="status">
