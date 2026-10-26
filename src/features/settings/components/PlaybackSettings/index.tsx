@@ -355,12 +355,25 @@ export default function PlaybackSettings() {
           }
         />
         <SettingsItem
-          title="弹弹play AppId"
-          description="弹弹play开放平台申请的应用 ID。配置后自动调用聚合 API。"
+          title="弹幕 API 地址"
+          description="默认为弹弹play官方接口 (https://api.dandanplay.net)。若部署了 danmu_api 等自建服务 (如 Cloudflare Workers/Vercel/Docker)，可填写自建 API 地址，自建服务无需填写 AppId 与 AppSecret。"
           control={
-            <div className="w-full sm:w-72">
+            <div className="w-full sm:w-80">
               <Input
-                placeholder="留空使用免鉴权模式或本地导入"
+                placeholder="https://api.dandanplay.net"
+                value={playback.dandanApiBaseUrl}
+                onChange={e => setPlaybackSettings({ dandanApiBaseUrl: e.target.value.trim() })}
+              />
+            </div>
+          }
+        />
+        <SettingsItem
+          title="弹弹play AppId（官方接口）"
+          description="弹弹play开放平台申请的应用 ID。使用官方接口时必填；使用自建 danmu_api 时可留空。"
+          control={
+            <div className="w-full sm:w-80">
+              <Input
+                placeholder="留空使用免鉴权自建源或本地导入"
                 value={playback.dandanAppId}
                 onChange={e => setPlaybackSettings({ dandanAppId: e.target.value.trim() })}
               />
@@ -368,10 +381,10 @@ export default function PlaybackSettings() {
           }
         />
         <SettingsItem
-          title="弹弹play AppSecret"
-          description="弹弹play开放平台生成的应用密钥，前端自动完成 SHA256 签名校验。"
+          title="弹弹play AppSecret（官方接口）"
+          description="弹弹play开放平台生成的应用密钥，前端自动完成 SHA256 签名校验。使用自建 danmu_api 时可留空。"
           control={
-            <div className="w-full sm:w-72">
+            <div className="w-full sm:w-80">
               <Input
                 type="password"
                 placeholder="输入 AppSecret"

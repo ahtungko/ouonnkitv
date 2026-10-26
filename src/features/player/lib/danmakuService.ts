@@ -9,8 +9,26 @@ import {
 
 export interface DanmakuServiceOptions {
   proxyUrl?: string
+  apiBaseUrl?: string
   appId?: string
   appSecret?: string
+}
+
+export function normalizeApiBaseUrl(apiBaseUrl?: string): string {
+  const trimmed = (apiBaseUrl || 'https://api.dandanplay.net').trim()
+  return trimmed.replace(/\/+$/, '')
+}
+
+export function isOfficialDandanApi(baseUrl: string): boolean {
+  return baseUrl.includes('dandanplay.net')
+}
+
+export function canRequestDanmakuApi(options: DanmakuServiceOptions): boolean {
+  const baseUrl = normalizeApiBaseUrl(options.apiBaseUrl)
+  if (isOfficialDandanApi(baseUrl)) {
+    return Boolean(options.appId && options.appSecret)
+  }
+  return Boolean(baseUrl)
 }
 
 export interface DandanAnimeItem {
@@ -75,10 +93,11 @@ export async function searchDandanEpisodes(
   options: DanmakuServiceOptions = {},
 ): Promise<DanmakuEpisodeMatch[]> {
   const trimmed = title.trim()
-  if (!trimmed || !options.appId || !options.appSecret) return []
+  if (!trimmed || !canRequestDanmakuApi(options)) return []
 
+  const baseUrl = normalizeApiBaseUrl(options.apiBaseUrl)
   const path = '/api/v2/search/episodes'
-  const targetUrl = `https://api.dandanplay.net${path}?anime=${encodeURIComponent(trimmed)}`
+  const targetUrl = `${baseUrl}${path}?anime=${encodeURIComponent(trimmed)}`
   const requestUrl = buildProxyUrl(targetUrl, options.proxyUrl ?? '/proxy?url=')
   const headers = await buildDandanHeaders(path, options.appId, options.appSecret)
 
@@ -117,10 +136,11 @@ export async function fetchDandanComments(
   episodeId: number,
   options: DanmakuServiceOptions = {},
 ): Promise<DanmakuComment[]> {
-  if (!episodeId || episodeId <= 0 || !options.appId || !options.appSecret) return []
+  if (!episodeId || episodeId <= 0 || !canRequestDanmakuApi(options)) return []
 
+  const baseUrl = normalizeApiBaseUrl(options.apiBaseUrl)
   const path = `/api/v2/comment/${episodeId}`
-  const targetUrl = `https://api.dandanplay.net${path}?withRelated=true`
+  const targetUrl = `${baseUrl}${path}?withRelated=true`
   const requestUrl = buildProxyUrl(targetUrl, options.proxyUrl ?? '/proxy?url=')
   const headers = await buildDandanHeaders(path, options.appId, options.appSecret)
 
@@ -167,7 +187,7 @@ export async function autoMatchDanmaku(
   episodeNumber: number,
   options: DanmakuServiceOptions = {},
 ): Promise<{ comments: DanmakuComment[]; match?: DanmakuEpisodeMatch }> {
-  if (!options.appId || !options.appSecret) {
+  if (!canRequestDanmakuApi(options)) {
     return { comments: [] }
   }
 

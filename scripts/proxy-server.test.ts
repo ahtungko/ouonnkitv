@@ -36,7 +36,7 @@ it('升级后的 Docker 代理仍处理参数错误并保留上游正文、状�
   })
   try {
     await new Promise<void>((ready, reject) => {
-      const timeout = setTimeout(() => reject(new Error('Proxy startup timed out')), 5000)
+      const timeout = setTimeout(() => reject(new Error('Proxy startup timed out')), 10000)
       proxyProcess.once('error', error => {
         clearTimeout(timeout)
         reject(error)

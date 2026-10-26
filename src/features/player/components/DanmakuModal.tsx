@@ -68,7 +68,11 @@ export function DanmakuModal({
   const { playback, setPlaybackSettings } = useSettingStore()
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState<'status' | 'match' | 'import'>('status')
-  const hasDandanConfig = Boolean(playback.dandanAppId && playback.dandanAppSecret)
+  const apiBaseUrl = (playback.dandanApiBaseUrl || 'https://api.dandanplay.net').trim()
+  const isOfficialDandan = apiBaseUrl.includes('dandanplay.net')
+  const hasDandanConfig = isOfficialDandan
+    ? Boolean(playback.dandanAppId && playback.dandanAppSecret)
+    : Boolean(apiBaseUrl)
 
   // Search match tab
   const [searchQuery, setSearchQuery] = useState(initialSearchQuery)
@@ -84,7 +88,7 @@ export function DanmakuModal({
 
   const handleSearch = async () => {
     if (!hasDandanConfig) {
-      toast.info('请先前往设置配置弹弹play凭据，或使用 CID / 本地文件导入')
+      toast.info('请先前往设置配置弹幕 API 或凭据，或使用 CID / 本地文件导入')
       return
     }
     if (!searchQuery.trim()) {
@@ -94,12 +98,13 @@ export function DanmakuModal({
     setIsSearching(true)
     try {
       const results = await searchDandanEpisodes(searchQuery, {
+        apiBaseUrl: playback.dandanApiBaseUrl,
         appId: playback.dandanAppId,
         appSecret: playback.dandanAppSecret,
       })
       setSearchResults(results)
       if (results.length === 0) {
-        toast.info('未在弹弹play中检索到相关剧集，请尝试更简洁的剧名')
+        toast.info('未在弹幕库中检索到相关剧集，请尝试更简洁的剧名')
       }
     } catch {
       toast.error('搜索弹幕失败，请检查网络或代理配置')
@@ -113,6 +118,7 @@ export function DanmakuModal({
     setIsLoadingComments(true)
     try {
       const comments = await fetchDandanComments(ep.episodeId, {
+        apiBaseUrl: playback.dandanApiBaseUrl,
         appId: playback.dandanAppId,
         appSecret: playback.dandanAppSecret,
       })
@@ -331,10 +337,10 @@ export function DanmakuModal({
               <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3.5 space-y-2.5">
                 <div className="flex items-center gap-2 text-sm font-medium text-amber-600 dark:text-amber-400">
                   <AlertCircle className="size-4 shrink-0" />
-                  尚未配置弹弹play凭据
+                  尚未配置弹幕 API 或凭据
                 </div>
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  弹弹play 开放弹幕网络已全面启用应用签名校验。如需全网聚合检索，请先前往播放设置免费配置凭据；或者切换到旁边的「CID / 本地导入」免凭据拉取 B 站弹幕。
+                  若使用自建弹幕服务（如 Cloudflare Workers / danmu_api），可在播放设置中配置 API 地址（无需凭据）；若使用弹弹play官方接口，需前往设置配置 AppId 与 AppSecret；亦可使用「CID / 本地导入」免凭据拉取 B 站弹幕。
                 </p>
                 <div className="flex items-center gap-2 pt-1">
                   <Button

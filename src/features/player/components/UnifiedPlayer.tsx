@@ -1301,12 +1301,17 @@ export default function UnifiedPlayer() {
 
   // 自动根据剧名与集数检索并加载弹幕
   useEffect(() => {
+    const dandanBaseUrl = (playback.dandanApiBaseUrl || 'https://api.dandanplay.net').trim()
+    const isOfficialDandan = dandanBaseUrl.includes('dandanplay.net')
+    const canAutoMatch = isOfficialDandan
+      ? Boolean(playback.dandanAppId && playback.dandanAppSecret)
+      : Boolean(dandanBaseUrl)
+
     if (
       !activeArt ||
       !danmakuSearchTitle ||
       !playback.isDanmakuEnabled ||
-      !playback.dandanAppId ||
-      !playback.dandanAppSecret
+      !canAutoMatch
     ) {
       return
     }
@@ -1320,6 +1325,7 @@ export default function UnifiedPlayer() {
           danmakuSearchTitle,
           selectedEpisode + 1,
           {
+            apiBaseUrl: playback.dandanApiBaseUrl,
             appId: playback.dandanAppId,
             appSecret: playback.dandanAppSecret,
           },
@@ -1354,6 +1360,7 @@ export default function UnifiedPlayer() {
     danmakuSearchTitle,
     selectedEpisode,
     playback.isDanmakuEnabled,
+    playback.dandanApiBaseUrl,
     playback.dandanAppId,
     playback.dandanAppSecret,
   ])

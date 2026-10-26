@@ -78,7 +78,7 @@ describe('danmakuService', () => {
     expect(comments[0].time).toBe(10.5)
   })
 
-  it('returns empty and skips fetch when credentials are missing', async () => {
+  it('returns empty and skips fetch when official credentials are missing', async () => {
     const matches = await searchDandanEpisodes('双城之战')
     expect(matches).toEqual([])
 
@@ -88,6 +88,34 @@ describe('danmakuService', () => {
     const autoResult = await autoMatchDanmaku('双城之战', 1)
     expect(autoResult.comments).toEqual([])
     expect(globalThis.fetch).not.toHaveBeenCalled()
+  })
+
+  it('allows fetching from custom self-hosted apiBaseUrl without appId and appSecret', async () => {
+    const mockResponse = {
+      animes: [
+        {
+          animeId: 200,
+          animeTitle: '庆余年',
+          episodes: [{ episodeId: 2001, episodeTitle: '第01集' }],
+        },
+      ],
+    }
+
+    vi.mocked(globalThis.fetch).mockResolvedValueOnce({
+      ok: true,
+      json: async () => mockResponse,
+    } as Response)
+
+    const matches = await searchDandanEpisodes('庆余年', {
+      apiBaseUrl: 'https://danmu.example.workers.dev',
+    })
+
+    expect(matches).toHaveLength(1)
+    expect(matches[0].animeTitle).toBe('庆余年')
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      expect.stringContaining('https%3A%2F%2Fdanmu.example.workers.dev%2Fapi%2Fv2%2Fsearch%2Fepisodes'),
+      expect.anything(),
+    )
   })
 
   it('fetches Bilibili CID XML comments', async () => {

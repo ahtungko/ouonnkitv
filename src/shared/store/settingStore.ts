@@ -38,6 +38,7 @@ interface PlaybackSettings {
   danmakuOpacity: number
   danmakuFontSize: number
   isDanmakuAntiOverlap: boolean
+  dandanApiBaseUrl: string
   dandanAppId: string
   dandanAppSecret: string
 }
@@ -131,7 +132,7 @@ export const useSettingStore = create<SettingStore>()(
       })),
       {
         name: 'ouonnki-tv-setting-store',
-        version: 15,
+        version: 16,
         migrate: (persistedState: unknown, version: number) => {
           const state = persistedState as Record<string, unknown>
           if (version < 2 && state.playback) {
@@ -231,6 +232,11 @@ export const useSettingStore = create<SettingStore>()(
             playback.isDanmakuAntiOverlap ??= DEFAULT_SETTINGS.playback.isDanmakuAntiOverlap
             playback.dandanAppId ??= DEFAULT_SETTINGS.playback.dandanAppId
             playback.dandanAppSecret ??= DEFAULT_SETTINGS.playback.dandanAppSecret
+            state.playback = playback
+          }
+          if (version < 16) {
+            const playback = (state.playback ?? {}) as Record<string, unknown>
+            playback.dandanApiBaseUrl ??= DEFAULT_SETTINGS.playback.dandanApiBaseUrl
             state.playback = playback
           }
           return state

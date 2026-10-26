@@ -36,7 +36,8 @@ docker-compose up -d --build
    # TMDB 图片基础地址（可选，支持相对路径）
    OKI_TMDB_IMAGE_BASE_URL=https://image.tmdb.org/t/p/
 
-   # 弹幕服务凭据（可选，启用全网聚合弹幕）
+   # 弹幕服务（可选，支持自建 danmu_api 或官方开放平台）
+   OKI_DANDAN_API_BASE_URL=https://api.dandanplay.net
    OKI_DANDAN_APP_ID=your_dandan_app_id
    OKI_DANDAN_APP_SECRET=your_dandan_app_secret
 

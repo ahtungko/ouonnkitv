@@ -61,7 +61,7 @@
 - 接入弹弹play 开放弹幕网络，支持自动按剧名与分集匹配全网聚合弹幕（B 站、爱奇艺、腾讯视频、优酷等多源合并）。
 - 播放控制栏常驻「弹」按钮与就绪数量提示（如 `弹 (1420)`），点击展开弹幕控制面板，支持实时开关、透明度、字号、滚动速度与防重叠排版调节。
 - 遇小众片名或特殊译名时，可在弹窗中手动搜索剧集并一键关联，亦支持输入 B 站 CID 直连获取或导入本地 `.xml` / `.json` 弹幕文件。
-- 支持在环境变量预配置 `OKI_DANDAN_APP_ID` 和 `OKI_DANDAN_APP_SECRET` 实现全站免配通行证，普通用户也可在「播放设置」中自备凭据；未配置或无弹幕资源时静默优雅降级。
+- 支持配置 `OKI_DANDAN_API_BASE_URL` 直连自建弹幕服务（如通过 Cloudflare Workers / Vercel / Docker 部署开源 [danmu_api](https://github.com/huangxd-/danmu_api)，0成本且无需凭据），或配置 `OKI_DANDAN_APP_ID` / `OKI_DANDAN_APP_SECRET` 对接弹弹play官方开放接口；未配置或无弹幕资源时静默优雅降级。
 
 ## 🚀 快速开始
 

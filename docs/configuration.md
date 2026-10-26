@@ -14,8 +14,9 @@ xkaTV 支持通过环境变量预定义应用的默认配置。当用户点击 *
 | `OKI_TMDB_API_TOKEN`        | 否   | TMDB API Token，启用 [TMDB 智能模式](#-tmdb-配置建议启用)获取影片元数据     |
 | `OKI_TMDB_API_BASE_URL`     | 否   | TMDB API 基础地址（默认 `https://api.themoviedb.org/3`）                    |
 | `OKI_TMDB_IMAGE_BASE_URL`   | 否   | TMDB 图片基础地址（默认 `https://image.tmdb.org/t/p/`）                     |
-| `OKI_DANDAN_APP_ID`         | 否   | 弹弹play 开放平台应用 ID，配置后全站自动启用全网聚合弹幕                     |
-| `OKI_DANDAN_APP_SECRET`     | 否   | 弹弹play 应用密钥，与 AppId 配套用于接口签名校验                            |
+| `OKI_DANDAN_API_BASE_URL`   | 否   | 弹幕 API 服务地址（默认 `https://api.dandanplay.net`，可填自建如 Cloudflare Workers 地址） |
+| `OKI_DANDAN_APP_ID`         | 否   | 弹弹play 开放平台应用 ID，使用官方接口时配置；自建 danmu_api 时可留空        |
+| `OKI_DANDAN_APP_SECRET`     | 否   | 弹弹play 应用密钥，与 AppId 配套用于接口签名校验；自建 danmu_api 时可留空   |
 | `OKI_SUPABASE_URL` | 是 | Supabase 项目 URL |
 | `OKI_SUPABASE_PUBLISHABLE_KEY` / `OKI_SUPABASE_ANON_KEY` | 是 | Supabase 公开客户端密钥 |
 | `SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_SECRET_KEY` | 管理账号时必需 | 仅 Vercel 服务端使用的机密密钥，不可添加公开前缀 |
@@ -137,26 +138,31 @@ OKI_TMDB_IMAGE_BASE_URL=https://image.tmdb.org/t/p/
 
 ---
 
-## 弹幕配置（弹弹play / 可选）
+## 弹幕配置（自建 danmu_api / 弹弹play 官方）
 
 xkaTV 内置了基于 ArtPlayer 的全功能弹幕系统，支持直接从第三方开放弹幕平台拉取全网弹幕（B站、爱奇艺、腾讯视频、优酷等）。
 
-### 凭据获取
+### 方案一：自建 `danmu_api`（推荐，免凭据、0成本、支持 Cloudflare Workers / Vercel / Docker）
+通过开源项目 [danmu_api](https://github.com/huangxd-/danmu_api) 部署在 Cloudflare Workers、Vercel 或个人轻量服务器上：
+* **免申请凭据**：无需在弹弹play开放平台申请账号与等待审核。
+* **聚合抓取**：直接抓取爱奇艺、腾讯视频、优酷、芒果TV、B站等多源弹幕。
+* **配置方式**：
+  * **环境变量**：`OKI_DANDAN_API_BASE_URL=https://你的Cloudflare自定义域名`
+  * **界面设置**：进入 **设置** → **播放设置** → **弹幕设置**，在「弹幕 API 地址」中填入你的自建服务地址，`AppId` 和 `AppSecret` 保持留空即可。
+
+### 方案二：使用弹弹play官方开放接口
 1. 访问 [弹弹play 开放平台 (open.dandanplay.com)](https://open.dandanplay.com) 注册开发者账号。
 2. 进入控制台创建应用，获取 `AppId` 和 `AppSecret`。
+3. 配置方式：
+   * **环境变量**：
+     ```env
+     OKI_DANDAN_APP_ID=your_dandan_app_id
+     OKI_DANDAN_APP_SECRET=your_dandan_app_secret
+     ```
+   * **界面设置**：在 **设置** → **播放设置** → **弹幕设置** 中填入。
 
-### 配置方式
-* **方式一：环境变量（全站免配，推荐站长使用）**
-  ```env
-  OKI_DANDAN_APP_ID=your_dandan_app_id
-  OKI_DANDAN_APP_SECRET=your_dandan_app_secret
-  ```
-  配置后，所有访问你部署实例的用户在播放动漫、电视剧和热门电影时，系统会自动按剧名和分集无感拉取弹幕。
-* **方式二：用户在设置中心手动输入**
-  用户可进入 **设置** → **播放设置** → **弹幕设置**，在「弹弹play AppId」与「弹弹play AppSecret」中自行填入。
-
-### 免凭据使用模式
-若未配置 `AppId` 与 `AppSecret`：
+### 免凭据通用模式
+若未配置任何 API 或凭据：
 * 基础观影和播放功能完全不受影响。
 * 仍可在播放器中通过 **输入 B 站 CID** 直连拉取公开弹幕。
 * 仍可 **拖拽或导入本地 `.xml` / `.json` 弹幕文件** 立即播放。

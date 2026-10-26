@@ -34,6 +34,7 @@ export interface SettingsConfig {
     danmakuOpacity?: number
     danmakuFontSize?: number
     isDanmakuAntiOverlap?: boolean
+    dandanApiBaseUrl?: string
     dandanAppId?: string
     dandanAppSecret?: string
   }
