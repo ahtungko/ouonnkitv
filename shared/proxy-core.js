@@ -49,7 +49,7 @@ export function parseProxyError(error) {
   return payload
 }
 
-export async function handleProxyRequest(targetUrl, customHeaders = {}) {
+export async function handleProxyRequest(targetUrl) {
   try {
     new URL(targetUrl)
   } catch {
@@ -62,7 +62,6 @@ export async function handleProxyRequest(targetUrl, customHeaders = {}) {
       'User-Agent':
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
       Accept: 'application/json, text/plain, */*',
-      ...customHeaders,
     },
     signal: AbortSignal.timeout(timeoutMs),
   })
@@ -70,17 +69,6 @@ export async function handleProxyRequest(targetUrl, customHeaders = {}) {
 
 export function getTargetUrl(url) {
   const urlObj = new URL(url, 'http://localhost')
-  const danmakuPath = urlObj.searchParams.get('danmaku_path')
-  if (danmakuPath) {
-    const serverBase = (
-      process.env.DANDAN_API_BASE_URL ||
-      process.env.OKI_DANDAN_API_BASE_URL ||
-      'https://api.dandanplay.net'
-    ).replace(/\/+$/, '')
-    const cleanPath = danmakuPath.startsWith('/') ? danmakuPath : `/${danmakuPath}`
-    return `${serverBase}${cleanPath}`
-  }
-
   const targetUrl = urlObj.searchParams.get('url')
 
   if (!targetUrl) {

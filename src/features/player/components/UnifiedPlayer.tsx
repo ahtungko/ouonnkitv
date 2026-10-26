@@ -37,18 +37,13 @@ import { createPlaybackLease, type PlaybackConflict } from '@/features/player/li
 import { playbackLeaseClient } from '@/features/player/lib/playbackLeaseClient'
 import { getBackdropUrl } from '@/shared/lib/tmdb'
 import { useFavoritesStore } from '@/features/favorites/store/favoritesStore'
-import { useAuthStore } from '@/shared/store/authStore'
-import { syncClient } from '@/shared/sync/client'
 import type { TmdbMediaItem, TmdbMediaType } from '@/shared/types/tmdb'
 import type { ViewingHistoryItem } from '@/shared/types'
 import type { VideoItem } from '@/shared/types/video'
 import { useTmdbRecommendations } from '@/shared/hooks/useTmdb'
 import { toast } from 'sonner'
 import throttle from 'lodash/throttle'
-import artplayerPluginDanmuku from 'artplayer-plugin-danmuku'
-import { autoMatchDanmaku, resolveDanmakuOptions } from '@/features/player/lib/danmakuService'
 import {
-  DanmakuModal,
   PlayerEpisodePanel,
   PlayerErrorState,
   PlayerHeroSection,
@@ -73,17 +68,6 @@ import {
 
 interface ArtplayerWithHls extends Artplayer {
   hls?: Hls
-  plugins: Artplayer['plugins'] & {
-    artplayerPluginDanmuku?: {
-      load: (danmuku: unknown) => Promise<unknown>
-      config: (option: unknown) => unknown
-      show: () => unknown
-      hide: () => unknown
-      reset: () => unknown
-      emit: (danmu: unknown) => unknown
-      isHide: boolean
-    }
-  }
 }
 
 interface PlayerRouteParams {
@@ -224,11 +208,7 @@ export default function UnifiedPlayer() {
   const tmdbEnabled = useTmdbEnabled()
   const { videoAPIs, adFilteringEnabled } = useApiStore()
   const { addViewingHistory, viewingHistory } = useViewingHistoryStore()
-  const { playback, setPlaybackSettings } = useSettingStore()
-  const account = useAuthStore(state => state.account)
-  const isAdmin = !syncClient || account?.role === 'admin'
-  const isAdminRef = useRef(isAdmin)
-  isAdminRef.current = isAdmin
+  const { playback } = useSettingStore()
 
   const viewingHistoryRef = useRef(viewingHistory)
   const playbackRef = useRef(playback)
@@ -299,22 +279,6 @@ export default function UnifiedPlayer() {
     conflict: PlaybackConflict
     confirm: () => void
   } | null>(null)
-  const [isDanmakuModalOpen, setIsDanmakuModalOpen] = useState(false)
-  const [danmakuCount, setDanmakuCount] = useState(0)
-  const [matchedDanmakuTitle, setMatchedDanmakuTitle] = useState('')
-  const [isDanmakuVisible, setIsDanmakuVisible] = useState(playback.isDanmakuEnabled)
-  const [isDanmakuRequested, setIsDanmakuRequested] = useState(playback.isDanmakuEnabled)
-  const openDanmakuModalRef = useRef<() => void>(() => {})
-  openDanmakuModalRef.current = () => {
-    if (!isAdminRef.current) return
-    if (playerRef.current?.fullscreen) {
-      playerRef.current.fullscreen = false
-    }
-    if (playerRef.current?.fullscreenWeb) {
-      playerRef.current.fullscreenWeb = false
-    }
-    setIsDanmakuModalOpen(true)
-  }
   const selectedEpisode = parseEpisodeIndex(episodeIndexParam)
   const noticeTimersRef = useRef<Map<string, number>>(new Map())
   const noticeAnimationFramesRef = useRef<Map<string, number>>(new Map())
@@ -854,41 +818,6 @@ export default function UnifiedPlayer() {
       moreVideoAttr: {
         crossOrigin: 'anonymous',
       },
-      plugins: [
-        artplayerPluginDanmuku({
-          danmuku: [],
-          speed: playbackRef.current.danmakuSpeed,
-          opacity: playbackRef.current.danmakuOpacity,
-          fontSize: playbackRef.current.danmakuFontSize,
-          antiOverlap: playbackRef.current.isDanmakuAntiOverlap,
-          synchronousPlayback: true,
-          visible: playbackRef.current.isDanmakuEnabled,
-          emitter: false,
-        }),
-      ],
-      controls: [
-        ...(isAdminRef.current
-          ? [
-              {
-                name: 'danmaku-modal-btn',
-                position: 'right' as const,
-                index: 10,
-                html: `<span class="art-icon" style="display:flex;align-items:center;justify-content:center;position:relative;width:100%;height:100%;">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-                    <line x1="8" y1="9" x2="16" y2="9"/>
-                    <line x1="8" y1="13" x2="14" y2="13"/>
-                  </svg>
-                  <span class="danmaku-count-badge" style="position:absolute;top:6px;right:2px;font-size:9px;font-weight:700;line-height:1;padding:1px 3px;border-radius:4px;background:#ef4444;color:#fff;display:none;pointer-events:none;"></span>
-                </span>`,
-                tooltip: '弹幕管理与匹配',
-                click: () => {
-                  openDanmakuModalRef.current?.()
-                },
-              },
-            ]
-          : []),
-      ],
       customType: {
         m3u8: function (video: HTMLMediaElement, url: string, art: Artplayer) {
           const artWithHls = art as ArtplayerWithHls
@@ -974,16 +903,6 @@ export default function UnifiedPlayer() {
 
     art.on('fullscreen', syncMobileControlBar)
     art.on('fullscreenWeb', syncMobileControlBar)
-    art.on('artplayerPluginDanmuku:show', () => {
-      setIsDanmakuVisible(true)
-      setIsDanmakuRequested(true)
-      setPlaybackSettings({ isDanmakuEnabled: true })
-    })
-    art.on('artplayerPluginDanmuku:hide', () => {
-      setIsDanmakuVisible(false)
-      setIsDanmakuRequested(false)
-      setPlaybackSettings({ isDanmakuEnabled: false })
-    })
     window.addEventListener('resize', handleControlViewportChange, { passive: true })
     window.addEventListener('orientationchange', handleControlViewportChange)
 
@@ -1027,19 +946,11 @@ export default function UnifiedPlayer() {
         art.seek = pendingSeekRef.current
         pendingSeekRef.current = null
         showPlayerNotice('已继承上一个源的播放进度')
-        ;(art as ArtplayerWithHls).plugins?.artplayerPluginDanmuku?.reset()
       } else if (existingHistory && existingHistory.playbackPosition > 0) {
         art.seek = existingHistory.playbackPosition
         showPlayerNotice('已自动跳转到上次观看位置')
-        ;(art as ArtplayerWithHls).plugins?.artplayerPluginDanmuku?.reset()
       }
     })
-
-    const handleSeekResetDanmaku = () => {
-      ;(art as ArtplayerWithHls).plugins?.artplayerPluginDanmuku?.reset()
-    }
-    art.on('seek', handleSeekResetDanmaku)
-    art.on('video:seeked', handleSeekResetDanmaku)
 
     const historyIdentity: ViewingHistoryItem = {
       recordType: canUseTmdbHistory ? 'tmdb' : 'cms',
@@ -1302,8 +1213,6 @@ export default function UnifiedPlayer() {
       window.removeEventListener('orientationchange', handleControlViewportChange)
       art.off('fullscreen', syncMobileControlBar)
       art.off('fullscreenWeb', syncMobileControlBar)
-      art.off('seek', handleSeekResetDanmaku)
-      art.off('video:seeked', handleSeekResetDanmaku)
       if (playerRef.current && playerRef.current.destroy) {
         addHistorySnapshot()
         leaseController.dispose()
@@ -1329,121 +1238,6 @@ export default function UnifiedPlayer() {
     tmdbMediaType,
     tmdbSeasonNumberForHistory,
   ])
-
-  const currentMediaTitle =
-    detail?.videoInfo?.title ||
-    tmdbPlayback.tmdbDetail?.title ||
-    viewingHistory.find(
-      h =>
-        (resolvedSourceCode && h.sourceCode === resolvedSourceCode && h.vodId === resolvedVodId) ||
-        (parsedTmdbId && h.tmdbId === parsedTmdbId),
-    )?.title ||
-    ''
-  const danmakuSearchTitle = useMemo(() => {
-    if (!currentMediaTitle) return ''
-    if (tmdbPlayback.selectedSeasonNumber && tmdbPlayback.selectedSeasonNumber > 1) {
-      return `${currentMediaTitle} 第${tmdbPlayback.selectedSeasonNumber}季`
-    }
-    return currentMediaTitle
-  }, [currentMediaTitle, tmdbPlayback.selectedSeasonNumber])
-
-  // 自动根据剧名与集数检索并加载弹幕
-  useEffect(() => {
-    const resolved = resolveDanmakuOptions({
-      apiBaseUrl: playback.dandanApiBaseUrl,
-      appId: playback.dandanAppId,
-      appSecret: playback.dandanAppSecret,
-    })
-
-    if (
-      !activeArt ||
-      !danmakuSearchTitle ||
-      !isDanmakuRequested ||
-      !resolved.canRequest
-    ) {
-      setDanmakuCount(0)
-      setMatchedDanmakuTitle('')
-      return
-    }
-
-    let isCancelled = false
-    const artWithHls = activeArt as ArtplayerWithHls
-
-    const runAutoMatch = async () => {
-      try {
-        const { comments, match } = await autoMatchDanmaku(
-          danmakuSearchTitle,
-          selectedEpisode + 1,
-          resolved,
-        )
-
-        if (isCancelled) return
-
-        if (comments.length > 0) {
-          await artWithHls.plugins?.artplayerPluginDanmuku?.load(comments)
-          artWithHls.plugins?.artplayerPluginDanmuku?.reset()
-          if (isDanmakuRequested) {
-            artWithHls.plugins?.artplayerPluginDanmuku?.show()
-          }
-          setDanmakuCount(comments.length)
-          setMatchedDanmakuTitle(
-            match ? `${match.animeTitle} - ${match.episodeTitle}` : danmakuSearchTitle,
-          )
-        } else {
-          setDanmakuCount(0)
-          setMatchedDanmakuTitle('')
-        }
-      } catch {
-        if (!isCancelled) {
-          setDanmakuCount(0)
-        }
-      }
-    }
-
-    runAutoMatch()
-
-    return () => {
-      isCancelled = true
-    }
-  }, [
-    activeArt,
-    danmakuSearchTitle,
-    selectedEpisode,
-    isDanmakuRequested,
-    playback.dandanApiBaseUrl,
-    playback.dandanAppId,
-    playback.dandanAppSecret,
-  ])
-
-  // 当设置中弹幕开关变化时，同步激活或停用请求状态与视图状态
-  useEffect(() => {
-    if (playback.isDanmakuEnabled) {
-      setIsDanmakuVisible(true)
-      setIsDanmakuRequested(true)
-    } else {
-      setIsDanmakuVisible(false)
-      setIsDanmakuRequested(false)
-    }
-  }, [playback.isDanmakuEnabled])
-
-  // 同步播放器控制栏弹幕按钮状态与条数（仅管理员）
-  useEffect(() => {
-    if (!activeArt || !isAdmin) return
-    const btn = activeArt.controls['danmaku-modal-btn'] as HTMLElement | undefined
-    if (!btn) return
-    const badge = btn.querySelector('.danmaku-count-badge') as HTMLElement | null
-    if (badge) {
-      if (danmakuCount > 0) {
-        badge.textContent =
-          danmakuCount >= 10000 ? `${(danmakuCount / 1000).toFixed(0)}k` : String(danmakuCount)
-        badge.style.display = 'block'
-      } else {
-        badge.style.display = 'none'
-      }
-    }
-    const tipText = danmakuCount > 0 ? `弹幕管理与匹配 (${danmakuCount}条)` : '弹幕管理与匹配'
-    btn.dataset.tooltip = tipText
-  }, [activeArt, danmakuCount, isAdmin])
 
   const handleEpisodeChange = (displayIndex: number) => {
     pendingSeekRef.current = null
@@ -1953,45 +1747,6 @@ export default function UnifiedPlayer() {
           confirmText="在此设备播放"
           cancelText="暂不接管"
         />
-        {isAdmin && (
-          <DanmakuModal
-            isOpen={isDanmakuModalOpen}
-            onClose={() => setIsDanmakuModalOpen(false)}
-            currentCount={danmakuCount}
-            matchedTitle={matchedDanmakuTitle}
-            isDanmakuVisible={isDanmakuVisible}
-            onToggleVisible={visible => {
-              setIsDanmakuVisible(visible)
-              setIsDanmakuRequested(visible)
-              setPlaybackSettings({ isDanmakuEnabled: visible })
-              const artWithHls = activeArt as ArtplayerWithHls | null
-              if (artWithHls?.plugins?.artplayerPluginDanmuku) {
-                if (visible) {
-                  artWithHls.plugins.artplayerPluginDanmuku.show()
-                } else {
-                  artWithHls.plugins.artplayerPluginDanmuku.hide()
-                }
-              }
-            }}
-            onApplyComments={(comments, matchInfo) => {
-              setIsDanmakuVisible(true)
-              setIsDanmakuRequested(true)
-              setPlaybackSettings({ isDanmakuEnabled: true })
-              const artWithHls = activeArt as ArtplayerWithHls | null
-              if (artWithHls?.plugins?.artplayerPluginDanmuku) {
-                artWithHls.plugins.artplayerPluginDanmuku.show()
-                artWithHls.plugins.artplayerPluginDanmuku.load(comments)
-                setDanmakuCount(comments.length)
-                if (matchInfo) setMatchedDanmakuTitle(matchInfo)
-              }
-            }}
-            onUpdateConfig={config => {
-              const artWithHls = activeArt as ArtplayerWithHls | null
-              artWithHls?.plugins?.artplayerPluginDanmuku?.config(config)
-            }}
-            initialSearchQuery={danmakuSearchTitle}
-          />
-        )}
         <div className="min-w-0 space-y-3">
           {playbackNotice && (
             <p className="rounded-lg border px-3 py-2 text-sm" role="status">

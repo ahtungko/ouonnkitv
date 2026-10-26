@@ -1,9 +1,6 @@
 import { useState } from 'react'
-import { getPublicEnv } from '@/shared/config/runtimeEnv'
 import { useSettingStore } from '@/shared/store/settingStore'
 import { useApiStore } from '@/shared/store/apiStore'
-import { useAuthStore } from '@/shared/store/authStore'
-import { syncClient } from '@/shared/sync/client'
 import { useTmdbEnabled } from '@/shared/hooks/useTmdbMode'
 import { clearBusinessCaches } from '@/shared/lib/cache/businessCache'
 import { ConfirmModal } from '@/shared/components/common/ConfirmModal'
@@ -21,7 +18,6 @@ import {
   Database,
   Gauge,
   ListFilter,
-  MessageSquare,
   Monitor,
   Palette,
   PlaySquare,
@@ -34,16 +30,10 @@ import { Button } from '@/shared/components/ui/button'
 import { SettingsItem, SettingsPageShell, SettingsSection } from '../common'
 
 export default function PlaybackSettings() {
-  const account = useAuthStore(state => state.account)
-  const isAdmin = !syncClient || account?.role === 'admin'
   const { playback, setPlaybackSettings } = useSettingStore()
   const { adFilteringEnabled, setAdFilteringEnabled } = useApiStore()
   const tmdbEnabled = useTmdbEnabled()
   const [confirmClearCacheOpen, setConfirmClearCacheOpen] = useState(false)
-
-  const envApiBase = getPublicEnv('OKI_DANDAN_API_BASE_URL')
-  const envAppId = getPublicEnv('OKI_DANDAN_APP_ID')
-  const envAppSecret = getPublicEnv('OKI_DANDAN_APP_SECRET')
 
   return (
     <SettingsPageShell
@@ -266,166 +256,7 @@ export default function PlaybackSettings() {
         />
       </SettingsSection>
 
-      <SettingsSection
-        title="弹幕设置"
-        description={
-          isAdmin
-            ? '配置播放器内置弹幕引擎及弹弹play开放平台凭据。'
-            : '自定义播放器弹幕显示、透明度、字号及滚动速度。'
-        }
-        icon={<MessageSquare className="size-4" />}
-        tone="violet"
-      >
-        <SettingsItem
-          title="默认开启弹幕"
-          description="进入播放器后自动检索并加载分集弹幕。"
-          controlClassName="self-end mt-1"
-          control={
-            <Switch
-              checked={playback.isDanmakuEnabled}
-              onCheckedChange={checked => setPlaybackSettings({ isDanmakuEnabled: checked })}
-            />
-          }
-        />
-        <SettingsItem
-          title="弹幕透明度"
-          description="弹幕整体不透明度（0.1~1.0），默认 0.8。"
-          control={
-            <div className="relative w-full sm:w-44">
-              <Input
-                type="number"
-                min={0.1}
-                max={1}
-                step={0.1}
-                value={playback.danmakuOpacity}
-                onChange={e => {
-                  const val = Number.parseFloat(e.target.value)
-                  if (!Number.isNaN(val)) {
-                    setPlaybackSettings({
-                      danmakuOpacity: Math.max(0.1, Math.min(1, val)),
-                    })
-                  }
-                }}
-              />
-            </div>
-          }
-        />
-        <SettingsItem
-          title="弹幕字体大小"
-          description="弹幕文字字号（像素，范围 12~40），默认 22。"
-          control={
-            <div className="relative w-full sm:w-44">
-              <Input
-                type="number"
-                min={12}
-                max={40}
-                step={1}
-                value={playback.danmakuFontSize}
-                onChange={e => {
-                  const val = Number.parseInt(e.target.value, 10)
-                  if (!Number.isNaN(val)) {
-                    setPlaybackSettings({
-                      danmakuFontSize: Math.max(12, Math.min(40, val)),
-                    })
-                  }
-                }}
-              />
-            </div>
-          }
-        />
-        <SettingsItem
-          title="弹幕滚动速度"
-          description="弹幕滑过屏幕的时长（秒，范围 1~10，数值越大越慢），默认 5 秒。"
-          control={
-            <div className="relative w-full sm:w-44">
-              <Input
-                type="number"
-                min={1}
-                max={10}
-                step={1}
-                value={playback.danmakuSpeed}
-                onChange={e => {
-                  const val = Number.parseInt(e.target.value, 10)
-                  if (!Number.isNaN(val)) {
-                    setPlaybackSettings({
-                      danmakuSpeed: Math.max(1, Math.min(10, val)),
-                    })
-                  }
-                }}
-              />
-            </div>
-          }
-        />
-        <SettingsItem
-          title="弹幕防重叠"
-          description="自动计算轨道高度，避免多条弹幕同一时间在同一轨道互相遮挡。"
-          controlClassName="self-end mt-1"
-          control={
-            <Switch
-              checked={playback.isDanmakuAntiOverlap}
-              onCheckedChange={checked => setPlaybackSettings({ isDanmakuAntiOverlap: checked })}
-            />
-          }
-        />
-        {isAdmin && (
-          <>
-            <SettingsItem
-              title="弹幕 API 地址"
-              description={
-                envApiBase
-                  ? `已通过环境变量注入默认地址 (${envApiBase})。若需覆盖可在下方输入，否则保持留空即可。`
-                  : '默认为弹弹play官方接口 (https://api.dandanplay.net)。若部署了 danmu_api 等自建服务 (如 Cloudflare Workers/Vercel/Docker)，可填写自建 API 地址，自建服务无需填写 AppId 与 AppSecret。'
-              }
-              control={
-                <div className="w-full sm:w-80">
-                  <Input
-                    placeholder={envApiBase ? `已继承环境变量: ${envApiBase}` : 'https://api.dandanplay.net'}
-                    value={playback.dandanApiBaseUrl}
-                    onChange={e => setPlaybackSettings({ dandanApiBaseUrl: e.target.value.trim() })}
-                  />
-                </div>
-              }
-            />
-            <SettingsItem
-              title="弹弹play AppId（官方接口）"
-              description={
-                envAppId
-                  ? `已通过环境变量 OKI_DANDAN_APP_ID 注入 (${envAppId.slice(0, 4)}***)。全站已免配生效。`
-                  : '弹弹play开放平台申请的应用 ID。使用官方接口时必填；使用自建 danmu_api 时可留空。'
-              }
-              control={
-                <div className="w-full sm:w-80">
-                  <Input
-                    placeholder={envAppId ? `已由环境变量配置: ${envAppId.slice(0, 4)}***` : '留空使用免鉴权自建源或本地导入'}
-                    value={playback.dandanAppId}
-                    onChange={e => setPlaybackSettings({ dandanAppId: e.target.value.trim() })}
-                  />
-                </div>
-              }
-            />
-            <SettingsItem
-              title="弹弹play AppSecret（官方接口）"
-              description={
-                envAppSecret
-                  ? '已通过环境变量 OKI_DANDAN_APP_SECRET 注入密钥。全站已免配生效。'
-                  : '弹弹play开放平台生成的应用密钥，前端自动完成 SHA256 签名校验。使用自建 danmu_api 时可留空。'
-              }
-              control={
-                <div className="w-full sm:w-80">
-                  <Input
-                    type="password"
-                    placeholder={envAppSecret ? '已由环境变量配置' : '输入 AppSecret'}
-                    value={playback.dandanAppSecret}
-                    onChange={e => setPlaybackSettings({ dandanAppSecret: e.target.value.trim() })}
-                  />
-                </div>
-              }
-            />
-          </>
-        )}
-      </SettingsSection>
-
-      {tmdbEnabled && isAdmin && (
+      {tmdbEnabled && (
         <SettingsSection
           title="TMDB 匹配缓存"
           description="缓存详情页和播放器的匹配结果，减少重复检索。"
@@ -472,7 +303,7 @@ export default function PlaybackSettings() {
         </SettingsSection>
       )}
 
-      {tmdbEnabled && isAdmin && (
+      {tmdbEnabled && (
         <ConfirmModal
           isOpen={confirmClearCacheOpen}
           onClose={() => setConfirmClearCacheOpen(false)}

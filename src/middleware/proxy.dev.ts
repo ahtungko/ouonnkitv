@@ -6,21 +6,6 @@ import {
   parseProxyError,
 } from '../shared/lib/proxy'
 
-function extractForwardHeaders(headers: Record<string, string | string[] | undefined> = {}) {
-  const forward: Record<string, string> = {}
-  for (const [key, val] of Object.entries(headers)) {
-    const lower = key.toLowerCase()
-    if (lower.startsWith('x-app') || lower.startsWith('x-time') || lower.startsWith('x-sig')) {
-      if (typeof val === 'string') {
-        forward[key] = val
-      } else if (Array.isArray(val) && val.length > 0) {
-        forward[key] = val[0]
-      }
-    }
-  }
-  return forward
-}
-
 export function proxyMiddleware(): Plugin {
   return {
     name: 'proxy-middleware',
@@ -30,22 +15,9 @@ export function proxyMiddleware(): Plugin {
           return next()
         }
 
-        if (req.method === 'OPTIONS') {
-          res.setHeader('Access-Control-Allow-Origin', '*')
-          res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS')
-          res.setHeader(
-            'Access-Control-Allow-Headers',
-            'Content-Type, X-AppId, X-Timestamp, X-Signature',
-          )
-          res.writeHead(200)
-          res.end()
-          return
-        }
-
         try {
           const targetUrl = getTargetUrl(req.url)
-          const forwardHeaders = extractForwardHeaders(req.headers)
-          const response = await handleProxyRequest(targetUrl, forwardHeaders)
+          const response = await handleProxyRequest(targetUrl)
           const text = await response.text()
           const contentType = response.headers.get('content-type') || 'application/json'
 

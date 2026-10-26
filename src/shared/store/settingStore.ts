@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { devtools, persist } from 'zustand/middleware'
 import { immer } from 'zustand/middleware/immer'
 import { DEFAULT_SETTINGS } from '@/shared/config/settings.config'
+import { getPublicEnv } from '@/shared/config/runtimeEnv'
 
 interface NetworkSettings {
   defaultTimeout: number
@@ -33,14 +34,6 @@ interface PlaybackSettings {
   isMobileGestureEnabled: boolean
   longPressPlaybackRate: number
   isFullscreenProgressHidden: boolean
-  isDanmakuEnabled: boolean
-  danmakuSpeed: number
-  danmakuOpacity: number
-  danmakuFontSize: number
-  isDanmakuAntiOverlap: boolean
-  dandanApiBaseUrl: string
-  dandanAppId: string
-  dandanAppSecret: string
 }
 
 interface SystemSettings {
@@ -109,15 +102,16 @@ export const useSettingStore = create<SettingStore>()(
 
         setSystemSettings: settings => {
           set(state => {
-            // 如果更新包含 tmdbApiToken，且新值非空，自动开启 tmdbEnabled
+            const merged = { ...state.system, ...settings }
+            // 清空 token 且无环境变量 token 时，自动关闭 tmdbEnabled
             if (
-              settings.tmdbApiToken !== undefined &&
-              settings.tmdbApiToken !== '' &&
-              settings.tmdbEnabled === undefined
+              'tmdbApiToken' in settings &&
+              !settings.tmdbApiToken &&
+              !getPublicEnv('OKI_TMDB_API_TOKEN')
             ) {
-              settings.tmdbEnabled = true
+              merged.tmdbEnabled = false
             }
-            state.system = { ...state.system, ...settings }
+            state.system = merged
           })
         },
 
@@ -132,7 +126,7 @@ export const useSettingStore = create<SettingStore>()(
       })),
       {
         name: 'ouonnki-tv-setting-store',
-        version: 17,
+        version: 14,
         migrate: (persistedState: unknown, version: number) => {
           const state = persistedState as Record<string, unknown>
           if (version < 2 && state.playback) {
@@ -222,28 +216,6 @@ export const useSettingStore = create<SettingStore>()(
               system.tmdbApiToken = DEFAULT_SETTINGS.system.tmdbApiToken
             }
             state.system = system
-          }
-          if (version < 15) {
-            const playback = (state.playback ?? {}) as Record<string, unknown>
-            playback.isDanmakuEnabled ??= DEFAULT_SETTINGS.playback.isDanmakuEnabled
-            playback.danmakuSpeed ??= DEFAULT_SETTINGS.playback.danmakuSpeed
-            playback.danmakuOpacity ??= DEFAULT_SETTINGS.playback.danmakuOpacity
-            playback.danmakuFontSize ??= DEFAULT_SETTINGS.playback.danmakuFontSize
-            playback.isDanmakuAntiOverlap ??= DEFAULT_SETTINGS.playback.isDanmakuAntiOverlap
-            playback.dandanAppId ??= DEFAULT_SETTINGS.playback.dandanAppId
-            playback.dandanAppSecret ??= DEFAULT_SETTINGS.playback.dandanAppSecret
-            state.playback = playback
-          }
-          if (version < 16) {
-            const playback = (state.playback ?? {}) as Record<string, unknown>
-            playback.dandanApiBaseUrl ??= DEFAULT_SETTINGS.playback.dandanApiBaseUrl
-            state.playback = playback
-          }
-          if (version < 17) {
-            const playback = (state.playback ?? {}) as Record<string, unknown>
-            // 确保弹幕默认关闭（将历史版本缓存中默认开启的值强制重置为默认关闭）
-            playback.isDanmakuEnabled = false
-            state.playback = playback
           }
           return state
         },
