@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   autoMatchDanmaku,
+  cleanAnimeTitleForSearch,
   fetchBilibiliCidComments,
   fetchDandanComments,
   getPreferredAnime,
@@ -320,5 +321,57 @@ describe('danmakuService', () => {
 
     expect(result.match?.animeTitle).toBe('[360] 嫁金钗')
     expect(result.match?.episodeId).toBe(10005)
+  })
+
+  it('cleans anime title for search properly', () => {
+    expect(cleanAnimeTitleForSearch('【微短剧】嫁金钗（全集）')).toBe('嫁金钗')
+    expect(cleanAnimeTitleForSearch('庆余年 第二季 4K')).toBe('庆余年')
+    expect(cleanAnimeTitleForSearch('斗破苍穹 第3季')).toBe('斗破苍穹')
+    expect(cleanAnimeTitleForSearch('狂飙 全39集')).toBe('狂飙')
+  })
+
+  it('falls back to cleaned title when raw title search returns empty', async () => {
+    const mockCleanedSearch = {
+      animes: [
+        {
+          animeId: 300,
+          animeTitle: '[360] 嫁金钗',
+          episodes: [{ episodeId: 30003, episodeTitle: '第03集' }],
+        },
+      ],
+    }
+
+    vi.mocked(globalThis.fetch).mockImplementation(async (input) => {
+      const urlStr = decodeURIComponent(String(input))
+      if (urlStr.includes('/api/v2/search/episodes')) {
+        // 原始带标签的标题返回空
+        if (urlStr.includes('【微短剧】')) {
+          return {
+            ok: true,
+            json: async () => ({ animes: [] }),
+          } as Response
+        }
+        // 清洗后的标题命中
+        return {
+          ok: true,
+          json: async () => mockCleanedSearch,
+        } as Response
+      }
+      return {
+        ok: true,
+        json: async () => ({
+          count: 5,
+          comments: [{ cid: 1, p: '1,1,16777215,u,2026-01-01', m: '好剧' }],
+        }),
+      } as Response
+    })
+
+    const result = await autoMatchDanmaku('【微短剧】嫁金钗', 3, {
+      appId: 'testApp',
+      appSecret: 'testSecret',
+    })
+
+    expect(result.match?.animeTitle).toBe('[360] 嫁金钗')
+    expect(result.comments).toHaveLength(1)
   })
 })

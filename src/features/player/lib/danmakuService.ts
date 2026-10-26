@@ -243,23 +243,41 @@ export async function fetchBilibiliCidComments(
 
 const PREFERRED_DANMAKU_KEY = 'oki_danmaku_preferred_source'
 
+/**
+ * 清洗剧名中的附加标签、括号、分季和集数信息，提升外部弹幕库搜索命中率
+ */
+export function cleanAnimeTitleForSearch(title: string): string {
+  return title
+    .replace(/[\[\(（【].*?[\]\)）】]/g, ' ') // 去除括号内容如【微短剧】、（全集）
+    .replace(/第\s*[\d一二三四五六七八九十两]+\s*[季部篇]/gi, ' ') // 去除第1季
+    .replace(/\b(?:season|s)\s*\d+\b/gi, ' ')
+    .replace(/(?:全|共)?\s*\d+\s*集/g, ' ') // 去除全80集
+    .replace(/\b(?:4k|1080p|720p|hd|bd)\b/gi, ' ') // 去除分辨率
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 function normalizeTitleKey(title: string): string {
   return title.trim().toLowerCase().replace(/\s+/g, '')
 }
 
 /**
- * 记忆特定剧名首选的弹幕源（如 360影视、腾讯视频等）
+ * 记忆特定剧名首选的弹幕源（如 360影视、腾讯视频等），持久化至 localStorage 防止刷新或重开丢失
  */
 export function rememberPreferredAnime(title: string, animeTitle: string): void {
   if (!title || !animeTitle) return
   try {
-    const raw = sessionStorage.getItem(PREFERRED_DANMAKU_KEY)
+    const raw = localStorage.getItem(PREFERRED_DANMAKU_KEY)
     const map = raw ? JSON.parse(raw) : {}
     map[title.trim()] = animeTitle.trim()
     map[normalizeTitleKey(title)] = animeTitle.trim()
-    sessionStorage.setItem(PREFERRED_DANMAKU_KEY, JSON.stringify(map))
+    const cleaned = cleanAnimeTitleForSearch(title)
+    if (cleaned) {
+      map[normalizeTitleKey(cleaned)] = animeTitle.trim()
+    }
+    localStorage.setItem(PREFERRED_DANMAKU_KEY, JSON.stringify(map))
   } catch {
-    // ignore sessionStorage errors
+    // ignore localStorage errors
   }
 }
 
@@ -269,10 +287,15 @@ export function rememberPreferredAnime(title: string, animeTitle: string): void 
 export function getPreferredAnime(title: string): string | undefined {
   if (!title) return undefined
   try {
-    const raw = sessionStorage.getItem(PREFERRED_DANMAKU_KEY)
+    const raw = localStorage.getItem(PREFERRED_DANMAKU_KEY)
     if (raw) {
       const map = JSON.parse(raw)
-      return map[title.trim()] || map[normalizeTitleKey(title)]
+      const cleaned = cleanAnimeTitleForSearch(title)
+      return (
+        map[title.trim()] ||
+        map[normalizeTitleKey(title)] ||
+        (cleaned ? map[normalizeTitleKey(cleaned)] : undefined)
+      )
     }
   } catch {
     // ignore
@@ -321,7 +344,13 @@ export async function autoMatchDanmaku(
     return { comments: [] }
   }
 
-  const episodes = await searchDandanEpisodes(title, resolved)
+  let episodes = await searchDandanEpisodes(title, resolved)
+  if (episodes.length === 0) {
+    const cleaned = cleanAnimeTitleForSearch(title)
+    if (cleaned && cleaned !== title.trim()) {
+      episodes = await searchDandanEpisodes(cleaned, resolved)
+    }
+  }
   if (episodes.length === 0) {
     return { comments: [] }
   }

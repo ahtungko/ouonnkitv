@@ -79,6 +79,7 @@ interface ArtplayerWithHls extends Artplayer {
       config: (option: unknown) => unknown
       show: () => unknown
       hide: () => unknown
+      reset: () => unknown
       emit: (danmu: unknown) => unknown
       isHide: boolean
     }
@@ -1026,11 +1027,19 @@ export default function UnifiedPlayer() {
         art.seek = pendingSeekRef.current
         pendingSeekRef.current = null
         showPlayerNotice('已继承上一个源的播放进度')
+        ;(art as ArtplayerWithHls).plugins?.artplayerPluginDanmuku?.reset()
       } else if (existingHistory && existingHistory.playbackPosition > 0) {
         art.seek = existingHistory.playbackPosition
         showPlayerNotice('已自动跳转到上次观看位置')
+        ;(art as ArtplayerWithHls).plugins?.artplayerPluginDanmuku?.reset()
       }
     })
+
+    const handleSeekResetDanmaku = () => {
+      ;(art as ArtplayerWithHls).plugins?.artplayerPluginDanmuku?.reset()
+    }
+    art.on('seek', handleSeekResetDanmaku)
+    art.on('video:seeked', handleSeekResetDanmaku)
 
     const historyIdentity: ViewingHistoryItem = {
       recordType: canUseTmdbHistory ? 'tmdb' : 'cms',
@@ -1293,6 +1302,8 @@ export default function UnifiedPlayer() {
       window.removeEventListener('orientationchange', handleControlViewportChange)
       art.off('fullscreen', syncMobileControlBar)
       art.off('fullscreenWeb', syncMobileControlBar)
+      art.off('seek', handleSeekResetDanmaku)
+      art.off('video:seeked', handleSeekResetDanmaku)
       if (playerRef.current && playerRef.current.destroy) {
         addHistorySnapshot()
         leaseController.dispose()
@@ -1319,7 +1330,15 @@ export default function UnifiedPlayer() {
     tmdbSeasonNumberForHistory,
   ])
 
-  const currentMediaTitle = detail?.videoInfo?.title || tmdbPlayback.tmdbDetail?.title || ''
+  const currentMediaTitle =
+    detail?.videoInfo?.title ||
+    tmdbPlayback.tmdbDetail?.title ||
+    viewingHistory.find(
+      h =>
+        (resolvedSourceCode && h.sourceCode === resolvedSourceCode && h.vodId === resolvedVodId) ||
+        (parsedTmdbId && h.tmdbId === parsedTmdbId),
+    )?.title ||
+    ''
   const danmakuSearchTitle = useMemo(() => {
     if (!currentMediaTitle) return ''
     if (tmdbPlayback.selectedSeasonNumber && tmdbPlayback.selectedSeasonNumber > 1) {
@@ -1362,6 +1381,10 @@ export default function UnifiedPlayer() {
 
         if (comments.length > 0) {
           await artWithHls.plugins?.artplayerPluginDanmuku?.load(comments)
+          artWithHls.plugins?.artplayerPluginDanmuku?.reset()
+          if (isDanmakuRequested) {
+            artWithHls.plugins?.artplayerPluginDanmuku?.show()
+          }
           setDanmakuCount(comments.length)
           setMatchedDanmakuTitle(
             match ? `${match.animeTitle} - ${match.episodeTitle}` : danmakuSearchTitle,
