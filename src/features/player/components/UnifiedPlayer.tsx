@@ -44,7 +44,7 @@ import { useTmdbRecommendations } from '@/shared/hooks/useTmdb'
 import { toast } from 'sonner'
 import throttle from 'lodash/throttle'
 import artplayerPluginDanmuku from 'artplayer-plugin-danmuku'
-import { autoMatchDanmaku } from '@/features/player/lib/danmakuService'
+import { autoMatchDanmaku, resolveDanmakuOptions } from '@/features/player/lib/danmakuService'
 import {
   DanmakuModal,
   PlayerEpisodePanel,
@@ -1301,17 +1301,17 @@ export default function UnifiedPlayer() {
 
   // 自动根据剧名与集数检索并加载弹幕
   useEffect(() => {
-    const dandanBaseUrl = (playback.dandanApiBaseUrl || 'https://api.dandanplay.net').trim()
-    const isOfficialDandan = dandanBaseUrl.includes('dandanplay.net')
-    const canAutoMatch = isOfficialDandan
-      ? Boolean(playback.dandanAppId && playback.dandanAppSecret)
-      : Boolean(dandanBaseUrl)
+    const resolved = resolveDanmakuOptions({
+      apiBaseUrl: playback.dandanApiBaseUrl,
+      appId: playback.dandanAppId,
+      appSecret: playback.dandanAppSecret,
+    })
 
     if (
       !activeArt ||
       !danmakuSearchTitle ||
       !playback.isDanmakuEnabled ||
-      !canAutoMatch
+      !resolved.canRequest
     ) {
       return
     }
@@ -1324,11 +1324,7 @@ export default function UnifiedPlayer() {
         const { comments, match } = await autoMatchDanmaku(
           danmakuSearchTitle,
           selectedEpisode + 1,
-          {
-            apiBaseUrl: playback.dandanApiBaseUrl,
-            appId: playback.dandanAppId,
-            appSecret: playback.dandanAppSecret,
-          },
+          resolved,
         )
 
         if (isCancelled) return

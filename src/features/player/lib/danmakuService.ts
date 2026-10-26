@@ -1,3 +1,4 @@
+import { getPublicEnv } from '@/shared/config/runtimeEnv'
 import {
   generateDandanSignature,
   parseBilibiliXml,
@@ -14,6 +15,15 @@ export interface DanmakuServiceOptions {
   appSecret?: string
 }
 
+export interface ResolvedDanmakuOptions {
+  proxyUrl?: string
+  apiBaseUrl: string
+  appId: string
+  appSecret: string
+  isOfficial: boolean
+  canRequest: boolean
+}
+
 export function normalizeApiBaseUrl(apiBaseUrl?: string): string {
   const trimmed = (apiBaseUrl || 'https://api.dandanplay.net').trim()
   return trimmed.replace(/\/+$/, '')
@@ -23,12 +33,36 @@ export function isOfficialDandanApi(baseUrl: string): boolean {
   return baseUrl.includes('dandanplay.net')
 }
 
-export function canRequestDanmakuApi(options: DanmakuServiceOptions): boolean {
-  const baseUrl = normalizeApiBaseUrl(options.apiBaseUrl)
-  if (isOfficialDandanApi(baseUrl)) {
-    return Boolean(options.appId && options.appSecret)
+export function resolveDanmakuOptions(options: DanmakuServiceOptions = {}): ResolvedDanmakuOptions {
+  const envBaseUrl = getPublicEnv('OKI_DANDAN_API_BASE_URL')
+  const envAppId = getPublicEnv('OKI_DANDAN_APP_ID')
+  const envAppSecret = getPublicEnv('OKI_DANDAN_APP_SECRET')
+
+  // 若设置中配置了非官方自建地址，优先使用；
+  // 若设置中为空或仍为默认官方地址且环境变量指定了自定义地址，优先使用环境变量
+  let rawBaseUrl = options.apiBaseUrl?.trim()
+  if (!rawBaseUrl || (rawBaseUrl === 'https://api.dandanplay.net' && envBaseUrl)) {
+    rawBaseUrl = envBaseUrl || 'https://api.dandanplay.net'
   }
-  return Boolean(baseUrl)
+  const apiBaseUrl = normalizeApiBaseUrl(rawBaseUrl)
+
+  const appId = (options.appId || envAppId || '').trim()
+  const appSecret = (options.appSecret || envAppSecret || '').trim()
+  const isOfficial = isOfficialDandanApi(apiBaseUrl)
+  const canRequest = isOfficial ? Boolean(appId && appSecret) : Boolean(apiBaseUrl)
+
+  return {
+    proxyUrl: options.proxyUrl,
+    apiBaseUrl,
+    appId,
+    appSecret,
+    isOfficial,
+    canRequest,
+  }
+}
+
+export function canRequestDanmakuApi(options: DanmakuServiceOptions): boolean {
+  return resolveDanmakuOptions(options).canRequest
 }
 
 export interface DandanAnimeItem {
@@ -93,13 +127,15 @@ export async function searchDandanEpisodes(
   options: DanmakuServiceOptions = {},
 ): Promise<DanmakuEpisodeMatch[]> {
   const trimmed = title.trim()
-  if (!trimmed || !canRequestDanmakuApi(options)) return []
+  if (!trimmed) return []
 
-  const baseUrl = normalizeApiBaseUrl(options.apiBaseUrl)
+  const resolved = resolveDanmakuOptions(options)
+  if (!resolved.canRequest) return []
+
   const path = '/api/v2/search/episodes'
-  const targetUrl = `${baseUrl}${path}?anime=${encodeURIComponent(trimmed)}`
-  const requestUrl = buildProxyUrl(targetUrl, options.proxyUrl ?? '/proxy?url=')
-  const headers = await buildDandanHeaders(path, options.appId, options.appSecret)
+  const targetUrl = `${resolved.apiBaseUrl}${path}?anime=${encodeURIComponent(trimmed)}`
+  const requestUrl = buildProxyUrl(targetUrl, resolved.proxyUrl ?? '/proxy?url=')
+  const headers = await buildDandanHeaders(path, resolved.appId, resolved.appSecret)
 
   try {
     const res = await fetch(requestUrl, { headers })
@@ -136,13 +172,15 @@ export async function fetchDandanComments(
   episodeId: number,
   options: DanmakuServiceOptions = {},
 ): Promise<DanmakuComment[]> {
-  if (!episodeId || episodeId <= 0 || !canRequestDanmakuApi(options)) return []
+  if (!episodeId || episodeId <= 0) return []
 
-  const baseUrl = normalizeApiBaseUrl(options.apiBaseUrl)
+  const resolved = resolveDanmakuOptions(options)
+  if (!resolved.canRequest) return []
+
   const path = `/api/v2/comment/${episodeId}`
-  const targetUrl = `${baseUrl}${path}?withRelated=true`
-  const requestUrl = buildProxyUrl(targetUrl, options.proxyUrl ?? '/proxy?url=')
-  const headers = await buildDandanHeaders(path, options.appId, options.appSecret)
+  const targetUrl = `${resolved.apiBaseUrl}${path}?withRelated=true`
+  const requestUrl = buildProxyUrl(targetUrl, resolved.proxyUrl ?? '/proxy?url=')
+  const headers = await buildDandanHeaders(path, resolved.appId, resolved.appSecret)
 
   try {
     const res = await fetch(requestUrl, { headers })
@@ -187,11 +225,12 @@ export async function autoMatchDanmaku(
   episodeNumber: number,
   options: DanmakuServiceOptions = {},
 ): Promise<{ comments: DanmakuComment[]; match?: DanmakuEpisodeMatch }> {
-  if (!canRequestDanmakuApi(options)) {
+  const resolved = resolveDanmakuOptions(options)
+  if (!resolved.canRequest) {
     return { comments: [] }
   }
 
-  const episodes = await searchDandanEpisodes(title, options)
+  const episodes = await searchDandanEpisodes(title, resolved)
   if (episodes.length === 0) {
     return { comments: [] }
   }
@@ -218,6 +257,6 @@ export async function autoMatchDanmaku(
     return { comments: [] }
   }
 
-  const comments = await fetchDandanComments(matched.episodeId, options)
+  const comments = await fetchDandanComments(matched.episodeId, resolved)
   return { comments, match: matched }
 }

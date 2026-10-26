@@ -27,6 +27,7 @@ import {
   searchDandanEpisodes,
   fetchDandanComments,
   fetchBilibiliCidComments,
+  resolveDanmakuOptions,
 } from '../lib/danmakuService'
 import {
   parseBilibiliXml,
@@ -68,11 +69,12 @@ export function DanmakuModal({
   const { playback, setPlaybackSettings } = useSettingStore()
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState<'status' | 'match' | 'import'>('status')
-  const apiBaseUrl = (playback.dandanApiBaseUrl || 'https://api.dandanplay.net').trim()
-  const isOfficialDandan = apiBaseUrl.includes('dandanplay.net')
-  const hasDandanConfig = isOfficialDandan
-    ? Boolean(playback.dandanAppId && playback.dandanAppSecret)
-    : Boolean(apiBaseUrl)
+  const resolved = resolveDanmakuOptions({
+    apiBaseUrl: playback.dandanApiBaseUrl,
+    appId: playback.dandanAppId,
+    appSecret: playback.dandanAppSecret,
+  })
+  const hasDandanConfig = resolved.canRequest
 
   // Search match tab
   const [searchQuery, setSearchQuery] = useState(initialSearchQuery)
@@ -97,11 +99,7 @@ export function DanmakuModal({
     }
     setIsSearching(true)
     try {
-      const results = await searchDandanEpisodes(searchQuery, {
-        apiBaseUrl: playback.dandanApiBaseUrl,
-        appId: playback.dandanAppId,
-        appSecret: playback.dandanAppSecret,
-      })
+      const results = await searchDandanEpisodes(searchQuery, resolved)
       setSearchResults(results)
       if (results.length === 0) {
         toast.info('未在弹幕库中检索到相关剧集，请尝试更简洁的剧名')
@@ -117,11 +115,7 @@ export function DanmakuModal({
     setSelectedEpId(ep.episodeId)
     setIsLoadingComments(true)
     try {
-      const comments = await fetchDandanComments(ep.episodeId, {
-        apiBaseUrl: playback.dandanApiBaseUrl,
-        appId: playback.dandanAppId,
-        appSecret: playback.dandanAppSecret,
-      })
+      const comments = await fetchDandanComments(ep.episodeId, resolved)
       if (comments.length === 0) {
         toast.warning('该分集暂无弹幕记录')
       } else {
