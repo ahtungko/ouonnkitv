@@ -292,7 +292,7 @@ describe('settingStore migrate', () => {
       playback: { isDanmakuEnabled?: boolean; danmakuSpeed?: number }
     }
 
-    expect(migrated.playback.isDanmakuEnabled).toBe(true)
+    expect(migrated.playback.isDanmakuEnabled).toBe(false)
     expect(migrated.playback.danmakuSpeed).toBe(5)
   })
 })

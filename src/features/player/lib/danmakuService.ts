@@ -290,31 +290,8 @@ function isEpisodeMatch(epTitle: string, epNum: number): boolean {
 }
 
 /**
- * 评估弹幕分集源的质量权重（综合剧名与分集名中的平台标签）
- */
-function getSourceScore(ep: DanmakuEpisodeMatch, preferredAnimeTitle?: string): number {
-  let score = 0
-  if (preferredAnimeTitle && ep.animeTitle === preferredAnimeTitle) {
-    score += 500
-  }
-
-  const text = `${ep.animeTitle} ${ep.episodeTitle}`.toLowerCase()
-  // 360影视、腾讯视频、B站是弹幕库三大主力，尤其短剧和热播剧 360 覆盖最全
-  if (text.includes('360')) score += 100
-  if (text.includes('qq') || text.includes('tencent') || text.includes('腾讯')) score += 95
-  if (text.includes('bilibili') || text.includes('b站') || text.includes('哔哩')) score += 90
-  if (text.includes('iqiyi') || text.includes('爱奇艺')) score += 75
-  if (text.includes('youku') || text.includes('优酷')) score += 70
-  if (text.includes('mgtv') || text.includes('芒果') || text.includes('imgo')) score += 55
-  if (text.includes('sohu') || text.includes('搜狐')) score += 40
-  if (text.includes('migu') || text.includes('咪咕')) score += 30
-  if (text.includes('douban') || text.includes('豆瓣')) score += 25
-  if (text.includes('renren') || text.includes('人人')) score += 20
-  return score
-}
-
-/**
  * 自动根据剧名与集数匹配弹幕
+ * 直接遵从 danmu_api 服务端定义的源排序（SOURCE_ORDER），不进行任何硬编码评分猜源
  */
 export async function autoMatchDanmaku(
   title: string,
@@ -331,7 +308,7 @@ export async function autoMatchDanmaku(
     return { comments: [] }
   }
 
-  // 找出所有匹配目标集数的候选分集（可能聚合自 360、腾讯、爱奇艺、优酷、B站等不同平台源）
+  // 找出所有匹配目标集数的分集，保持 danmu_api 服务端返回的原始源优先级顺序
   const candidates = episodes.filter(ep => isEpisodeMatch(ep.episodeTitle, episodeNumber))
 
   // 若未按集数文本匹配到，则按列表顺序降级尝试
@@ -343,38 +320,30 @@ export async function autoMatchDanmaku(
     return { comments: [] }
   }
 
-  // 优质源优先排序（已记住的首选源 > 360 > 腾讯 > B站 > 爱奇艺 > 优酷）
+  // 若用户之前手动指定过或已成功命中过某源，优先使用已绑定的源
   const preferred = getPreferredAnime(title)
-  candidates.sort((a, b) => getSourceScore(b, preferred) - getSourceScore(a, preferred))
+  if (preferred) {
+    candidates.sort((a, b) => {
+      const aPref = a.animeTitle === preferred ? 1 : 0
+      const bPref = b.animeTitle === preferred ? 1 : 0
+      return bPref - aPref
+    })
+  }
 
-  // 并发尝试获取前 15 个候选分集的弹幕（每批 3 个并发请求），找到有弹幕的候选者，并优先选择弹幕量最多的
-  const candidateList = candidates.slice(0, 15)
-  for (let i = 0; i < candidateList.length; i += 3) {
-    const batch = candidateList.slice(i, i + 3)
-    const batchResults = await Promise.all(
-      batch.map(async candidate => {
-        try {
-          const comments = await fetchDandanComments(candidate.episodeId, resolved)
-          return { candidate, comments }
-        } catch {
-          return { candidate, comments: [] }
-        }
-      }),
-    )
-
-    const validMatches = batchResults
-      .filter(r => r.comments.length > 0)
-      .sort((a, b) => b.comments.length - a.comments.length)
-
-    if (validMatches.length > 0) {
-      rememberPreferredAnime(title, validMatches[0].candidate.animeTitle)
-      return {
-        comments: validMatches[0].comments,
-        match: validMatches[0].candidate,
+  // 严格按 danmu_api 的源顺序逐个尝试拉取弹幕（最多尝试前 4 个源）
+  // 命中第一个有弹幕的源即停止请求，最大化节省网络与 API 资源
+  for (const candidate of candidates.slice(0, 4)) {
+    try {
+      const comments = await fetchDandanComments(candidate.episodeId, resolved)
+      if (comments.length > 0) {
+        rememberPreferredAnime(title, candidate.animeTitle)
+        return { comments, match: candidate }
       }
+    } catch {
+      // 失败自动尝试下一个上游源
     }
   }
 
-  // 所有候选分集均无弹幕或源不可用时，优雅跳过
+  // 所有候选分集均无弹幕时，静默跳过
   return { comments: [] }
 }
