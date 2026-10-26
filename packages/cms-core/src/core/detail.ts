@@ -80,7 +80,28 @@ export async function getVideoDetail(
       }
     }
 
-    const data = await response.json()
+    let data: any
+    if (typeof response.text === 'function') {
+      const text = await response.text()
+      if (!text || !text.trim()) {
+        return {
+          success: false,
+          episodes: [],
+          error: `视频源 [${source.name}] 返回了空正文`,
+        }
+      }
+      try {
+        data = JSON.parse(text)
+      } catch {
+        return {
+          success: false,
+          episodes: [],
+          error: `视频源 [${source.name}] 返回数据非有效 JSON`,
+        }
+      }
+    } else {
+      data = await response.json()
+    }
 
     if (!data || !data.list || !Array.isArray(data.list) || data.list.length === 0) {
       return {
@@ -126,7 +147,7 @@ export async function getVideoDetail(
       videoInfo,
     }
   } catch (error) {
-    console.error('详情获取错误:', error)
+    console.warn(`[CMS] 视频源 [${source.name}] 详情获取异常:`, error)
     return {
       success: false,
       episodes: [],

@@ -68,7 +68,28 @@ export async function searchVideos(
       }
     }
 
-    const data = await response.json()
+    let data: any
+    if (typeof response.text === 'function') {
+      const text = await response.text()
+      if (!text || !text.trim()) {
+        return {
+          success: false,
+          items: [],
+          error: `视频源 [${source.name}] 返回了空正文`,
+        }
+      }
+      try {
+        data = JSON.parse(text)
+      } catch {
+        return {
+          success: false,
+          items: [],
+          error: `视频源 [${source.name}] 返回数据非有效 JSON`,
+        }
+      }
+    } else {
+      data = await response.json()
+    }
 
     if (!data || !Array.isArray(data.list)) {
       return {
@@ -107,7 +128,7 @@ export async function searchVideos(
       pagination,
     }
   } catch (error) {
-    console.error('搜索错误:', error)
+    console.warn(`[CMS] 视频源 [${source.name}] 搜索异常:`, error)
     return {
       success: false,
       items: [],
