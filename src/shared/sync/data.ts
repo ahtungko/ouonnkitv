@@ -95,6 +95,18 @@ const historySchema = z.object({
 })
 
 // Whitelist preferences: credentials, proxy URLs and source configuration never enter sync.
+const DEPRECATED_PREFERENCE_KEYS = new Set([
+  'playback.isDanmakuEnabled',
+  'playback.danmakuOpacity',
+  'playback.danmakuFontSize',
+  'playback.danmakuSpeed',
+  'playback.isDanmakuAntiOverlap',
+])
+
+export function isDeprecatedPreference(key: string): boolean {
+  return DEPRECATED_PREFERENCE_KEYS.has(key)
+}
+
 const preferenceSchemas: Record<string, z.ZodType> = {
   'search.isSearchHistoryEnabled': z.boolean(),
   'search.isSearchHistoryVisible': z.boolean(),

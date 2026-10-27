@@ -7,6 +7,7 @@ import { useAuthStore } from '@/shared/store/authStore'
 import { syncClient } from './client'
 import {
   applyJournal,
+  isDeprecatedPreference,
   normalizeFavoriteRecord,
   payloadErrorDetails,
   seedJournal,
@@ -54,6 +55,7 @@ function readJournal(key: string): Journal {
   const result: Journal = {}
   for (const [key, value] of Object.entries(parsed)) {
     const row = normalizeFavoriteRecord(recordSchema.parse(value))
+    if (row.kind === 'preference' && isDeprecatedPreference(row.item_key)) continue
     if (!validPayload(row))
       throw new Error(`本机同步记录格式不兼容：${row.kind}/${row.item_key}（${payloadErrorDetails(row)}）`)
     result[key] = { ...row, pending: Boolean((value as { pending?: boolean }).pending) }
@@ -164,7 +166,7 @@ export async function syncNow() {
         .setHeader('Authorization', authorization)
       if (run !== generation) return
       if (error) throw new Error(error.message)
-      const rows = (data ?? []).map(row => normalizeFavoriteRecord(recordSchema.parse(row)))
+      const rows = (data ?? []).map(row => normalizeFavoriteRecord(recordSchema.parse(row))).filter(row => !(row.kind === 'preference' && isDeprecatedPreference(row.item_key)))
       const invalid = rows.find(row => !validPayload(row))
       if (invalid)
         throw new Error(

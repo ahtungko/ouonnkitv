@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { applyJournal, normalizeFavoriteRecord, payloadErrorDetails, snapshot, validPayload } from './data'
+import { applyJournal, isDeprecatedPreference, normalizeFavoriteRecord, payloadErrorDetails, snapshot, validPayload } from './data'
 import { useFavoritesStore } from '@/features/favorites/store/favoritesStore'
 import type { SyncRecord } from './records'
 
@@ -129,4 +129,12 @@ describe('cloud payload compatibility', () => {
     expect(validPayload({ ...row, value: { ...row.value, tracking: { enabled: true, bindings: { cms: { ...binding, vodId: 'https://x/v' } } } } })).toBe(false)
     expect(validPayload({ ...row, value: { ...row.value, tracking: { enabled: true, bindings: { '0': binding } } } })).toBe(false)
   })
-})
+  it('识别已下线的弹幕偏好配置为已废弃项', () => {
+    expect(isDeprecatedPreference('playback.isDanmakuEnabled')).toBe(true)
+    expect(isDeprecatedPreference('playback.danmakuOpacity')).toBe(true)
+    expect(isDeprecatedPreference('playback.danmakuFontSize')).toBe(true)
+    expect(isDeprecatedPreference('playback.danmakuSpeed')).toBe(true)
+    expect(isDeprecatedPreference('playback.isDanmakuAntiOverlap')).toBe(true)
+    expect(isDeprecatedPreference('playback.isAutoPlayEnabled')).toBe(false)
+  })
+});
