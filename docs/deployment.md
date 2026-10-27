@@ -173,7 +173,7 @@ Docker 运行时配置优先于镜像中可能存在的构建时配置；其他�
 
 > 📘 环境变量配置参考 [配置管理](./configuration.md)
 >
-> 新版不影响 Cloudflare Pages。环境变量仍在构建时注入，修改后必须重新部署。
+> 仓库内置 `functions/`（支持 `/proxy` 跨域反代与 `/api/*` 管理接口）及 `public/_redirects` 路由规则，Cloudflare Pages 原生支持全套功能。如需使用账号管理与私有源，请在 Pages 设置中的 **Settings -> Environment variables** 配置对应变量。
 
 ---
 
