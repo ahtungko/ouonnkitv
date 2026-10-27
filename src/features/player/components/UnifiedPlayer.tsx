@@ -4,8 +4,8 @@ import { createPortal } from 'react-dom'
 import Artplayer from 'artplayer'
 import danmuku from 'artplayer-plugin-danmuku'
 import { DanmuControls } from './Danmu'
-import { getEffectiveDanmakuFontSize, isIOSDevice } from '../lib/danmakuUtils'
-import { bindWebFullscreen } from '../lib/playerFullscreen'
+import { getEffectiveDanmakuFontSize } from '../lib/danmakuUtils'
+
 import type Hls from 'hls.js'
 import type { HlsConfig } from 'hls.js'
 import { Check, ChevronDown, Clipboard, X } from 'lucide-react'
@@ -781,7 +781,7 @@ export default function UnifiedPlayer() {
     }
 
     const isMobileDevice = isTouchDevice()
-    const isIOS = isIOSDevice()
+
 
     const nextEpisode = () => {
       if (!playbackRef.current.isAutoPlayEnabled) return
@@ -809,23 +809,8 @@ export default function UnifiedPlayer() {
       flip: true,
       playbackRate: true,
       aspectRatio: true,
-      fullscreen: !isIOS,
-      fullscreenWeb: isIOS || !isMobileDevice,
-      i18n: {
-        'zh-cn': {
-          ...(isIOS ? { 'Web Fullscreen': '全屏', 'Exit Web Fullscreen': '退出全屏' } : {}),
-        },
-      },
-      icons: {
-        ...(isIOS
-          ? {
-              fullscreenWebOn:
-                '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>',
-              fullscreenWebOff:
-                '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/></svg>',
-            }
-          : {}),
-      },
+      fullscreen: true,
+      fullscreenWeb: !isMobileDevice,
       lock: isMobileDevice,
       gesture: false,
       fastForward: false,
@@ -896,37 +881,6 @@ export default function UnifiedPlayer() {
     playerRef.current = art
     setActiveArt(art)
 
-    if (isIOS) {
-      // iOS Safari 不支持 DOM 元素原生全屏，因此在 iOS 上控制栏全屏按钮直接绑定 fullscreenWeb。
-      // 同时在 ready 和 video:loadedmetadata 上重载属性及拦截 video.webkitEnterFullscreen，
-      // 防止 ArtPlayer 初始化元数据后覆盖属性或任何途径拉起 QuickTime 丢失弹幕
-      const protectIOSFullscreen = () => {
-        try {
-          Object.defineProperty(art, 'fullscreen', {
-            configurable: true,
-            enumerable: true,
-            get() {
-              return art.fullscreenWeb
-            },
-            set(value: boolean) {
-              art.fullscreenWeb = Boolean(value)
-            },
-          })
-        } catch {}
-      }
-      protectIOSFullscreen()
-      art.on('video:loadedmetadata', protectIOSFullscreen)
-      art.on('ready', protectIOSFullscreen)
-
-      if (art.video) {
-        (art.video as HTMLVideoElement & { webkitEnterFullscreen?: () => void }).webkitEnterFullscreen = function () {
-          art.fullscreenWeb = true
-        }
-      }
-    }
-
-    const cleanupWebFullscreen = bindWebFullscreen(art)
-
     const syncFullscreenMiniProgressBar = () => {
       const isFullscreenActive = art.fullscreen || art.fullscreenWeb
       const shouldHideMiniProgress =
@@ -940,11 +894,9 @@ export default function UnifiedPlayer() {
 
       const fullscreenControl = art.controls['fullscreen'] as HTMLElement | undefined
       const fullscreenWebControl = art.controls['fullscreenWeb'] as HTMLElement | undefined
-      const preferredFullscreenControl = isIOS
-        ? fullscreenWebControl
-        : isMobileNow
-          ? (fullscreenControl ?? fullscreenWebControl)
-          : (fullscreenControl ?? fullscreenWebControl)
+      const preferredFullscreenControl = isMobileNow
+        ? (fullscreenControl ?? fullscreenWebControl)
+        : (fullscreenControl ?? fullscreenWebControl)
       const rightControls = Array.from(
         art.template.$controlsRight.querySelectorAll<HTMLElement>('.art-control'),
       )
@@ -955,10 +907,6 @@ export default function UnifiedPlayer() {
         })
       } else {
         rightControls.forEach(control => {
-          if (isIOS && control === fullscreenControl) {
-            control.style.display = 'none'
-            return
-          }
           control.style.display = ''
         })
       }
@@ -987,11 +935,6 @@ export default function UnifiedPlayer() {
         art.video.style.objectFit = 'contain'
         art.video.style.objectPosition = 'center center'
         art.video.style.background = '#000'
-        if (isIOS) {
-          (art.video as HTMLVideoElement & { webkitEnterFullscreen?: () => void }).webkitEnterFullscreen = function () {
-            art.fullscreenWeb = true
-          }
-        }
       }
 
       let existingHistory: ViewingHistoryItem | undefined
@@ -1290,7 +1233,6 @@ export default function UnifiedPlayer() {
       handleControlViewportChange.cancel()
       window.removeEventListener('resize', handleControlViewportChange)
       window.removeEventListener('orientationchange', handleControlViewportChange)
-      cleanupWebFullscreen()
       art.off('fullscreen', syncMobileControlBar)
       art.off('fullscreenWeb', syncMobileControlBar)
       if (playerRef.current && playerRef.current.destroy) {

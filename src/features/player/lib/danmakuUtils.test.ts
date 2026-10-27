@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { getEffectiveDanmakuFontSize, isIOSDevice } from './danmakuUtils'
+import { getEffectiveDanmakuFontSize } from './danmakuUtils'
 import { personalConfigSchema } from '@/shared/hooks/usePersonalConfig'
 
 describe('danmakuUtils', () => {
@@ -31,37 +31,6 @@ describe('danmakuUtils', () => {
       // Defaults to 25 -> scaled on mobile portrait = 14
       expect(getEffectiveDanmakuFontSize(Number.NaN, { containerWidth: 390, isMobile: true })).toBe(14)
       expect(getEffectiveDanmakuFontSize(0, { containerWidth: 1920, isMobile: false })).toBe(25)
-    })
-  })
-
-  describe('isIOSDevice', () => {
-    it('returns true on iPhone userAgent', () => {
-      const origUa = navigator.userAgent
-      vi.stubGlobal('navigator', {
-        userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15',
-        maxTouchPoints: 5,
-        platform: 'iPhone',
-      })
-      expect(isIOSDevice()).toBe(true)
-      vi.stubGlobal('navigator', { userAgent: origUa, maxTouchPoints: 0, platform: 'Win32' })
-    })
-
-    it('returns true on iPad with MacIntel and touch points', () => {
-      vi.stubGlobal('navigator', {
-        userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
-        maxTouchPoints: 5,
-        platform: 'MacIntel',
-      })
-      expect(isIOSDevice()).toBe(true)
-    })
-
-    it('returns false on standard desktop or Android', () => {
-      vi.stubGlobal('navigator', {
-        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        maxTouchPoints: 0,
-        platform: 'Win32',
-      })
-      expect(isIOSDevice()).toBe(false)
     })
   })
 

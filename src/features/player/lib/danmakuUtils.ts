@@ -3,15 +3,6 @@
  */
 import { DANMAKU_FONT_SIZE_MIN, DANMAKU_FONT_SIZE_MAX } from '@/shared/config/danmaku'
 
-export const isIOSDevice = (): boolean => {
-  if (typeof navigator === 'undefined') return false
-  const ua = navigator.userAgent || ''
-  return (
-    /iPad|iPhone|iPod/.test(ua) ||
-    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
-  )
-}
-
 /** 弹幕字号预设选项 */
 export const DANMAKU_FONT_SIZE_PRESETS = [
   { label: '极小', value: 12 },
