@@ -242,7 +242,7 @@ describe('提醒云同步生命周期', () => {
     expect(useSeriesUpdatesStore.getState().entries).toEqual({})
   })
 
-  it('前台定期拉取并节流上传，正常同步不自触发循环', async () => {
+  it('切回前台拉取并节流上传，正常同步不自触发循环', async () => {
     useSeriesUpdatesStore.getState().saveResult('alice', key, update([1, 2, 3]))
     mocks.rpc.mockImplementation((_name, args) =>
       Promise.resolve({
@@ -269,7 +269,9 @@ describe('提醒云同步生命周期', () => {
     await vi.advanceTimersByTimeAsync(1)
     expect(mocks.rpc).toHaveBeenCalledTimes(2)
     expect(mocks.rpc.mock.calls[1][1].p_changes[0].readEpisodes).toEqual([3])
-    await vi.advanceTimersByTimeAsync(10000)
+    await vi.advanceTimersByTimeAsync(300000)
+    document.dispatchEvent(new Event('visibilitychange'))
+    await vi.advanceTimersByTimeAsync(0)
     expect(mocks.rpc).toHaveBeenCalledTimes(3)
     expect(mocks.rpc.mock.calls[2][1].p_changes).toEqual([])
   })
