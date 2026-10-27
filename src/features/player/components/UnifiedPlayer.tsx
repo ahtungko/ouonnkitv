@@ -1806,6 +1806,7 @@ export default function UnifiedPlayer() {
           mode={party.mode}
           roomId={party.roomId}
           participants={party.participants}
+          inviteUrl={party.inviteUrl}
           isSupabaseAvailable={party.isSupabaseAvailable}
           onCreateParty={party.createParty}
           onLeaveParty={party.leaveParty}

@@ -155,4 +155,25 @@ describe('useWatchParty', () => {
     expect(mockChannel.unsubscribe).toHaveBeenCalled()
     expect(mockSyncClient.removeChannel).toHaveBeenCalled()
   })
+
+  it('观众加入房间时自动发送 request_state 请求进度握手', async () => {
+    mockSearchParams.set('partyRoom', 'room123')
+    mockSearchParams.set('partyMode', 'host_only')
+
+    await act(async () => {
+      root.render(createElement(TestHarness))
+    })
+
+    expect(currentResult.isPartyActive).toBe(true)
+    expect(currentResult.isHost).toBe(false)
+    expect(mockChannel.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'broadcast',
+        event: 'party_action',
+        payload: expect.objectContaining({
+          type: 'request_state',
+        }),
+      }),
+    )
+  })
 })

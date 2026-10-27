@@ -7,7 +7,6 @@ import {
   LogOut,
   Radio,
   ShieldCheck,
-  Sparkles,
   AlertCircle,
 } from 'lucide-react'
 import {
@@ -31,6 +30,7 @@ interface WatchPartyModalProps {
   mode: WatchPartyMode
   roomId: string | null
   participants: WatchPartyParticipant[]
+  inviteUrl?: string
   isSupabaseAvailable: boolean
   onCreateParty: (mode: WatchPartyMode) => string
   onLeaveParty: () => void
@@ -44,6 +44,7 @@ export function WatchPartyModal({
   mode,
   roomId,
   participants,
+  inviteUrl: propInviteUrl,
   isSupabaseAvailable,
   onCreateParty,
   onLeaveParty,
@@ -51,7 +52,8 @@ export function WatchPartyModal({
   const [selectedMode, setSelectedMode] = useState<WatchPartyMode>('host_only')
   const [copied, setCopied] = useState(false)
 
-  const inviteUrl = typeof window !== 'undefined' ? window.location.href : ''
+  const activeInviteUrl =
+    propInviteUrl || (typeof window !== 'undefined' ? window.location.href : '')
 
   const handleCreate = () => {
     onCreateParty(selectedMode)
@@ -59,11 +61,10 @@ export function WatchPartyModal({
 
   const handleCopyLink = async () => {
     try {
-      await navigator.clipboard.writeText(inviteUrl)
+      await navigator.clipboard.writeText(activeInviteUrl)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch {
-      // Fallback
       setCopied(false)
     }
   }
@@ -153,16 +154,6 @@ export function WatchPartyModal({
                 </button>
               </div>
             </div>
-
-            <div className="rounded-lg border border-border/50 bg-muted/40 p-3 text-xs text-muted-foreground">
-              <div className="flex items-center gap-1.5 text-foreground font-medium">
-                <Sparkles className="size-3.5 text-red-500" />
-                <span>极速连接，零视频带宽消耗</span>
-              </div>
-              <p className="mt-1 leading-relaxed">
-                仅同步播放器时间戳与状态信号，视频流由双方设备直连播放，不消耗服务器中转流量。
-              </p>
-            </div>
           </div>
         ) : (
           <div className="space-y-4 py-2">
@@ -237,7 +228,7 @@ export function WatchPartyModal({
               <div className="flex items-center gap-2">
                 <Input
                   readOnly
-                  value={inviteUrl}
+                  value={activeInviteUrl}
                   className="text-xs font-mono h-9 bg-muted/40 selection:bg-red-500/20"
                 />
                 <Button
