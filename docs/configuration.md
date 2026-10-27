@@ -132,3 +132,10 @@ OKI_TMDB_IMAGE_BASE_URL=https://image.tmdb.org/t/p/
 - **低**：w342（节省流量）
 - **中**：w500/w780（推荐）
 - **高**：original（最佳画质，流量消耗大）
+
+
+## 弹幕服务（服务端）
+
+在部署平台的服务端环境变量中设置 DANMU_API_URL（服务根地址，不含 token 或 /api/v2）和 DANMU_API_TOKEN。切勿使用 OKI_ 前缀，也不要将值加入前端运行时配置。Docker Compose 会在容器启动时读取这两个变量；Vercel、Netlify 和 Cloudflare Pages 应使用各自的平台环境变量或密钥设置。本地 Vite 开发时从启动进程的环境读取。
+
+弹幕默认关闭；用户启用后偏好保存在浏览器中。弹幕请求独立于视频播放。服务端只转发匹配、搜索、剧集详情和弹幕读取，API 不配置时播放仍可正常使用。

@@ -1,4 +1,5 @@
 import type { Plugin } from 'vite'
+import { handleDanmu } from '../../shared/danmu-core.js'
 import {
   handleProxyRequest,
   getProxyTimeoutMs,
@@ -11,6 +12,12 @@ export function proxyMiddleware(): Plugin {
     name: 'proxy-middleware',
     configureServer(server) {
       server.middlewares.use(async (req, res, next) => {
+        if (req.url?.split('?')[0] === '/api/danmu') {
+          const response = await handleDanmu(new Request('http://localhost' + req.url, { method: req.method }), process.env)
+          res.writeHead(response.status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' })
+          res.end(await response.text())
+          return
+        }
         if (!req.url?.startsWith('/proxy')) {
           return next()
         }

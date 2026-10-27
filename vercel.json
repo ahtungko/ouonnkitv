@@ -3,6 +3,7 @@
   "installCommand": "pnpm install",
   "framework": "vite",
   "rewrites": [
+    { "source": "/api/danmu", "destination": "/api/danmu" },
     {
       "source": "/api/account-password",
       "destination": "/api/account-password"
