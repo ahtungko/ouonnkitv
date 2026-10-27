@@ -5,7 +5,7 @@ import Artplayer from 'artplayer'
 
 import type Hls from 'hls.js'
 import type { HlsConfig } from 'hls.js'
-import { Check, ChevronDown, Clipboard, X } from 'lucide-react'
+import { Check, ChevronDown, Clipboard, Users, X } from 'lucide-react'
 import { type DetailResult } from '@ouonnki/cms-core'
 import { createM3u8Processor, createHlsLoaderClass } from '@ouonnki/cms-core/m3u8'
 import { Button } from '@/shared/components/ui/button'
@@ -51,11 +51,13 @@ import {
   PlayerHeroSection,
   PlayerInfoAndRecommendations,
   PlayerLoadingSkeleton,
+  WatchPartyModal,
 } from '@/features/player/components'
 import {
   useEpisodePagination,
   useMobilePlayerGestures,
   useTmdbPlayback,
+  useWatchParty,
 } from '@/features/player/hooks'
 import {
   buildTmdbSelectionScopeKey,
@@ -655,6 +657,25 @@ export default function UnifiedPlayer() {
     defaultDescOrder: playback.defaultEpisodeOrder === 'desc',
   })
 
+  const handlePartySelectEpisode = useCallback(
+    (newIndex: number) => {
+      navigate(buildCurrentPlayPath(newIndex), { replace: true })
+    },
+    [buildCurrentPlayPath, navigate],
+  )
+
+  const party = useWatchParty({
+    art: activeArt,
+    selectedEpisode,
+    onSelectEpisode: handlePartySelectEpisode,
+    showNotice: showPlayerNotice,
+  })
+
+  const partyRef = useRef(party)
+  useEffect(() => {
+    partyRef.current = party
+  }, [party])
+
   const episodeProgressMap = useMemo(() => {
     if (!playback.isViewingHistoryVisible || !resolvedSourceCode || !resolvedVodId) return null
 
@@ -785,6 +806,14 @@ export default function UnifiedPlayer() {
 
       if (selectedEpisode < episodes.length - 1) {
         const nextIndex = selectedEpisode + 1
+        if (partyRef.current.isPartyActive) {
+          if (partyRef.current.mode === 'host_only' && !partyRef.current.isHost) return
+          partyRef.current.broadcastAction({
+            type: 'episode',
+            time: 0,
+            episodeIndex: nextIndex,
+          })
+        }
         navigate(buildCurrentPlayPath(nextIndex), { replace: true })
         showPlayerNotice(`即将播放下一集: ${episodes[nextIndex]}`)
       }
@@ -1251,6 +1280,19 @@ export default function UnifiedPlayer() {
     pendingSeekRef.current = null
     const actualIndex = episodePagination.toActualIndex(displayIndex)
     if (actualIndex === selectedEpisode) return
+
+    if (party.isPartyActive) {
+      if (party.mode === 'host_only' && !party.isHost) {
+        showPlayerNotice('当前为房主主控模式，仅房主可切换集数')
+        return
+      }
+      party.broadcastAction({
+        type: 'episode',
+        time: 0,
+        episodeIndex: actualIndex,
+      })
+    }
+
     navigate(buildCurrentPlayPath(actualIndex), { replace: true })
   }
 
@@ -1756,6 +1798,18 @@ export default function UnifiedPlayer() {
           confirmText="在此设备播放"
           cancelText="暂不接管"
         />
+        <WatchPartyModal
+          isOpen={party.isModalOpen}
+          onClose={() => party.setIsModalOpen(false)}
+          isPartyActive={party.isPartyActive}
+          isHost={party.isHost}
+          mode={party.mode}
+          roomId={party.roomId}
+          participants={party.participants}
+          isSupabaseAvailable={party.isSupabaseAvailable}
+          onCreateParty={party.createParty}
+          onLeaveParty={party.leaveParty}
+        />
         <div className="min-w-0 space-y-3">
           {playbackNotice && (
             <p className="rounded-lg border px-3 py-2 text-sm" role="status">
@@ -1777,31 +1831,54 @@ export default function UnifiedPlayer() {
                 <span className="text-muted-foreground hidden shrink-0 text-xs sm:inline">·</span>
                 <p className="text-muted-foreground truncate text-xs">{sourceName}</p>
               </div>
-              {isAdmin && (
-                <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    className="size-8 shrink-0 rounded-full px-0 sm:w-auto sm:px-3"
-                    onClick={handleCopyCurrentVideoUrl}
-                    disabled={!currentVideoUrl}
-                    aria-label="复制当前视频链接"
-                  >
-                    {copiedVideoUrl ? (
-                      <Check className="size-4" />
-                    ) : (
-                      <Clipboard className="size-4" />
-                    )}
-                    <span className="hidden sm:inline">
-                      {copiedVideoUrl ? '已复制' : '复制链接'}
-                    </span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>复制当前视频链接</TooltipContent>
-              </Tooltip>
-              )}
+              <div className="flex items-center gap-1.5 shrink-0">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={party.isPartyActive ? 'default' : 'ghost'}
+                  className={cn(
+                    'h-8 gap-1.5 rounded-full px-2.5 text-xs sm:px-3 transition-colors',
+                    party.isPartyActive
+                      ? 'bg-red-600 hover:bg-red-700 text-white font-medium shadow-sm'
+                      : 'hover:bg-white/10 text-muted-foreground hover:text-foreground',
+                  )}
+                  onClick={() => party.setIsModalOpen(true)}
+                  aria-label="一起看放映室"
+                >
+                  <Users className="size-3.5 text-red-500" />
+                  <span>
+                    {party.isPartyActive
+                      ? `一起看 (${party.participantCount}人)`
+                      : '一起看'}
+                  </span>
+                </Button>
+
+                {isAdmin && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="size-8 shrink-0 rounded-full px-0 sm:w-auto sm:px-3"
+                        onClick={handleCopyCurrentVideoUrl}
+                        disabled={!currentVideoUrl}
+                        aria-label="复制当前视频链接"
+                      >
+                        {copiedVideoUrl ? (
+                          <Check className="size-4" />
+                        ) : (
+                          <Clipboard className="size-4" />
+                        )}
+                        <span className="hidden sm:inline">
+                          {copiedVideoUrl ? '已复制' : '复制链接'}
+                        </span>
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>复制当前视频链接</TooltipContent>
+                  </Tooltip>
+                )}
+              </div>
             </div>
             <div
               id="player"
