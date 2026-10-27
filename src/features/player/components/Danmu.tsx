@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type Artplayer from 'artplayer'
 import danmuku, { type Danmu, type Option, type Result } from 'artplayer-plugin-danmuku'
 import { useSettingStore } from '@/shared/store/settingStore'
+import { getEffectiveDanmakuFontSize, DANMAKU_FONT_SIZE_PRESETS } from '../lib/danmakuUtils'
 import {
   Dialog,
   DialogContent,
@@ -85,6 +86,14 @@ export function DanmuControls({
 
   const isEnabledRef = useRef(playback.isDanmakuEnabled)
   isEnabledRef.current = playback.isDanmakuEnabled
+  const fontSizeRef = useRef(playback.danmakuFontSize)
+  fontSizeRef.current = playback.danmakuFontSize
+  const opacityRef = useRef(playback.danmakuOpacity)
+  opacityRef.current = playback.danmakuOpacity
+  const speedRef = useRef(playback.danmakuSpeed)
+  speedRef.current = playback.danmakuSpeed
+  const antiOverlapRef = useRef(playback.isDanmakuAntiOverlap)
+  antiOverlapRef.current = playback.isDanmakuAntiOverlap
   const isInternalUpdateRef = useRef(false)
 
   const openMatchingDialog = () => {
@@ -109,8 +118,11 @@ export function DanmuControls({
     if (!art) return
     const onConfig = (option: Option) => {
       if (isInternalUpdateRef.current) return
+      // fontSize 是缩放后的渲染字号，不能写回基准字号；其余设置保持双向同步。
+      const updates: Parameters<typeof setPlaybackSettings>[0] = {}
       if (typeof option?.visible === 'boolean' && option.visible !== isEnabledRef.current) {
-        setPlaybackSettings({ isDanmakuEnabled: option.visible })
+        updates.isDanmakuEnabled = option.visible
+        isEnabledRef.current = option.visible
         if (typeof localStorage !== 'undefined') {
           localStorage.setItem('oki-danmu-enabled', String(option.visible))
         }
@@ -123,6 +135,19 @@ export function DanmuControls({
           })
         } catch {}
       }
+      if (typeof option?.opacity === 'number' && option.opacity !== opacityRef.current) {
+        updates.danmakuOpacity = option.opacity
+        opacityRef.current = option.opacity
+      }
+      if (typeof option?.speed === 'number' && option.speed !== speedRef.current) {
+        updates.danmakuSpeed = option.speed
+        speedRef.current = option.speed
+      }
+      if (typeof option?.antiOverlap === 'boolean' && option.antiOverlap !== antiOverlapRef.current) {
+        updates.isDanmakuAntiOverlap = option.antiOverlap
+        antiOverlapRef.current = option.antiOverlap
+      }
+      if (Object.keys(updates).length > 0) setPlaybackSettings(updates)
     }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     art.on('artplayerPluginDanmuku:config' as any, onConfig)
@@ -200,7 +225,48 @@ export function DanmuControls({
       }
     } catch {}
 
-    // 3. 右侧控制栏弹幕匹配入口
+    // 3. 设置菜单里的弹幕字号调节
+    try {
+      const currentSize = playback.danmakuFontSize
+      const currentPreset = DANMAKU_FONT_SIZE_PRESETS.find(p => p.value === currentSize)
+      const sizeTooltip = currentPreset ? `${currentPreset.label} (${currentSize}px)` : `${currentSize}px`
+
+      if (!art.setting.find('danmaku-size')) {
+        art.setting.add({
+          name: 'danmaku-size',
+          html: '弹幕字号',
+          tooltip: sizeTooltip,
+          icon: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>',
+          selector: DANMAKU_FONT_SIZE_PRESETS.map(preset => ({
+            html: `${preset.label} (${preset.value}px)`,
+            value: preset.value,
+            default: preset.value === currentSize,
+          })),
+          onSelect: function (item: SettingOption) {
+            const val = Number(item.value)
+            if (Number.isFinite(val)) {
+              setPlaybackSettings({ danmakuFontSize: val })
+              if (typeof localStorage !== 'undefined') {
+                localStorage.setItem('oki-danmu-size', String(val))
+              }
+            }
+          },
+        })
+      } else {
+        art.setting.update({
+          name: 'danmaku-size',
+          html: '弹幕字号',
+          tooltip: sizeTooltip,
+          selector: DANMAKU_FONT_SIZE_PRESETS.map(preset => ({
+            html: `${preset.label} (${preset.value}px)`,
+            value: preset.value,
+            default: preset.value === currentSize,
+          })),
+        })
+      }
+    } catch {}
+
+    // 4. 右侧控制栏弹幕匹配入口
     try {
       const tooltip = danmakuCount > 0 ? `弹幕匹配与搜索 (${danmakuCount}条)` : '弹幕匹配与搜索'
       if (!art.controls['danmaku-search']) {
@@ -221,23 +287,41 @@ export function DanmuControls({
         }
       }
     } catch {}
-  }, [art, playback.isDanmakuEnabled, selected, danmakuCount, setPlaybackSettings])
+  }, [
+    art,
+    playback.isDanmakuEnabled,
+    playback.danmakuFontSize,
+    selected,
+    danmakuCount,
+    setPlaybackSettings,
+  ])
 
-  // 同步设置项（透明度、字号、滚动速度、防重叠）到弹幕插件
+  // 同步设置项（透明度、字号、滚动速度、防重叠）到弹幕插件，并监听 resize 自适应移动端排版
   useEffect(() => {
     if (!art) return
-    const plugin = art.plugins.artplayerPluginDanmuku as Result | undefined
-    if (plugin) {
+    const updateDanmakuConfig = () => {
+      const plugin = art.plugins.artplayerPluginDanmuku as Result | undefined
+      if (!plugin) return
+      const effectiveFontSize = getEffectiveDanmakuFontSize(fontSizeRef.current, {
+        containerWidth: art.template.$player?.clientWidth,
+      })
       isInternalUpdateRef.current = true
       plugin.config({
         ...plugin.option,
-        opacity: playback.danmakuOpacity,
-        fontSize: playback.danmakuFontSize,
-        speed: playback.danmakuSpeed,
-        antiOverlap: playback.isDanmakuAntiOverlap,
-        visible: playback.isDanmakuEnabled,
+        opacity: opacityRef.current,
+        fontSize: effectiveFontSize,
+        speed: speedRef.current,
+        antiOverlap: antiOverlapRef.current,
+        visible: isEnabledRef.current,
       })
       isInternalUpdateRef.current = false
+    }
+
+    updateDanmakuConfig()
+
+    art.on('resize', updateDanmakuConfig)
+    return () => {
+      art.off('resize', updateDanmakuConfig)
     }
   }, [
     art,
@@ -296,16 +380,19 @@ export function DanmuControls({
         }))
 
         let danmakuPlugin = art.plugins.artplayerPluginDanmuku as Result | undefined
+        const effectiveFontSize = getEffectiveDanmakuFontSize(fontSizeRef.current, {
+          containerWidth: art.template.$player?.clientWidth,
+        })
         if (!danmakuPlugin) {
           await art.plugins.add(
             danmuku({
               danmuku: [],
-              speed: playback.danmakuSpeed,
-              opacity: playback.danmakuOpacity,
-              fontSize: playback.danmakuFontSize,
-              antiOverlap: playback.isDanmakuAntiOverlap,
+              speed: speedRef.current,
+              opacity: opacityRef.current,
+              fontSize: effectiveFontSize,
+              antiOverlap: antiOverlapRef.current,
               synchronousPlayback: true,
-              visible: playback.isDanmakuEnabled,
+              visible: isEnabledRef.current,
               emitter: false,
             }),
           )
@@ -318,10 +405,10 @@ export function DanmuControls({
           isInternalUpdateRef.current = true
           danmakuPlugin.config({
             ...danmakuPlugin.option,
-            opacity: playback.danmakuOpacity,
-            fontSize: playback.danmakuFontSize,
-            speed: playback.danmakuSpeed,
-            antiOverlap: playback.isDanmakuAntiOverlap,
+            opacity: opacityRef.current,
+            fontSize: effectiveFontSize,
+            speed: speedRef.current,
+            antiOverlap: antiOverlapRef.current,
             visible: true,
           })
           isInternalUpdateRef.current = false
@@ -345,10 +432,6 @@ export function DanmuControls({
   }, [
     art,
     playback.isDanmakuEnabled,
-    playback.danmakuOpacity,
-    playback.danmakuFontSize,
-    playback.danmakuSpeed,
-    playback.isDanmakuAntiOverlap,
     title,
     season,
     episode,

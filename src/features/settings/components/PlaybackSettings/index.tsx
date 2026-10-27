@@ -28,6 +28,8 @@ import {
   Volume2,
 } from 'lucide-react'
 import { Button } from '@/shared/components/ui/button'
+import { DANMAKU_FONT_SIZE_PRESETS } from '@/features/player/lib/danmakuUtils'
+import { DANMAKU_FONT_SIZE_MIN, DANMAKU_FONT_SIZE_MAX } from '@/shared/config/danmaku'
 import { SettingsItem, SettingsPageShell, SettingsSection } from '../common'
 
 export default function PlaybackSettings() {
@@ -306,26 +308,59 @@ export default function PlaybackSettings() {
         />
         <SettingsItem
           title="弹幕字体大小"
-          description="弹幕文字字号（像素，范围 12~40），默认 25。"
+          description={`弹幕基准字号（像素，范围 ${DANMAKU_FONT_SIZE_MIN}~${DANMAKU_FONT_SIZE_MAX}），默认 25。移动端播放器会自动按屏幕比例等比缩放排版。`}
           control={
-            <div className="relative w-full sm:w-44">
-              <Input
-                type="number"
-                min={12}
-                max={40}
-                step={1}
-                value={playback.danmakuFontSize}
-                onChange={e => {
-                  const val = Number.parseInt(e.target.value, 10)
-                  if (!Number.isNaN(val)) {
-                    const size = Math.max(12, Math.min(40, val))
-                    setPlaybackSettings({ danmakuFontSize: size })
-                    if (typeof localStorage !== 'undefined') {
-                      localStorage.setItem('oki-danmu-size', String(size))
+            <div className="flex flex-col gap-2 w-full sm:w-56">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {DANMAKU_FONT_SIZE_PRESETS.slice(0, 5).map(preset => (
+                  <Button
+                    key={preset.value}
+                    type="button"
+                    size="sm"
+                    variant={playback.danmakuFontSize === preset.value ? 'default' : 'outline'}
+                    className="h-7 px-2 text-xs"
+                    onClick={() => {
+                      setPlaybackSettings({ danmakuFontSize: preset.value })
+                      if (typeof localStorage !== 'undefined') {
+                        localStorage.setItem('oki-danmu-size', String(preset.value))
+                      }
+                    }}
+                  >
+                    {preset.label} ({preset.value})
+                  </Button>
+                ))}
+              </div>
+              <div className="relative w-full">
+                <Input
+                  type="number"
+                  min={DANMAKU_FONT_SIZE_MIN}
+                  max={DANMAKU_FONT_SIZE_MAX}
+                  aria-label="弹幕基准字号"
+                  step={1}
+                  value={playback.danmakuFontSize}
+                  onChange={e => {
+                    const raw = e.target.value
+                    if (raw === '') return
+                    const val = Number.parseInt(raw, 10)
+                    if (!Number.isNaN(val)) {
+                      setPlaybackSettings({ danmakuFontSize: val })
+                      if (typeof localStorage !== 'undefined') {
+                        localStorage.setItem('oki-danmu-size', String(val))
+                      }
                     }
-                  }
-                }}
-              />
+                  }}
+                  onBlur={e => {
+                    const val = Number.parseInt(e.target.value, 10)
+                    const clamped = Number.isNaN(val)
+                      ? 25
+                      : Math.max(DANMAKU_FONT_SIZE_MIN, Math.min(DANMAKU_FONT_SIZE_MAX, val))
+                    setPlaybackSettings({ danmakuFontSize: clamped })
+                    if (typeof localStorage !== 'undefined') {
+                      localStorage.setItem('oki-danmu-size', String(clamped))
+                    }
+                  }}
+                />
+              </div>
             </div>
           }
         />

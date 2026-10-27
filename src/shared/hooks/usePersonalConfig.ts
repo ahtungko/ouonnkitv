@@ -4,6 +4,7 @@ import { useSubscriptionStore, isSubscriptionSource } from '@/shared/store/subsc
 import { toast } from 'sonner'
 import dayjs from 'dayjs'
 import { z } from 'zod'
+import { DANMAKU_FONT_SIZE_MIN, DANMAKU_FONT_SIZE_MAX } from '@/shared/config/danmaku'
 
 const videoSourceSchema = z.object({
   id: z.string().optional(),
@@ -28,7 +29,7 @@ const subscriptionSchema = z.object({
   createdAt: z.union([z.string(), z.date()]).optional(),
 })
 
-const personalConfigSchema = z.object({
+export const personalConfigSchema = z.object({
   settings: z.object({
     network: z
       .object({
@@ -65,7 +66,7 @@ const personalConfigSchema = z.object({
         isFullscreenProgressHidden: z.boolean().optional(),
         isDanmakuEnabled: z.boolean().optional(),
         danmakuOpacity: z.number().min(0.1).max(1).optional(),
-        danmakuFontSize: z.number().min(12).max(40).optional(),
+        danmakuFontSize: z.number().min(DANMAKU_FONT_SIZE_MIN).max(DANMAKU_FONT_SIZE_MAX).optional(),
         danmakuSpeed: z.number().min(1).max(10).optional(),
         isDanmakuAntiOverlap: z.boolean().optional(),
         // 向后兼容：旧版配置可能在 playback 中包含 adFilteringEnabled

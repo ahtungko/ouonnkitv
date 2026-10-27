@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { DANMAKU_FONT_SIZE_MIN, DANMAKU_FONT_SIZE_MAX } from '@/shared/config/danmaku'
 import { normalizeVodId } from '@ouonnki/cms-core'
 import { useFavoritesStore } from '@/features/favorites/store/favoritesStore'
 import type { FavoriteItem } from '@/features/favorites/types/favorites'
@@ -116,7 +117,7 @@ const preferenceSchemas: Record<string, z.ZodType> = {
   'playback.isFullscreenProgressHidden': z.boolean(),
   'playback.isDanmakuEnabled': z.boolean(),
   'playback.danmakuOpacity': z.number().min(0).max(1),
-  'playback.danmakuFontSize': z.number().min(10).max(50),
+  'playback.danmakuFontSize': z.number().min(DANMAKU_FONT_SIZE_MIN).max(DANMAKU_FONT_SIZE_MAX),
   'playback.danmakuSpeed': z.number().min(1).max(10),
   'playback.isDanmakuAntiOverlap': z.boolean(),
 }

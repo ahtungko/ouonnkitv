@@ -247,3 +247,20 @@
 .art-video-player.oki-hide-mini-progress.art-lock .art-bottom .art-progress {
   display: none !important;
 }
+
+
+/* 确保网页全屏层在所有页面元素之上（尤其在移动端与 iOS 全屏下保持 DOM 弹幕层正常显示） */
+.art-video-player.art-fullscreen-web {
+  z-index: 9999 !important;
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+}
+
+/* 网页全屏激活时禁止外层 body 滚动与抖动 */
+body.oki-fullscreen-web-active {
+  overflow: hidden !important;
+  touch-action: none;
+}
