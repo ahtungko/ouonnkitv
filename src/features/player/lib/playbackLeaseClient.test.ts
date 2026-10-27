@@ -59,4 +59,16 @@ describe('playback lease RPC contract', () => {
     await expect(request({ operation: 'renew', position: 1, duration: 120 })).rejects.toThrow()
     expect(mocks.rpc).not.toHaveBeenCalled()
   })
+  it('reuses the same player across reloads in the same tab', async () => {
+    const request1 = playbackLeaseClient('episode-1', 'Example')
+    await request1({ operation: 'acquire', position: 0, duration: 120 })
+    const player1 = mocks.rpc.mock.calls[0][1].p_player
+
+    // Simulating page reload in the same tab (sessionStorage preserved)
+    const request2 = playbackLeaseClient('episode-1', 'Example')
+    await request2({ operation: 'acquire', position: 0, duration: 120 })
+    const player2 = mocks.rpc.mock.calls[1][1].p_player
+
+    expect(player1).toBe(player2)
+  })
 })

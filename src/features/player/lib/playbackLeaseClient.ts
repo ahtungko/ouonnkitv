@@ -2,8 +2,22 @@ import { syncClient } from '@/shared/sync/client'
 import { useAuthStore } from '@/shared/store/authStore'
 import { playbackReplySchema, type LeaseRequest } from './playbackLease'
 
+function getTabPlayerId(): string {
+  try {
+    const key = 'ouonnki_playback_player_id'
+    let id = sessionStorage.getItem(key)
+    if (!id) {
+      id = crypto.randomUUID()
+      sessionStorage.setItem(key, id)
+    }
+    return id
+  } catch {
+    return crypto.randomUUID()
+  }
+}
+
 export function playbackLeaseClient(mediaKey: string, title: string) {
-  const player = crypto.randomUUID()
+  const player = getTabPlayerId()
   const owner = useAuthStore.getState().account?.id
   const platform = navigator.platform || '未知设备'
   const browser = navigator.userAgent.match(/(Edg|Chrome|Firefox|Safari)\/[\d.]+/)?.[1] || '浏览器'
