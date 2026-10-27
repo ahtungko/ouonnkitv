@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router'
 import { createPortal } from 'react-dom'
 import Artplayer from 'artplayer'
+import danmuku from 'artplayer-plugin-danmuku'
 import { DanmuControls } from './Danmu'
 import type Hls from 'hls.js'
 import type { HlsConfig } from 'hls.js'
@@ -819,6 +820,18 @@ export default function UnifiedPlayer() {
       moreVideoAttr: {
         crossOrigin: 'anonymous',
       },
+      plugins: [
+        danmuku({
+          danmuku: [],
+          speed: playbackRef.current.danmakuSpeed,
+          opacity: playbackRef.current.danmakuOpacity,
+          fontSize: playbackRef.current.danmakuFontSize,
+          antiOverlap: playbackRef.current.isDanmakuAntiOverlap,
+          synchronousPlayback: true,
+          visible: playbackRef.current.isDanmakuEnabled,
+          emitter: false,
+        }),
+      ],
       customType: {
         m3u8: function (video: HTMLMediaElement, url: string, art: Artplayer) {
           const artWithHls = art as ArtplayerWithHls

@@ -63,6 +63,11 @@ const personalConfigSchema = z.object({
         isMobileGestureEnabled: z.boolean().optional(),
         longPressPlaybackRate: z.number().min(1).max(5).optional(),
         isFullscreenProgressHidden: z.boolean().optional(),
+        isDanmakuEnabled: z.boolean().optional(),
+        danmakuOpacity: z.number().min(0.1).max(1).optional(),
+        danmakuFontSize: z.number().min(12).max(40).optional(),
+        danmakuSpeed: z.number().min(1).max(10).optional(),
+        isDanmakuAntiOverlap: z.boolean().optional(),
         // 向后兼容：旧版配置可能在 playback 中包含 adFilteringEnabled
         adFilteringEnabled: z.boolean().optional(),
       })

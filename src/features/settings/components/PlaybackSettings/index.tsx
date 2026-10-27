@@ -18,6 +18,7 @@ import {
   Database,
   Gauge,
   ListFilter,
+  MessageSquare,
   Monitor,
   Palette,
   PlaySquare,
@@ -251,6 +252,114 @@ export default function PlaybackSettings() {
             <Switch
               checked={playback.isScreenshotEnabled}
               onCheckedChange={checked => setPlaybackSettings({ isScreenshotEnabled: checked })}
+            />
+          }
+        />
+      </SettingsSection>
+
+      <SettingsSection
+        title="弹幕设置"
+        description="自定义播放器弹幕显示、透明度、字号及滚动速度。"
+        icon={<MessageSquare className="size-4" />}
+        tone="violet"
+      >
+        <SettingsItem
+          title="默认开启弹幕"
+          description="进入播放器后自动检索并加载分集弹幕。"
+          controlClassName="self-end mt-1"
+          control={
+            <Switch
+              checked={playback.isDanmakuEnabled}
+              onCheckedChange={checked => {
+                setPlaybackSettings({ isDanmakuEnabled: checked })
+                if (typeof localStorage !== 'undefined') {
+                  localStorage.setItem('oki-danmu-enabled', String(checked))
+                }
+              }}
+            />
+          }
+        />
+        <SettingsItem
+          title="弹幕透明度"
+          description="弹幕整体不透明度（0.1~1.0），默认 0.8。"
+          control={
+            <div className="relative w-full sm:w-44">
+              <Input
+                type="number"
+                min={0.1}
+                max={1}
+                step={0.1}
+                value={playback.danmakuOpacity}
+                onChange={e => {
+                  const val = Number.parseFloat(e.target.value)
+                  if (!Number.isNaN(val)) {
+                    const opacity = Math.max(0.1, Math.min(1, val))
+                    setPlaybackSettings({ danmakuOpacity: opacity })
+                    if (typeof localStorage !== 'undefined') {
+                      localStorage.setItem('oki-danmu-opacity', String(opacity))
+                    }
+                  }
+                }}
+              />
+            </div>
+          }
+        />
+        <SettingsItem
+          title="弹幕字体大小"
+          description="弹幕文字字号（像素，范围 12~40），默认 25。"
+          control={
+            <div className="relative w-full sm:w-44">
+              <Input
+                type="number"
+                min={12}
+                max={40}
+                step={1}
+                value={playback.danmakuFontSize}
+                onChange={e => {
+                  const val = Number.parseInt(e.target.value, 10)
+                  if (!Number.isNaN(val)) {
+                    const size = Math.max(12, Math.min(40, val))
+                    setPlaybackSettings({ danmakuFontSize: size })
+                    if (typeof localStorage !== 'undefined') {
+                      localStorage.setItem('oki-danmu-size', String(size))
+                    }
+                  }
+                }}
+              />
+            </div>
+          }
+        />
+        <SettingsItem
+          title="弹幕滚动速度"
+          description="弹幕滑过屏幕的时长（秒，范围 1~10，数值越大越慢），默认 5 秒。"
+          control={
+            <div className="relative w-full sm:w-44">
+              <Input
+                type="number"
+                min={1}
+                max={10}
+                step={1}
+                value={playback.danmakuSpeed}
+                onChange={e => {
+                  const val = Number.parseInt(e.target.value, 10)
+                  if (!Number.isNaN(val)) {
+                    setPlaybackSettings({
+                      danmakuSpeed: Math.max(1, Math.min(10, val)),
+                    })
+                  }
+                }}
+              />
+            </div>
+          }
+        />
+        <SettingsItem
+          title="弹幕防重叠"
+          description="自动计算轨道高度，避免多条弹幕同一时间在同一轨道互相遮挡。"
+          controlClassName="self-end mt-1"
+          control={
+            <Switch
+              checked={playback.isDanmakuAntiOverlap}
+              onCheckedChange={checked => setPlaybackSettings({ isDanmakuAntiOverlap: checked })}
             />
           }
         />

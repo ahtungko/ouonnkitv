@@ -274,4 +274,48 @@ describe('settingStore migrate', () => {
 
     expect(migrated.playback.isFullscreenProgressHidden).toBe(true)
   })
-})
+
+  it('v14 -> v15 会补齐弹幕配置默认值', async () => {
+    const migrate = useSettingStore.persist.getOptions().migrate
+
+    const legacyState = {
+      network: DEFAULT_SETTINGS.network,
+      search: DEFAULT_SETTINGS.search,
+      playback: {
+        ...DEFAULT_SETTINGS.playback,
+      },
+      system: DEFAULT_SETTINGS.system,
+    }
+    delete (legacyState.playback as Record<string, unknown>).isDanmakuEnabled
+    delete (legacyState.playback as Record<string, unknown>).danmakuOpacity
+
+    const migrated = (await Promise.resolve(migrate?.(legacyState, 14))) as {
+      playback: { isDanmakuEnabled?: boolean; danmakuOpacity?: number }
+    }
+
+    expect(migrated.playback.isDanmakuEnabled).toBe(DEFAULT_SETTINGS.playback.isDanmakuEnabled)
+    expect(migrated.playback.danmakuOpacity).toBe(DEFAULT_SETTINGS.playback.danmakuOpacity)
+  })
+
+  it('已有弹幕配置时不覆盖', async () => {
+    const migrate = useSettingStore.persist.getOptions().migrate
+
+    const legacyState = {
+      network: DEFAULT_SETTINGS.network,
+      search: DEFAULT_SETTINGS.search,
+      playback: {
+        ...DEFAULT_SETTINGS.playback,
+        isDanmakuEnabled: true,
+        danmakuOpacity: 0.5,
+      },
+      system: DEFAULT_SETTINGS.system,
+    }
+
+    const migrated = (await Promise.resolve(migrate?.(legacyState, 14))) as {
+      playback: { isDanmakuEnabled?: boolean; danmakuOpacity?: number }
+    }
+
+    expect(migrated.playback.isDanmakuEnabled).toBe(true)
+    expect(migrated.playback.danmakuOpacity).toBe(0.5)
+  })
+});
