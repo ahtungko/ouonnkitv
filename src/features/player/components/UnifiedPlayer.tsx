@@ -29,6 +29,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/shared/components/ui/
 import { useApiStore } from '@/shared/store/apiStore'
 import { useViewingHistoryStore } from '@/shared/store/viewingHistoryStore'
 import { useSettingStore } from '@/shared/store/settingStore'
+import { useAuthStore } from '@/shared/store/authStore'
 import { useDocumentTitle, useCmsClient } from '@/shared/hooks'
 import { useTmdbEnabled } from '@/shared/hooks/useTmdbMode'
 import { cn } from '@/shared/lib/utils'
@@ -211,6 +212,7 @@ export default function UnifiedPlayer() {
   const { videoAPIs, adFilteringEnabled } = useApiStore()
   const { addViewingHistory, viewingHistory } = useViewingHistoryStore()
   const { playback } = useSettingStore()
+  const isAdmin = useAuthStore(state => state.account?.role === 'admin')
 
   const viewingHistoryRef = useRef(viewingHistory)
   const playbackRef = useRef(playback)
@@ -1580,6 +1582,7 @@ export default function UnifiedPlayer() {
   const currentVideoUrl = detail?.episodes[selectedEpisode] || ''
 
   const handleCopyCurrentVideoUrl = useCallback(async () => {
+    if (!isAdmin) return
     if (!currentVideoUrl) {
       toast.error('当前集数没有可复制的播放链接')
       return
@@ -1602,7 +1605,7 @@ export default function UnifiedPlayer() {
       console.error('Copy video URL error:', copyError)
       toast.error('复制失败，请手动复制')
     }
-  }, [currentVideoUrl])
+  }, [currentVideoUrl, isAdmin])
 
   const modeLabel = isTmdbRoute ? 'TMDB 播放模式' : 'CMS 直连模式'
   const collapsibleContentClassName =
@@ -1782,7 +1785,8 @@ export default function UnifiedPlayer() {
                 <span className="text-muted-foreground hidden shrink-0 text-xs sm:inline">·</span>
                 <p className="text-muted-foreground truncate text-xs">{sourceName}</p>
               </div>
-              <Tooltip>
+              {isAdmin && (
+                <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
                     type="button"
@@ -1805,6 +1809,7 @@ export default function UnifiedPlayer() {
                 </TooltipTrigger>
                 <TooltipContent>复制当前视频链接</TooltipContent>
               </Tooltip>
+              )}
             </div>
             <div
               id="player"
