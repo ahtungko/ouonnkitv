@@ -35,6 +35,8 @@ let applying = false
 let generation = 0
 let busy = false
 let timer: ReturnType<typeof setTimeout> | undefined
+let lastSyncAt = 0
+const SYNC_COOLDOWN_MS = 5 * 60 * 1000
 
 function report(error: unknown) {
   useSyncStatus.setState({
@@ -117,7 +119,7 @@ function capture() {
         timer = setTimeout(() => {
           timer = undefined
           void syncNow()
-        }, 10_000)
+        }, 30_000)
     }
   } catch (error) {
     report(error)
@@ -173,6 +175,7 @@ export async function syncNow() {
       if (rows.length < 500) break
     }
     apply()
+    lastSyncAt = Date.now()
     useSyncStatus.setState({
       status: Object.values(journal).some(row => row.pending) ? '有待同步的更改' : '已同步',
       error: null,
@@ -260,10 +263,25 @@ export function startSync(): () => void {
   const flush = () => {
     void syncNow()
   }
-  const visible = flush
+  const flushIfCooldownExpired = () => {
+    if (Date.now() - lastSyncAt >= SYNC_COOLDOWN_MS) {
+      void syncNow()
+    }
+  }
+  const visible = () => {
+    if (document.visibilityState === 'visible') {
+      flushIfCooldownExpired()
+    }
+  }
+  const onFocus = () => {
+    flushIfCooldownExpired()
+  }
   // Let the player's pause handler save its final position before uploading.
   const paused = () => {
     queueMicrotask(flush)
+  }
+  const onPageHide = () => {
+    flush()
   }
   const storage = (event: StorageEvent) => {
     if (!owner || event.key !== prefix + owner) return
@@ -283,25 +301,23 @@ export function startSync(): () => void {
     }
   }
   window.addEventListener('online', flush)
-  window.addEventListener('focus', flush)
+  window.addEventListener('focus', onFocus)
   window.addEventListener('storage', storage)
+  window.addEventListener('pagehide', onPageHide)
   document.addEventListener('visibilitychange', visible)
   document.addEventListener('pause', paused, true)
-  const interval = setInterval(() => {
-    if (document.visibilityState === 'visible') flush()
-  }, 30_000)
   return () => {
     stopNotifications()
     generation++
     busy = false
     unsubscribeAuth()
     unsubscribers.forEach(unsubscribe => unsubscribe())
-    clearInterval(interval)
     if (timer) clearTimeout(timer)
     timer = undefined
     window.removeEventListener('online', flush)
-    window.removeEventListener('focus', flush)
+    window.removeEventListener('focus', onFocus)
     window.removeEventListener('storage', storage)
+    window.removeEventListener('pagehide', onPageHide)
     document.removeEventListener('visibilitychange', visible)
     document.removeEventListener('pause', paused, true)
   }

@@ -17,6 +17,8 @@ let generation = 0
 let busy = false
 let applying = false
 let timer: ReturnType<typeof setTimeout> | undefined
+let lastNotificationsSyncAt = 0
+const NOTIFICATIONS_COOLDOWN_MS = 5 * 60 * 1000
 
 const identity = () => {
   const { account, session } = useAuthStore.getState()
@@ -165,7 +167,8 @@ export async function syncSeriesNotificationsNow() {
         applying = false
       }
     }
-    if (current())
+    if (current()) {
+      lastNotificationsSyncAt = Date.now()
       useSeriesNotificationsStore.setState({
         syncOwner: session.id,
         status: Object.values(
@@ -175,6 +178,7 @@ export async function syncSeriesNotificationsNow() {
           : '提醒已同步',
         error: null,
       })
+    }
   } catch (error) {
     if (current())
       useSeriesNotificationsStore.setState({
@@ -226,8 +230,16 @@ export function startSeriesNotificationSync(): () => void {
   const flush = () => {
     void syncSeriesNotificationsNow()
   }
+  const flushIfCooldownExpired = () => {
+    if (Date.now() - lastNotificationsSyncAt >= NOTIFICATIONS_COOLDOWN_MS) {
+      void syncSeriesNotificationsNow()
+    }
+  }
   const visible = () => {
-    if (document.visibilityState === 'visible') flush()
+    if (document.visibilityState === 'visible') flushIfCooldownExpired()
+  }
+  const onFocus = () => {
+    flushIfCooldownExpired()
   }
   const storage = (event: StorageEvent) => {
     if (event.key === 'ouonnki-tv-series-notifications') {
@@ -245,11 +257,10 @@ export function startSeriesNotificationSync(): () => void {
         )
     }
   }
-  window.addEventListener('focus', flush)
+  window.addEventListener('focus', onFocus)
   window.addEventListener('online', flush)
   window.addEventListener('storage', storage)
   document.addEventListener('visibilitychange', visible)
-  const interval = setInterval(visible, 30000)
   changeSession()
   return () => {
     generation++
@@ -259,8 +270,7 @@ export function startSeriesNotificationSync(): () => void {
     checks()
     if (timer) clearTimeout(timer)
     timer = undefined
-    clearInterval(interval)
-    window.removeEventListener('focus', flush)
+    window.removeEventListener('focus', onFocus)
     window.removeEventListener('online', flush)
     window.removeEventListener('storage', storage)
     document.removeEventListener('visibilitychange', visible)
