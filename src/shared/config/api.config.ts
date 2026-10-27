@@ -127,7 +127,7 @@ export const getInitialVideoSources = async (): Promise<VideoApi[]> => {
 }
 
 export const getAuthorizedNsfwVideoSources = async (): Promise<VideoApi[]> => {
-  if (!syncClient) return []
+  if (!syncClient?.auth?.getSession) return []
   try {
     const { data } = await syncClient.auth.getSession()
     if (!data.session) return []

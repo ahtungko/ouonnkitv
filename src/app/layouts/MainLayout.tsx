@@ -12,6 +12,7 @@ import { useSettingStore } from '@/shared/store/settingStore'
 import { useApiStore } from '@/shared/store/apiStore'
 import { useSubscriptionStore } from '@/shared/store/subscriptionStore'
 import { useSubscriptionAutoRefresh } from '@/shared/hooks/useSubscriptionAutoRefresh'
+import { useEnvSourcesAutoRefresh } from '@/shared/hooks/useEnvSourcesAutoRefresh'
 import { useScrollChromeVisibility } from '@/shared/hooks'
 import { useLocation } from 'react-router'
 import { getInitialContentConfigId } from '@/shared/config/runtimeEnv'
@@ -34,8 +35,9 @@ export default function MainLayout() {
     resetKey: location.pathname,
   })
 
-  // 订阅源自动刷新
+  // 视频源与订阅源自动更新
   useSubscriptionAutoRefresh()
+  useEnvSourcesAutoRefresh()
   useSeriesUpdateChecker()
 
   // 初始化逻辑 (从 MyRouter 迁移)

@@ -51,6 +51,7 @@ export default function AuthGuard({ children }: { children: ReactNode }) {
                 setPassword('')
                 if (adminLogin && useAuthStore.getState().account?.role !== 'admin')
                   setMessage('此入口仅供管理员使用，请返回主站登录。')
+                void useApiStore.getState().initializeEnvSources(true)
               })
               .catch(error => {
                 setMessage(error instanceof Error ? error.message : '登录失败')

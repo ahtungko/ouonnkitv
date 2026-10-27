@@ -114,6 +114,11 @@ const preferenceSchemas: Record<string, z.ZodType> = {
   'playback.isMobileGestureEnabled': z.boolean(),
   'playback.longPressPlaybackRate': z.number().min(1).max(5),
   'playback.isFullscreenProgressHidden': z.boolean(),
+  'playback.isDanmakuEnabled': z.boolean(),
+  'playback.danmakuOpacity': z.number().min(0).max(1),
+  'playback.danmakuFontSize': z.number().min(10).max(50),
+  'playback.danmakuSpeed': z.number().min(1).max(10),
+  'playback.isDanmakuAntiOverlap': z.boolean(),
 }
 
 export type Snapshot = Record<string, Pick<SyncRecord, 'kind' | 'item_key' | 'value'>>

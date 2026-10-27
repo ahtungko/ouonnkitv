@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { accountSchema } from '../shared/account-rules.js'
 
 const sourceSchema = z.object({
+  id: z.string().trim().min(1).max(160).optional(),
   name: z.string().trim().min(1).max(160),
   url: z.string().trim().min(1).max(4096),
   detailUrl: z.string().trim().min(1).max(4096).optional(),
@@ -31,7 +32,7 @@ async function loadSources() {
     // Inline JSON continues below.
   }
   if (remoteUrl) {
-    const response = await fetch(remoteUrl, { signal: AbortSignal.timeout(8_000) })
+    const response = await fetch(remoteUrl, { signal: AbortSignal.timeout(8_000), cache: 'no-store' })
     if (!response.ok) throw new Error(`Source request failed: ${response.status}`)
     sourceText = await response.text()
   }

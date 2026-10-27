@@ -25,6 +25,8 @@ interface ApiState {
   videoAPIs: VideoSource[]
   // 广告过滤开关
   adFilteringEnabled: boolean
+  // 上次同步环境变量视频源的日期 (YYYY-MM-DD)，每天仅在跨日首次访问时拉取一次
+  lastEnvSourcesCheckedDate: string | null
 }
 
 interface ApiActions {
@@ -41,7 +43,7 @@ interface ApiActions {
   // 取消全选
   deselectAllAPIs: () => void
   // 初始化环境变量中的视频源
-  initializeEnvSources: () => Promise<void>
+  initializeEnvSources: (force?: boolean) => Promise<void>
   clearRestrictedSources: () => void
   // 批量导入视频源
   importVideoAPIs: (apis: VideoSource[]) => void
@@ -82,6 +84,9 @@ export const useApiStore = create<ApiStore>()(
       immer<ApiStore>((set, get) => ({
         videoAPIs: [],
         adFilteringEnabled: true,
+        lastEnvSourcesCheckedDate: null,
+
+        
 
         // Actions - 使用cms-core纯函数
         setApiEnabled: (apiId: string, enabled: boolean) => {
@@ -147,35 +152,94 @@ export const useApiStore = create<ApiStore>()(
           })
         },
 
-        initializeEnvSources: async () => {
-          const [envSources, nsfwSources] = await Promise.all([
-            getInitialVideoSources(),
-            getAuthorizedNsfwVideoSources(),
-          ])
-          set(state => {
-            if (typeof INITIAL_CONFIG?.adFilteringEnabled === 'boolean') {
-              state.adFilteringEnabled = INITIAL_CONFIG.adFilteringEnabled
-            }
-            const withoutRestrictedSources = state.videoAPIs.filter(
-              source => !source.id.startsWith('nsfw_env_'),
-            )
-            if (envSources.length > 0 || nsfwSources.length > 0) {
-              const store = toSourceStore({ ...state, videoAPIs: withoutRestrictedSources })
-              const { store: newStore } = importSources(store, [...envSources, ...nsfwSources], {
-                defaultTimeout: useSettingStore.getState().network.defaultTimeout,
-                defaultRetry: useSettingStore.getState().network.defaultRetry,
-                skipInvalid: true,
+        initializeEnvSources: async (force = false) => {
+          const today = new Date().toISOString().slice(0, 10)
+          const state = get()
+
+          // 每天仅拉取一次：如果今天已经对齐过且本地已有源，且非强制，则直接跳过，零网络请求
+          if (!force && state.lastEnvSourcesCheckedDate === today && state.videoAPIs.length > 0) {
+            return
+          }
+
+          try {
+            const [envSources, nsfwSources] = await Promise.all([
+              getInitialVideoSources(),
+              getAuthorizedNsfwVideoSources(),
+            ])
+            set(draft => {
+              if (typeof INITIAL_CONFIG?.adFilteringEnabled === 'boolean') {
+                draft.adFilteringEnabled = INITIAL_CONFIG.adFilteringEnabled
+              }
+
+              // 如果因离线或断网未拉取到任何源，保留现有数据不破坏
+              if (envSources.length === 0 && nsfwSources.length === 0) {
+                return
+              }
+
+              draft.lastEnvSourcesCheckedDate = today
+
+              const oldEnabledMap = new Map<string, boolean>()
+              for (const s of draft.videoAPIs) {
+                oldEnabledMap.set(s.id, s.isEnabled)
+                oldEnabledMap.set(s.name, s.isEnabled)
+              }
+
+              const incomingEnvIds = new Set(envSources.map(s => s.id))
+              const incomingNsfwIds = new Set(nsfwSources.map(s => s.id))
+
+              const preservedManualSources = draft.videoAPIs.filter(s => {
+                if (s.id.startsWith('sub:')) return false
+                if (s.id.startsWith('nsfw_env_') || s.isNsfw) return false
+                if (s.isEnv || s.id.startsWith('env_source_')) return false
+                if (incomingEnvIds.has(s.id) || incomingNsfwIds.has(s.id)) return false
+                return true
               })
-              state.videoAPIs = fromSourceStore(newStore)
-            } else {
-              state.videoAPIs = withoutRestrictedSources
-            }
-          })
+              const preservedSubSources = draft.videoAPIs.filter(s => s.id.startsWith('sub:'))
+
+              const networkSettings = useSettingStore.getState().network
+
+              const updatedEnvSources: VideoSource[] = envSources.map(s => {
+                const prevEnabled = oldEnabledMap.get(s.id) ?? oldEnabledMap.get(s.name)
+                return {
+                  ...s,
+                  timeout: s.timeout ?? networkSettings.defaultTimeout,
+                  retry: s.retry ?? networkSettings.defaultRetry,
+                  isEnv: true,
+                  isEnabled: prevEnabled !== undefined ? prevEnabled : (s.isEnabled ?? true),
+                  updatedAt: new Date(),
+                }
+              })
+
+              const updatedNsfwSources: VideoSource[] = nsfwSources.map(s => {
+                const prevEnabled = oldEnabledMap.get(s.id) ?? oldEnabledMap.get(s.name)
+                return {
+                  ...s,
+                  timeout: s.timeout ?? networkSettings.defaultTimeout,
+                  retry: s.retry ?? networkSettings.defaultRetry,
+                  isEnv: true,
+                  isNsfw: true,
+                  isEnabled: prevEnabled !== undefined ? prevEnabled : (s.isEnabled ?? true),
+                  updatedAt: new Date(),
+                }
+              })
+
+              draft.videoAPIs = [
+                ...preservedManualSources,
+                ...updatedEnvSources,
+                ...updatedNsfwSources,
+                ...preservedSubSources,
+              ]
+            })
+          } catch (error) {
+            console.error('初始化视频源失败:', error)
+          }
         },
 
         clearRestrictedSources: () => {
           set(state => {
-            state.videoAPIs = state.videoAPIs.filter(source => !source.id.startsWith('nsfw_env_'))
+            state.videoAPIs = state.videoAPIs.filter(
+              source => !source.id.startsWith('nsfw_env_') && !source.isNsfw,
+            )
           })
         },
 
@@ -204,9 +268,10 @@ export const useApiStore = create<ApiStore>()(
         resetVideoSources: async () => {
           set(state => {
             state.videoAPIs = []
+            state.lastEnvSourcesCheckedDate = null
             state.adFilteringEnabled = INITIAL_CONFIG?.adFilteringEnabled ?? true
           })
-          await get().initializeEnvSources()
+          await get().initializeEnvSources(true)
         },
 
         replaceSubscriptionSources: (subscriptionId: string, sources: VideoSource[]) => {
@@ -261,7 +326,7 @@ export const useApiStore = create<ApiStore>()(
       })),
       {
         name: 'ouonnki-tv-api-store',
-        version: 6,
+        version: 7,
         migrate: (persistedState: unknown, version: number) => {
           const state = persistedState as Partial<ApiState>
 
@@ -277,6 +342,21 @@ export const useApiStore = create<ApiStore>()(
                 retry: DEFAULT_SETTINGS.network.defaultRetry,
                 updatedAt: new Date(),
               })) || []
+          }
+
+          if (version < 7) {
+            state.videoAPIs =
+              state.videoAPIs?.map(api => {
+                const isSub = api.id.startsWith('sub:')
+                const isManualUuid =
+                  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+                    api.id,
+                  )
+                return {
+                  ...api,
+                  isEnv: !isSub && !isManualUuid,
+                }
+              }) || []
           }
 
           return state

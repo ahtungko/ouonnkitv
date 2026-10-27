@@ -18,6 +18,10 @@ export interface VideoSource {
   isEnabled: boolean
   /** 最后更新时间 */
   updatedAt?: Date
+  /** 是否来自系统环境变量（随 upstream GitHub 动态更新与淘汰） */
+  isEnv?: boolean
+  /** 是否为限制级/NSFW 源 */
+  isNsfw?: boolean
 }
 
 /**
