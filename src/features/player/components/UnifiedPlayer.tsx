@@ -2,9 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router'
 import { createPortal } from 'react-dom'
 import Artplayer from 'artplayer'
-import danmuku from 'artplayer-plugin-danmuku'
-import { DanmuControls } from './Danmu'
-import { getEffectiveDanmakuFontSize } from '../lib/danmakuUtils'
 
 import type Hls from 'hls.js'
 import type { HlsConfig } from 'hls.js'
@@ -826,18 +823,7 @@ export default function UnifiedPlayer() {
         crossOrigin: 'anonymous',
         playsInline: true,
       },
-      plugins: [
-        danmuku({
-          danmuku: [],
-          speed: playbackRef.current.danmakuSpeed,
-          opacity: playbackRef.current.danmakuOpacity,
-          fontSize: getEffectiveDanmakuFontSize(playbackRef.current.danmakuFontSize),
-          antiOverlap: playbackRef.current.isDanmakuAntiOverlap,
-          synchronousPlayback: true,
-          visible: playbackRef.current.isDanmakuEnabled,
-          emitter: false,
-        }),
-      ],
+      plugins: [],
       customType: {
         m3u8: function (video: HTMLMediaElement, url: string, art: Artplayer) {
           const artWithHls = art as ArtplayerWithHls
@@ -1822,7 +1808,6 @@ export default function UnifiedPlayer() {
               ref={containerRef}
               className="aspect-video min-h-[180px] w-full bg-black sm:aspect-auto sm:h-[clamp(240px,56vw,74vh)] sm:min-h-[220px] [&_.art-video-player]:!h-full [&_.art-video-player]:!w-full [&_.artplayer-app]:!h-full [&_.artplayer-app]:!w-full [&_video]:!h-full [&_video]:!w-full"
             />
-            <DanmuControls art={activeArt} title={tmdbPlayback.tmdbDetail?.title || detail.videoInfo?.title || ''} season={tmdbPlayback.selectedSeasonNumber || 1} episode={Number(episodes[selectedEpisode]?.match(/(?:第|EP?\s*)(\d+)/i)?.[1]) || selectedEpisode + 1} />
             {seekPreviewOverlay &&
               (playerOverlayContainer
                 ? createPortal(seekPreviewOverlay, playerOverlayContainer)

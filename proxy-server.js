@@ -1,5 +1,4 @@
 import express from 'express'
-import { handleDanmu } from './shared/danmu-core.js'
 import cors from 'cors'
 import { getProxyTimeoutMs, parseProxyError, handleProxyRequest } from './shared/proxy-core.js'
 
@@ -8,12 +7,6 @@ const PORT = process.env.PROXY_PORT || 3001
 
 app.use(cors({ origin: '*' }))
 
-app.all('/api/danmu', async (req, res) => {
-  const result = await handleDanmu(new Request('http://localhost' + req.originalUrl, { method: req.method }), process.env)
-  res.setHeader('Content-Type', 'application/json')
-  res.setHeader('Cache-Control', 'no-store')
-  res.status(result.status).send(await result.text())
-})
 
 app.get('/proxy', async (req, res) => {
   try {

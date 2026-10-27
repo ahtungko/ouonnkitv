@@ -108,9 +108,6 @@ importers:
       artplayer:
         specifier: ^5.3.0
         version: 5.3.0
-      artplayer-plugin-danmuku:
-        specifier: ^5.3.0
-        version: 5.3.0
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -1951,9 +1948,6 @@ packages:
 
   array-flatten@1.1.1:
     resolution: {integrity: sha512-PCVAQswWemu6UdxsDFFX/+gVeYqKAod3D3UVm91jHwynguOwAvYPhx8nNlM++NqRcK6CxxpUafjmhIdKiHibqg==}
-
-  artplayer-plugin-danmuku@5.3.0:
-    resolution: {integrity: sha512-a76bU1cWEZr53hD1X8IHfOzS4QawGHn8dQ3fIYyJ5TsyhTSnznhi2WzkS8M7LL3H02ekXRZTUFan9+9EERk12g==}
 
   artplayer@5.3.0:
     resolution: {integrity: sha512-yExO39MpEg4P+bxgChxx1eJfiUPE4q1QQRLCmqGhlsj+ANuaoEkR8hF93LdI5ZyrAcIbJkuEndxEiUoKobifDw==}
@@ -4970,8 +4964,6 @@ snapshots:
       tslib: 2.8.1
 
   array-flatten@1.1.1: {}
-
-  artplayer-plugin-danmuku@5.3.0: {}
 
   artplayer@5.3.0:
     dependencies:

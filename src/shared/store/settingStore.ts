@@ -34,11 +34,6 @@ interface PlaybackSettings {
   isMobileGestureEnabled: boolean
   longPressPlaybackRate: number
   isFullscreenProgressHidden: boolean
-  isDanmakuEnabled: boolean
-  danmakuOpacity: number
-  danmakuFontSize: number
-  danmakuSpeed: number
-  isDanmakuAntiOverlap: boolean
 }
 
 interface SystemSettings {
@@ -131,7 +126,7 @@ export const useSettingStore = create<SettingStore>()(
       })),
       {
         name: 'ouonnki-tv-setting-store',
-        version: 15,
+        version: 14,
         migrate: (persistedState: unknown, version: number) => {
           const state = persistedState as Record<string, unknown>
           if (version < 2 && state.playback) {
@@ -221,19 +216,6 @@ export const useSettingStore = create<SettingStore>()(
               system.tmdbApiToken = DEFAULT_SETTINGS.system.tmdbApiToken
             }
             state.system = system
-          }
-          if (version < 15) {
-            const playback = (state.playback ?? {}) as Record<string, unknown>
-            const localDanmuEnabled =
-              typeof localStorage !== 'undefined'
-                ? localStorage.getItem('oki-danmu-enabled') === 'true'
-                : undefined
-            playback.isDanmakuEnabled ??= localDanmuEnabled ?? DEFAULT_SETTINGS.playback.isDanmakuEnabled
-            playback.danmakuOpacity ??= DEFAULT_SETTINGS.playback.danmakuOpacity
-            playback.danmakuFontSize ??= DEFAULT_SETTINGS.playback.danmakuFontSize
-            playback.danmakuSpeed ??= DEFAULT_SETTINGS.playback.danmakuSpeed
-            playback.isDanmakuAntiOverlap ??= DEFAULT_SETTINGS.playback.isDanmakuAntiOverlap
-            state.playback = playback
           }
           return state
         },

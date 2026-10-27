@@ -18,7 +18,6 @@ import {
   Database,
   Gauge,
   ListFilter,
-  MessageSquare,
   Monitor,
   Palette,
   PlaySquare,
@@ -28,8 +27,6 @@ import {
   Volume2,
 } from 'lucide-react'
 import { Button } from '@/shared/components/ui/button'
-import { DANMAKU_FONT_SIZE_PRESETS } from '@/features/player/lib/danmakuUtils'
-import { DANMAKU_FONT_SIZE_MIN, DANMAKU_FONT_SIZE_MAX } from '@/shared/config/danmaku'
 import { SettingsItem, SettingsPageShell, SettingsSection } from '../common'
 
 export default function PlaybackSettings() {
@@ -259,146 +256,6 @@ export default function PlaybackSettings() {
         />
       </SettingsSection>
 
-      <SettingsSection
-        title="弹幕设置"
-        description="自定义播放器弹幕显示、透明度、字号及滚动速度。"
-        icon={<MessageSquare className="size-4" />}
-        tone="violet"
-      >
-        <SettingsItem
-          title="默认开启弹幕"
-          description="进入播放器后自动检索并加载分集弹幕。"
-          controlClassName="self-end mt-1"
-          control={
-            <Switch
-              checked={playback.isDanmakuEnabled}
-              onCheckedChange={checked => {
-                setPlaybackSettings({ isDanmakuEnabled: checked })
-                if (typeof localStorage !== 'undefined') {
-                  localStorage.setItem('oki-danmu-enabled', String(checked))
-                }
-              }}
-            />
-          }
-        />
-        <SettingsItem
-          title="弹幕透明度"
-          description="弹幕整体不透明度（0.1~1.0），默认 0.8。"
-          control={
-            <div className="relative w-full sm:w-44">
-              <Input
-                type="number"
-                min={0.1}
-                max={1}
-                step={0.1}
-                value={playback.danmakuOpacity}
-                onChange={e => {
-                  const val = Number.parseFloat(e.target.value)
-                  if (!Number.isNaN(val)) {
-                    const opacity = Math.max(0.1, Math.min(1, val))
-                    setPlaybackSettings({ danmakuOpacity: opacity })
-                    if (typeof localStorage !== 'undefined') {
-                      localStorage.setItem('oki-danmu-opacity', String(opacity))
-                    }
-                  }
-                }}
-              />
-            </div>
-          }
-        />
-        <SettingsItem
-          title="弹幕字体大小"
-          description={`弹幕基准字号（像素，范围 ${DANMAKU_FONT_SIZE_MIN}~${DANMAKU_FONT_SIZE_MAX}），默认 25。移动端播放器会自动按屏幕比例等比缩放排版。`}
-          control={
-            <div className="flex flex-col gap-2 w-full sm:w-56">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                {DANMAKU_FONT_SIZE_PRESETS.slice(0, 5).map(preset => (
-                  <Button
-                    key={preset.value}
-                    type="button"
-                    size="sm"
-                    variant={playback.danmakuFontSize === preset.value ? 'default' : 'outline'}
-                    className="h-7 px-2 text-xs"
-                    onClick={() => {
-                      setPlaybackSettings({ danmakuFontSize: preset.value })
-                      if (typeof localStorage !== 'undefined') {
-                        localStorage.setItem('oki-danmu-size', String(preset.value))
-                      }
-                    }}
-                  >
-                    {preset.label} ({preset.value})
-                  </Button>
-                ))}
-              </div>
-              <div className="relative w-full">
-                <Input
-                  type="number"
-                  min={DANMAKU_FONT_SIZE_MIN}
-                  max={DANMAKU_FONT_SIZE_MAX}
-                  aria-label="弹幕基准字号"
-                  step={1}
-                  value={playback.danmakuFontSize}
-                  onChange={e => {
-                    const raw = e.target.value
-                    if (raw === '') return
-                    const val = Number.parseInt(raw, 10)
-                    if (!Number.isNaN(val)) {
-                      setPlaybackSettings({ danmakuFontSize: val })
-                      if (typeof localStorage !== 'undefined') {
-                        localStorage.setItem('oki-danmu-size', String(val))
-                      }
-                    }
-                  }}
-                  onBlur={e => {
-                    const val = Number.parseInt(e.target.value, 10)
-                    const clamped = Number.isNaN(val)
-                      ? 25
-                      : Math.max(DANMAKU_FONT_SIZE_MIN, Math.min(DANMAKU_FONT_SIZE_MAX, val))
-                    setPlaybackSettings({ danmakuFontSize: clamped })
-                    if (typeof localStorage !== 'undefined') {
-                      localStorage.setItem('oki-danmu-size', String(clamped))
-                    }
-                  }}
-                />
-              </div>
-            </div>
-          }
-        />
-        <SettingsItem
-          title="弹幕滚动速度"
-          description="弹幕滑过屏幕的时长（秒，范围 1~10，数值越大越慢），默认 5 秒。"
-          control={
-            <div className="relative w-full sm:w-44">
-              <Input
-                type="number"
-                min={1}
-                max={10}
-                step={1}
-                value={playback.danmakuSpeed}
-                onChange={e => {
-                  const val = Number.parseInt(e.target.value, 10)
-                  if (!Number.isNaN(val)) {
-                    setPlaybackSettings({
-                      danmakuSpeed: Math.max(1, Math.min(10, val)),
-                    })
-                  }
-                }}
-              />
-            </div>
-          }
-        />
-        <SettingsItem
-          title="弹幕防重叠"
-          description="自动计算轨道高度，避免多条弹幕同一时间在同一轨道互相遮挡。"
-          controlClassName="self-end mt-1"
-          control={
-            <Switch
-              checked={playback.isDanmakuAntiOverlap}
-              onCheckedChange={checked => setPlaybackSettings({ isDanmakuAntiOverlap: checked })}
-            />
-          }
-        />
-      </SettingsSection>
 
       {tmdbEnabled && (
         <SettingsSection

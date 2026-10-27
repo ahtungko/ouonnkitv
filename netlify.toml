@@ -10,7 +10,3 @@
   to = "/.netlify/functions/proxy"
   status = 200
 
-[[redirects]]
-  from = "/api/danmu"
-  to = "/.netlify/functions/danmu"
-  status = 200
