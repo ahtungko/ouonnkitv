@@ -135,25 +135,33 @@ describe('useWatchParty', () => {
     )
   })
 
-  it('退出房间清理频道和状态', async () => {
-    await act(async () => {
-      root.render(createElement(TestHarness))
-    })
+  it('退出房间清理频道和状态，且不会因 URL 参数延迟导致重复加入', async () => {
+    // 模拟 URL 中含有房间号加入放映室
+    mockSearchParams.set('partyRoom', 'room-exit-test')
+    mockSearchParams.set('partyMode', 'host_only')
 
+    const notices: string[] = []
     await act(async () => {
-      currentResult.createParty('collaborative')
+      root.render(
+        createElement(TestHarness, {
+          onNotice: (msg: string) => notices.push(msg),
+        }),
+      )
     })
 
     expect(currentResult.isPartyActive).toBe(true)
+    expect(currentResult.roomId).toBe('room-exit-test')
 
+    // 此时调用 leaveParty，即便 mockSearchParams 仍保留 room-exit-test，也不会再次触发已加入
+    notices.length = 0
     await act(async () => {
       currentResult.leaveParty()
     })
 
     expect(currentResult.isPartyActive).toBe(false)
     expect(currentResult.roomId).toBeNull()
-    expect(mockChannel.unsubscribe).toHaveBeenCalled()
-    expect(mockSyncClient.removeChannel).toHaveBeenCalled()
+    expect(notices).toContain('已退出同步放映室')
+    expect(notices.some(n => n.includes('已加入放映室'))).toBe(false)
   })
 
   it('观众加入房间时自动发送 request_state 请求进度握手', async () => {

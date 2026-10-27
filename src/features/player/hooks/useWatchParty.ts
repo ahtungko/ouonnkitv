@@ -89,6 +89,12 @@ export function useWatchParty({
   const myClientIdRef = useRef<string>(`user_${Math.random().toString(36).substring(2, 8)}`)
   const currentUsernameRef = useRef<string>('')
   const pendingSyncRef = useRef<{ time: number; isPlaying?: boolean } | null>(null)
+  const roomIdRef = useRef<string | null>(null)
+  const userExitedRoomIdRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    roomIdRef.current = roomId
+  }, [roomId])
 
   currentUsernameRef.current =
     accountUsername || `访客_${myClientIdRef.current.substring(5)}`
@@ -146,6 +152,10 @@ export function useWatchParty({
 
   // Leave room logic
   const leaveParty = useCallback(() => {
+    // Record the room id we are leaving so the auto-connect effect doesn't immediately rejoin it
+    userExitedRoomIdRef.current =
+      roomIdRef.current || new URLSearchParams(window.location.search).get('partyRoom')
+
     if (channelRef.current && syncClient) {
       void channelRef.current.unsubscribe()
       void syncClient.removeChannel(channelRef.current)
@@ -158,6 +168,17 @@ export function useWatchParty({
     setParticipants([])
     setInviteUrl('')
     pendingSyncRef.current = null
+
+    // Synchronously clean the URL in window.history as well as React Router
+    try {
+      const currentUrl = new URL(window.location.href)
+      currentUrl.searchParams.delete('partyRoom')
+      currentUrl.searchParams.delete('partyMode')
+      currentUrl.searchParams.delete('partyEp')
+      window.history.replaceState(null, '', currentUrl.toString())
+    } catch {
+      // Ignore in non-browser env
+    }
 
     // Remove party params from URL
     setSearchParams(
@@ -177,6 +198,7 @@ export function useWatchParty({
   // Join or setup a room
   const connectToRoom = useCallback(
     (targetRoomId: string, roomMode: WatchPartyMode, asHost: boolean) => {
+      userExitedRoomIdRef.current = null
       if (!syncClient) {
         showNoticeRef.current('未配置 Supabase，无法连接放映室')
         return
@@ -384,6 +406,7 @@ export function useWatchParty({
   // Create room
   const createParty = useCallback(
     (selectedMode: WatchPartyMode): string => {
+      userExitedRoomIdRef.current = null
       const newRoomId = generateRoomId()
       connectToRoom(newRoomId, selectedMode, true)
 
@@ -417,6 +440,17 @@ export function useWatchParty({
     const urlMode = (searchParams.get('partyMode') as WatchPartyMode) || 'host_only'
     const urlEp = searchParams.get('partyEp')
 
+    // If there is no partyRoom in URL, clear exited marker
+    if (!urlRoomId) {
+      userExitedRoomIdRef.current = null
+      return
+    }
+
+    // If this room was explicitly exited by the user, do not auto-reconnect
+    if (userExitedRoomIdRef.current === urlRoomId) {
+      return
+    }
+
     // If joining a link with specific episode, sync episode right away
     if (urlEp !== null) {
       const epIndex = Number(urlEp)
@@ -429,12 +463,27 @@ export function useWatchParty({
       }
     }
 
-    if (urlRoomId && !isPartyActive && syncClient) {
+    if (!isPartyActive && syncClient) {
       // Connect as viewer
       connectToRoom(urlRoomId, urlMode, false)
       setInviteUrl(window.location.href)
     }
   }, [searchParams, isPartyActive, connectToRoom])
+
+  // Keep inviteUrl synchronized when room is active and episode or mode changes
+  useEffect(() => {
+    if (isPartyActive && roomId) {
+      try {
+        const url = new URL(window.location.href)
+        url.searchParams.set('partyRoom', roomId)
+        url.searchParams.set('partyMode', mode)
+        url.searchParams.set('partyEp', String(selectedEpisode))
+        setInviteUrl(url.toString())
+      } catch {
+        // Ignore in non-browser env
+      }
+    }
+  }, [isPartyActive, roomId, mode, selectedEpisode])
 
   // Host heartbeat to keep viewers aligned
   useEffect(() => {

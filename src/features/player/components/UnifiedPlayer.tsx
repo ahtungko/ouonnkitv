@@ -659,7 +659,20 @@ export default function UnifiedPlayer() {
 
   const handlePartySelectEpisode = useCallback(
     (newIndex: number) => {
-      navigate(buildCurrentPlayPath(newIndex), { replace: true })
+      const basePath = buildCurrentPlayPath(newIndex)
+      if (partyRef.current?.isPartyActive && partyRef.current?.roomId) {
+        try {
+          const url = new URL(basePath, window.location.origin)
+          url.searchParams.set('partyRoom', partyRef.current.roomId)
+          url.searchParams.set('partyMode', partyRef.current.mode)
+          url.searchParams.set('partyEp', String(newIndex))
+          navigate(`${url.pathname}${url.search}`, { replace: true })
+          return
+        } catch {
+          // Fallback below
+        }
+      }
+      navigate(basePath, { replace: true })
     },
     [buildCurrentPlayPath, navigate],
   )
@@ -675,6 +688,32 @@ export default function UnifiedPlayer() {
   useEffect(() => {
     partyRef.current = party
   }, [party])
+
+  const buildCurrentPlayPathWithParty = useCallback(
+    (
+      episodeIndex: number,
+      options?: {
+        sourceCode?: string
+        vodId?: string
+        seasonNumber?: number
+      },
+    ) => {
+      const basePath = buildCurrentPlayPath(episodeIndex, options)
+      if (partyRef.current?.isPartyActive && partyRef.current?.roomId) {
+        try {
+          const url = new URL(basePath, window.location.origin)
+          url.searchParams.set('partyRoom', partyRef.current.roomId)
+          url.searchParams.set('partyMode', partyRef.current.mode)
+          url.searchParams.set('partyEp', String(episodeIndex))
+          return `${url.pathname}${url.search}`
+        } catch {
+          return basePath
+        }
+      }
+      return basePath
+    },
+    [buildCurrentPlayPath],
+  )
 
   const episodeProgressMap = useMemo(() => {
     if (!playback.isViewingHistoryVisible || !resolvedSourceCode || !resolvedVodId) return null
@@ -814,7 +853,7 @@ export default function UnifiedPlayer() {
             episodeIndex: nextIndex,
           })
         }
-        navigate(buildCurrentPlayPath(nextIndex), { replace: true })
+        navigate(buildCurrentPlayPathWithParty(nextIndex), { replace: true })
         showPlayerNotice(`即将播放下一集: ${episodes[nextIndex]}`)
       }
     }
@@ -1293,7 +1332,7 @@ export default function UnifiedPlayer() {
       })
     }
 
-    navigate(buildCurrentPlayPath(actualIndex), { replace: true })
+    navigate(buildCurrentPlayPathWithParty(actualIndex), { replace: true })
   }
 
   const handleSourceChange = useCallback(
