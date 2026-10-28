@@ -98,5 +98,29 @@ describe('访客播放器进度同步', () => {
     await vi.waitFor(() => expect(mocks.playerOptions.length).toBeGreaterThan(initialInstances))
     mocks.playerOptions.at(-1).customType.m3u8({}, 'https://example.com/video.m3u8', mocks.player)
     expect(mocks.hlsOptions.at(-1).loader).toBeUndefined()
+
+    await act(async () => {
+      broadcast({ payload: { type: 'heartbeat', senderId: 'host', time: 0, isPlaying: false, isSelectingMedia: true } })
+    })
+    expect(host.textContent).toContain('正在全站挑选新片')
+    expect(host.querySelector('#guest-player')).toBeNull()
+
+    const previousInstances = mocks.playerOptions.length
+    await act(async () => {
+      broadcast({ payload: { type: 'episode', senderId: 'host', videoUrl: 'https://example.com/video.m3u8', time: 25, isPlaying: true, isSelectingMedia: false } })
+    })
+    expect(host.textContent).not.toContain('正在全站挑选新片')
+    await vi.waitFor(() => expect(mocks.playerOptions.length).toBeGreaterThan(previousInstances))
+    await act(async () => mocks.callbacks.ready())
+    expect(mocks.player.currentTime).toBe(25)
+
+    const beforeRapidSwitch = mocks.playerOptions.length
+    await act(async () => {
+      broadcast({ payload: { type: 'heartbeat', senderId: 'host', time: 0, isPlaying: false, isSelectingMedia: true } })
+      broadcast({ payload: { type: 'episode', senderId: 'host', videoUrl: 'https://example.com/video.m3u8', time: 30, isPlaying: true } })
+    })
+    await vi.waitFor(() => expect(mocks.playerOptions.length).toBeGreaterThan(beforeRapidSwitch))
+    await act(async () => mocks.callbacks.ready())
+    expect(mocks.player.currentTime).toBe(30)
   })
 })

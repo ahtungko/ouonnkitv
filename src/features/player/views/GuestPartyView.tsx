@@ -79,6 +79,7 @@ export default function GuestPartyView() {
   const [isSelectingMedia, setIsSelectingMedia] = useState(false)
   const channelRef = useRef<ReturnType<NonNullable<typeof syncClient>['channel']> | null>(null)
   const [videoUrl, setVideoUrl] = useState<string | null>(null)
+  const [playerGeneration, setPlayerGeneration] = useState(0)
   const [adFilteringEnabled, setAdFilteringEnabled] = useState(false)
   const [filterUnavailable, setFilterUnavailable] = useState(false)
   const [mediaTitle, setMediaTitle] = useState<string>('')
@@ -277,6 +278,16 @@ export default function GuestPartyView() {
             setIsSelectingMedia(true)
             setIsPlaying(false)
             if (player && !player.video?.paused) player.pause()
+            if (videoUrlRef.current) setPlayerGeneration(generation => generation + 1)
+            videoUrlRef.current = null
+            playerReadyRef.current = false
+            pendingPlaybackRef.current = null
+            latestHostPlaybackRef.current = null
+            setVideoUrl(null)
+            setMediaTitle('')
+            setEpisodeTitle('')
+            setPosterUrl('')
+            setNeedsPlaybackGesture(false)
             break
           } else {
             setIsSelectingMedia(false)
@@ -363,13 +374,23 @@ export default function GuestPartyView() {
           break
         }
         case 'episode': {
+          if (action.videoUrl) setIsSelectingMedia(false)
           if (action.mediaTitle) setMediaTitle(action.mediaTitle)
           if (action.episodeTitle) setEpisodeTitle(action.episodeTitle)
           if (action.posterUrl) setPosterUrl(action.posterUrl)
-          if (action.videoUrl && action.videoUrl !== videoUrlRef.current) {
+          const filterChanged = typeof action.adFilteringEnabled === 'boolean' && action.adFilteringEnabled !== adFilteringRef.current
+          if (filterChanged) {
+            adFilteringRef.current = action.adFilteringEnabled!
+            setAdFilteringEnabled(action.adFilteringEnabled!)
+          }
+          if (action.videoUrl && (action.videoUrl !== videoUrlRef.current || filterChanged)) {
             playerReadyRef.current = false
             videoUrlRef.current = action.videoUrl
             setVideoUrl(action.videoUrl)
+            if (typeof action.isPlaying === 'boolean') {
+              setIsPlaying(action.isPlaying)
+              latestHostPlaybackRef.current = { time: action.time || 0, isPlaying: action.isPlaying, receivedAt: Date.now() }
+            }
             pendingPlaybackRef.current = { time: action.time || 0, isPlaying: action.isPlaying }
             break
           }
@@ -579,7 +600,7 @@ export default function GuestPartyView() {
         artRef.current = null
       }
     }
-  }, [videoUrl, terminatedReason, playGuest, adFilteringEnabled])
+  }, [videoUrl, playerGeneration, terminatedReason, playGuest, adFilteringEnabled])
 
   const handleLeave = () => {
     terminateSession('你已主动退出放映厅')
