@@ -1,6 +1,5 @@
 import { Play } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
-import type { MouseEvent } from 'react'
 import { NavLink } from 'react-router'
 import { AspectRatio } from '@/shared/components/ui/aspect-ratio'
 import { Checkbox } from '@/shared/components/ui/checkbox'
@@ -65,12 +64,6 @@ export function ViewingHistoryCard({
 
   const handleSelect = () => {
     onToggleSelect?.(item)
-  }
-
-  const handleCardClick = (event: MouseEvent<HTMLAnchorElement>) => {
-    if (!selectionMode) return
-    event.preventDefault()
-    handleSelect()
   }
 
   const posterCardContent = (
@@ -215,21 +208,41 @@ export function ViewingHistoryCard({
     </div>
   )
 
+  const cardContent = mobileListLayout ? (
+    <>
+      <div className="md:hidden">{mobileListCardContent}</div>
+      <div className="hidden md:block">{posterCardContent}</div>
+    </>
+  ) : (
+    posterCardContent
+  )
+
+  if (selectionMode) {
+    return (
+      <div
+        className={cn('block focus-visible:outline-none select-none', className)}
+        onClick={handleSelect}
+        role="button"
+        tabIndex={0}
+        onKeyDown={e => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            handleSelect()
+          }
+        }}
+        aria-pressed={selected}
+      >
+        {cardContent}
+      </div>
+    )
+  }
+
   return (
     <NavLink
       to={getPlayPath(item)}
       className={cn('block focus-visible:outline-none', className)}
-      onClick={handleCardClick}
-      aria-pressed={selectionMode ? selected : undefined}
     >
-      {mobileListLayout ? (
-        <>
-          <div className="md:hidden">{mobileListCardContent}</div>
-          <div className="hidden md:block">{posterCardContent}</div>
-        </>
-      ) : (
-        posterCardContent
-      )}
+      {cardContent}
     </NavLink>
   )
 }
