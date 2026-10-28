@@ -1886,8 +1886,8 @@ export default function UnifiedPlayer() {
             </div>
           )}
 
-          <section className="border-border/60 relative overflow-hidden rounded-lg border bg-black/95 shadow-lg">
-            <div className="bg-background/95 text-foreground flex min-h-11 min-w-0 items-center justify-between gap-3 border-b border-white/10 px-3 py-2">
+          <section className="relative overflow-hidden rounded-2xl sm:rounded-3xl border border-black/10 dark:border-white/10 bg-black shadow-2xl dark:shadow-[0_24px_60px_rgba(0,0,0,0.8)] ring-1 ring-black/5 dark:ring-white/10">
+            <div className="bg-card/80 text-foreground flex min-h-12 min-w-0 items-center justify-between gap-3 border-b border-border/40 backdrop-blur-xl px-4 py-2.5">
               <div className="flex min-w-0 items-baseline gap-2">
                 <p className="truncate text-sm font-medium">
                   {episodes[selectedEpisode] || `第 ${selectedEpisode + 1} 集`}
@@ -1960,7 +1960,7 @@ export default function UnifiedPlayer() {
             {shouldShowOverlayNotices && (
               <div className="pointer-events-none absolute top-14 right-3 z-30 flex max-w-[min(92vw,420px)] flex-col items-end gap-2">
                 {shouldShowMatchingNotice && (
-                  <div className="pointer-events-auto flex items-center justify-between gap-2 w-[min(86vw,320px)] overflow-hidden rounded-md border border-amber-300/35 bg-black/75 shadow-lg backdrop-blur-sm px-3 py-2 text-xs text-white">
+                  <div className="pointer-events-auto flex items-center justify-between gap-2 w-[min(86vw,320px)] overflow-hidden rounded-xl border border-amber-300/35 bg-black/80 shadow-xl backdrop-blur-md px-3.5 py-2 text-xs text-white">
                     <div className="flex items-center gap-2 min-w-0">
                       <span className="inline-flex size-3.5 shrink-0 animate-spin rounded-full border border-amber-200 border-t-transparent" />
                       <span className="truncate">{matchingNoticeText}</span>
@@ -1977,7 +1977,7 @@ export default function UnifiedPlayer() {
                 )}
 
                 {shouldShowBetterSourceNotice && bestSourceOption && (
-                  <div className="pointer-events-auto w-[min(90vw,360px)] overflow-hidden rounded-md border border-emerald-300/35 bg-black/72 shadow-lg backdrop-blur-sm">
+                  <div className="pointer-events-auto w-[min(90vw,360px)] overflow-hidden rounded-xl border border-emerald-300/35 bg-black/80 shadow-xl backdrop-blur-md">
                     <div className="flex items-center justify-between gap-2 px-3 py-2 text-xs text-white">
                       <div className="min-w-0">
                         <p className="truncate text-[12px] font-semibold">匹配到更优结果</p>

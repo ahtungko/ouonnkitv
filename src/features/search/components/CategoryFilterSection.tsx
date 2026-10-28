@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/shared/lib/utils'
-import { Button } from '@/shared/components/ui/button'
 import type { TmdbFilterOptions, TmdbGenre, TmdbCountry } from '@/shared/types/tmdb'
 import {
   MediaTypeFilter,
@@ -34,9 +33,8 @@ interface CategoryFilterSectionProps {
 }
 
 /**
- * CategoryFilterSection - 分类筛选区域组件
- *
- * 提供媒体类型、国家/地区、分类、年份、评分和排序等多维度筛选功能
+ * CategoryFilterSection - 院线级分类筛选胶囊面板 (Cinema Capsule Filter Panel)
+ * 提供媒体类型、国家/地区、分类、年份、评分和排序等多维度胶囊化筛选
  */
 export function CategoryFilterSection({
   movieGenres,
@@ -49,17 +47,24 @@ export function CategoryFilterSection({
   isLoading = false,
   className,
 }: CategoryFilterSectionProps) {
-  // 控制更多筛选的展开/收起状态
   const [isExpanded, setIsExpanded] = useState(false)
 
-  // 如果正在加载，显示骨架屏
   if (isLoading) {
     return <FilterSkeleton />
   }
 
+  const hasActiveFilters = Boolean(
+    (filterOptions.mediaType && filterOptions.mediaType !== 'all') ||
+    filterOptions.originCountry ||
+    (filterOptions.genreIds && filterOptions.genreIds.length > 0) ||
+    filterOptions.releaseYear ||
+    filterOptions.minVoteAverage ||
+    filterOptions.sortBy
+  )
+
   return (
-    <div className={cn('space-y-3', className)}>
-      {/* 基础筛选：媒体类型（始终显示） */}
+    <div className={cn('rounded-2xl border border-border/40 bg-card/25 backdrop-blur-md p-4 sm:p-5 shadow-xs space-y-3.5', className)}>
+      {/* 基础筛选：媒体类型 */}
       <MediaTypeFilter
         filterOptions={filterOptions}
         onFilterChange={onFilterChange}
@@ -79,8 +84,8 @@ export function CategoryFilterSection({
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.2 }}
-            className="space-y-3 overflow-hidden"
+            transition={{ duration: 0.22, ease: 'easeOut' }}
+            className="space-y-3.5 overflow-hidden pt-0.5"
           >
             {/* 分类筛选 */}
             <GenreFilter
@@ -106,17 +111,21 @@ export function CategoryFilterSection({
         )}
       </AnimatePresence>
 
-      {/* 展开/收起按钮 */}
-      <div className="flex items-center justify-center gap-3 pt-1">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="h-8 rounded-full px-4"
-          onClick={onClear}
-        >
-          清空筛选
-        </Button>
+      {/* 展开/收起与清空筛选栏 */}
+      <div className="flex items-center justify-between border-t border-border/30 pt-3">
+        <div>
+          {hasActiveFilters ? (
+            <button
+              type="button"
+              className="text-xs text-primary font-medium hover:underline underline-offset-4 transition-colors"
+              onClick={onClear}
+            >
+              清空已选筛选
+            </button>
+          ) : (
+            <span className="text-[11px] text-muted-foreground/70">可按多个维度自由组合筛选</span>
+          )}
+        </div>
         <ExpandToggle isExpanded={isExpanded} onToggle={() => setIsExpanded(!isExpanded)} />
       </div>
     </div>

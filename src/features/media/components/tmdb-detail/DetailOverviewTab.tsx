@@ -1,3 +1,4 @@
+import { Info, Sparkles } from 'lucide-react'
 import { MediaPosterCard } from '@/shared/components/common'
 import { Badge } from '@/shared/components/ui/badge'
 import { getPosterUrl } from '@/shared/lib/tmdb'
@@ -27,49 +28,63 @@ export function DetailOverviewTab({
   recommendationItems,
 }: DetailOverviewTabProps) {
   return (
-    <>
-      <section className="space-y-5">
-        <div className="space-y-3">
-          <h2 className="text-lg font-semibold">基础信息</h2>
-          {genres.length > 0 || keywordList.length > 0 ? (
-            <div className="flex flex-wrap items-center gap-2">
-              {genres.map(genre => (
-                <Badge key={genre.id} variant="outline" className="rounded-full">
-                  {genre.name}
-                </Badge>
-              ))}
-              {keywordList.map(keyword => (
-                <Badge key={keyword.id} variant="outline" className="rounded-full border-dashed">
-                  {keyword.name}
-                </Badge>
-              ))}
-            </div>
-          ) : (
-            <p className="text-muted-foreground text-sm">暂无类型或关键词标签</p>
-          )}
+    <div className="space-y-8">
+      <section className="space-y-4">
+        <div className="flex items-center gap-2">
+          <Info className="size-4 text-primary" />
+          <h2 className="text-base sm:text-lg font-bold tracking-tight text-foreground">基础信息</h2>
         </div>
 
-        <DetailInfoGrid fields={coreInfoFields} className="grid gap-x-8 sm:grid-cols-2 lg:grid-cols-3" />
+        {genres.length > 0 || keywordList.length > 0 ? (
+          <div className="flex flex-wrap items-center gap-2">
+            {genres.map(genre => (
+              <Badge
+                key={genre.id}
+                variant="outline"
+                className="rounded-full bg-primary/10 text-primary border-primary/25 px-3 py-1 text-xs font-medium hover:bg-primary/15 transition-colors shadow-2xs"
+              >
+                {genre.name}
+              </Badge>
+            ))}
+            {keywordList.map(keyword => (
+              <Badge
+                key={keyword.id}
+                variant="outline"
+                className="rounded-full bg-card/60 text-muted-foreground border-border/50 px-3 py-1 text-xs font-normal hover:text-foreground hover:border-border transition-colors shadow-2xs"
+              >
+                #{keyword.name}
+              </Badge>
+            ))}
+          </div>
+        ) : (
+          <p className="text-muted-foreground text-xs sm:text-sm">暂无类型或关键词标签</p>
+        )}
+
+        <DetailInfoGrid fields={coreInfoFields} className="sm:grid-cols-2 lg:grid-cols-3" />
 
         {tmdbType === 'movie' && movieInfoFields.length > 0 && (
-          <div className="space-y-2">
-            <h3 className="text-base font-medium">电影补充信息</h3>
-            <DetailInfoGrid fields={movieInfoFields} className="grid gap-x-8 sm:grid-cols-2 lg:grid-cols-4" />
+          <div className="space-y-2.5 pt-2">
+            <h3 className="text-sm sm:text-base font-semibold text-foreground/90">电影补充信息</h3>
+            <DetailInfoGrid fields={movieInfoFields} className="sm:grid-cols-2 lg:grid-cols-4" />
           </div>
         )}
 
         {tmdbType === 'tv' && tvInfoFields.length > 0 && (
-          <div className="space-y-2">
-            <h3 className="text-base font-medium">剧集补充信息</h3>
-            <DetailInfoGrid fields={tvInfoFields} className="grid gap-x-8 sm:grid-cols-2 lg:grid-cols-3" />
+          <div className="space-y-2.5 pt-2">
+            <h3 className="text-sm sm:text-base font-semibold text-foreground/90">剧集补充信息</h3>
+            <DetailInfoGrid fields={tvInfoFields} className="sm:grid-cols-2 lg:grid-cols-3" />
           </div>
         )}
       </section>
 
-      <section className="space-y-3">
-        <h2 className="text-lg font-semibold">你可能还喜欢</h2>
+      <section className="space-y-4 pt-2">
+        <div className="flex items-center gap-2">
+          <Sparkles className="size-4 text-primary" />
+          <h2 className="text-base sm:text-lg font-bold tracking-tight text-foreground">你可能还喜欢</h2>
+        </div>
+
         {recommendationItems.length > 0 ? (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
             {recommendationItems.map(item => (
               <MediaPosterCard
                 key={`${item.mediaType}-${item.id}`}
@@ -82,9 +97,9 @@ export function DetailOverviewTab({
             ))}
           </div>
         ) : (
-          <p className="text-muted-foreground text-sm">当前没有可展示的相关推荐</p>
+          <p className="text-muted-foreground text-xs sm:text-sm">当前没有可展示的相关推荐</p>
         )}
       </section>
-    </>
+    </div>
   )
 }

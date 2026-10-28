@@ -87,11 +87,11 @@ export function GenreFilter({
                   />
                 </div>
               </DrawerTrigger>
-              <DrawerContent className="max-h-[70vh]">
-                <DrawerHeader>
-                  <DrawerTitle>选择分类</DrawerTitle>
+              <DrawerContent className="max-h-[75vh] rounded-t-3xl border-t border-border/50 bg-background/95 backdrop-blur-2xl">
+                <DrawerHeader className="border-b border-border/40 pb-3">
+                  <DrawerTitle className="text-base font-bold">选择分类</DrawerTitle>
                 </DrawerHeader>
-                <div className="overflow-y-auto p-4">
+                <div className="overflow-y-auto p-4 sm:p-5">
                   <div className="flex flex-wrap gap-2">
                     <FilterChip
                       label="全部分类"
@@ -141,20 +141,20 @@ interface MoreButtonProps {
 }
 
 /**
- * MoreButton - 更多按钮组件
+ * MoreButton - 更多胶囊按钮组件
  */
 function MoreButton({ count, isSelected }: MoreButtonProps) {
   return (
     <button
       type="button"
-      className={`flex shrink-0 items-center gap-1 rounded-full border px-3 py-1.5 text-sm font-medium transition-all ${
+      className={`inline-flex items-center gap-1 shrink-0 rounded-full px-3 py-1 text-xs sm:text-[13px] font-medium transition-all duration-200 select-none active:scale-95 ${
         isSelected
-          ? 'border-primary bg-primary text-primary-foreground'
-          : 'border-border bg-background text-muted-foreground hover:border-primary/50 hover:text-primary'
+          ? 'bg-primary text-primary-foreground font-semibold shadow-xs shadow-primary/25 border border-primary/20 scale-[1.02]'
+          : 'border border-border/40 bg-card/40 text-muted-foreground hover:text-foreground hover:bg-accent/80 hover:border-border/80'
       }`}
     >
       <span>更多</span>
-      <span className="text-xs opacity-70">({count})</span>
+      <span className="text-[10px] opacity-75">({count})</span>
       <ChevronRight className="size-3" />
     </button>
   )

@@ -330,7 +330,13 @@ export default function TmdbDetailView() {
         adultLevel={adultLevel}
         heroLogo={heroLogo}
         favorited={favorited}
-        onBack={() => navigate(TMDB_SEARCH_PATH)}
+        onBack={() => {
+          if (window.history.length > 1) {
+            navigate(-1)
+          } else {
+            navigate(TMDB_SEARCH_PATH)
+          }
+        }}
         onPlayNow={() => navigate(buildTmdbPlayPath(tmdbType, detail.id))}
         onContinueWatching={
           continueWatchingPath ? () => navigate(continueWatchingPath) : undefined
@@ -348,7 +354,7 @@ export default function TmdbDetailView() {
         tabIndicator={tabIndicator}
       />
 
-      <div className="mt-6 px-2 pb-6 md:px-3 md:pb-8">
+      <div className="mt-8 px-1 pb-10 sm:px-2 md:px-4 md:pb-16">
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={activeTab}

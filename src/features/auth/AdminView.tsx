@@ -32,7 +32,7 @@ export default function AdminView() {
 
   return (
     <div className="min-h-[90vh] pb-8">
-      <header className="border-border bg-sidebar/80 sticky top-0 z-20 border-b backdrop-blur-md">
+      <header className="border-border/40 bg-background/80 sticky top-0 z-20 border-b backdrop-blur-xl">
         <div className="py-1.5 md:py-3">
           <div className="flex flex-wrap items-center gap-1.5 md:gap-2">
             <Button

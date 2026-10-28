@@ -56,7 +56,6 @@ export function CountryFilter({
     c => !POPULAR_COUNTRIES_MOBILE.includes(c.iso_3166_1),
   )
 
-  // 计算当前选中的其他国家数量（用于显示红点提示）
   const selectedOtherCountriesCount = filterOptions.originCountry
     ? otherCountries.filter(c => c.iso_3166_1 === filterOptions.originCountry).length
     : 0
@@ -95,11 +94,11 @@ export function CountryFilter({
                   />
                 </div>
               </DrawerTrigger>
-              <DrawerContent className="max-h-[70vh]">
-                <DrawerHeader>
-                  <DrawerTitle>选择地区</DrawerTitle>
+              <DrawerContent className="max-h-[75vh] rounded-t-3xl border-t border-border/50 bg-background/95 backdrop-blur-2xl">
+                <DrawerHeader className="border-b border-border/40 pb-3">
+                  <DrawerTitle className="text-base font-bold">选择地区</DrawerTitle>
                 </DrawerHeader>
-                <div className="overflow-y-auto p-4">
+                <div className="overflow-y-auto p-4 sm:p-5">
                   <div className="flex flex-wrap gap-2">
                     <FilterChip
                       label="全部地区"
@@ -168,11 +167,11 @@ interface WrapFilterRowProps {
 
 export function WrapFilterRow({ label, children }: WrapFilterRowProps) {
   return (
-    <div className="flex gap-3">
-      <span className="text-muted-foreground w-12 shrink-0 pt-1.5 text-sm font-medium">
+    <div className="flex items-start gap-3">
+      <span className="text-foreground/75 w-12 shrink-0 pt-1 text-xs sm:text-sm font-semibold tracking-wide">
         {label}
       </span>
-      <div className="flex flex-1 flex-wrap gap-2">{children}</div>
+      <div className="flex flex-1 flex-wrap gap-1.5 sm:gap-2">{children}</div>
     </div>
   )
 }
@@ -183,21 +182,21 @@ interface MoreButtonProps {
 }
 
 /**
- * MoreButton - 更多按钮组件
+ * MoreButton - 更多胶囊按钮组件
  */
 function MoreButton({ count, isSelected }: MoreButtonProps) {
   return (
     <button
       type="button"
       className={cn(
-        'flex shrink-0 items-center gap-1 rounded-full border px-3 py-1.5 text-sm font-medium transition-all',
+        'inline-flex items-center gap-1 shrink-0 rounded-full px-3 py-1 text-xs sm:text-[13px] font-medium transition-all duration-200 select-none active:scale-95',
         isSelected
-          ? 'border-primary bg-primary text-primary-foreground'
-          : 'border-border bg-background text-muted-foreground hover:border-primary/50 hover:text-primary',
+          ? 'bg-primary text-primary-foreground font-semibold shadow-xs shadow-primary/25 border border-primary/20 scale-[1.02]'
+          : 'border border-border/40 bg-card/40 text-muted-foreground hover:text-foreground hover:bg-accent/80 hover:border-border/80',
       )}
     >
       <span>更多</span>
-      <span className="text-xs opacity-70">({count})</span>
+      <span className="text-[10px] opacity-75">({count})</span>
       <ChevronRight className="size-3" />
     </button>
   )

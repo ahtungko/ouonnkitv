@@ -113,7 +113,7 @@ export function SettingsSection({
     <section
       className={cn(
         variant === 'card'
-          ? 'bg-card/70 relative overflow-hidden rounded-xl p-4 md:p-5'
+          ? 'relative overflow-hidden rounded-2xl border border-border/40 bg-card/35 p-4 sm:p-6 backdrop-blur-md shadow-xs'
           : 'relative p-0',
         variant === 'card' ? toneStyles.section : '',
         className,
@@ -167,7 +167,7 @@ export function SettingsItem({
   return (
     <div
       className={cn(
-        'bg-muted/35 flex flex-col gap-3 rounded-lg px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4',
+        'bg-card/40 hover:bg-card/60 transition-colors flex flex-col gap-3 rounded-xl border border-border/35 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4 shadow-2xs',
         className,
       )}
     >

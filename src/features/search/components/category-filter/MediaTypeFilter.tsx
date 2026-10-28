@@ -19,11 +19,11 @@ export function MediaTypeFilter({
   className,
 }: MediaTypeFilterProps) {
   return (
-    <div className={cn('flex gap-3', className)}>
-      <span className="text-muted-foreground w-12 shrink-0 pt-1.5 text-sm font-medium">
+    <div className={cn('flex items-center gap-3', className)}>
+      <span className="text-foreground/75 w-12 shrink-0 text-xs sm:text-sm font-semibold tracking-wide">
         类型
       </span>
-      <div className="flex flex-1 flex-wrap gap-2">
+      <div className="flex flex-1 flex-wrap gap-1.5 sm:gap-2">
         {MEDIA_TYPE_OPTIONS.map(type => (
           <FilterChip
             key={type}
@@ -45,24 +45,30 @@ interface FilterChipProps {
   label: string
   isSelected: boolean
   onClick: () => void
+  count?: number
 }
 
 /**
- * FilterChip - 筛选标签组件
+ * FilterChip - 筛选胶囊标签组件 (Pill Chip)
  */
-export function FilterChip({ label, isSelected, onClick }: FilterChipProps) {
+export function FilterChip({ label, isSelected, onClick, count }: FilterChipProps) {
   return (
     <button
       type="button"
       onClick={onClick}
       className={cn(
-        'shrink-0 rounded-full border px-3 py-1.5 text-sm font-medium transition-all',
+        'inline-flex items-center gap-1 shrink-0 rounded-full px-3 py-1 text-xs sm:text-[13px] font-medium transition-all duration-200 select-none active:scale-95',
         isSelected
-          ? 'border-primary bg-primary text-primary-foreground'
-          : 'border-border bg-background text-muted-foreground hover:border-primary/50 hover:text-primary',
+          ? 'bg-primary text-primary-foreground font-semibold shadow-xs shadow-primary/25 border border-primary/20 scale-[1.02]'
+          : 'border border-border/40 bg-card/40 text-muted-foreground hover:text-foreground hover:bg-accent/80 hover:border-border/80',
       )}
     >
-      {label}
+      <span>{label}</span>
+      {count !== undefined && count > 0 && (
+        <span className="text-[10px] rounded-full bg-primary/20 px-1 py-0.2">
+          {count}
+        </span>
+      )}
     </button>
   )
 }

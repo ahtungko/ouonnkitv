@@ -1,7 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { Search, X, History, Trash2 } from 'lucide-react'
-import { Input } from '@/shared/components/ui/input'
-import { Button } from '@/shared/components/ui/button'
+import { Search, X, History, Trash2, ArrowRight } from 'lucide-react'
 import { Popover, PopoverContent, PopoverAnchor } from '@/shared/components/ui/popover'
 import { ScrollArea } from '@/shared/components/ui/scroll-area'
 import { useSearchHistory, useSearchSuggestions } from '@/shared/hooks'
@@ -23,7 +21,7 @@ export function SearchHubInput({
   onSearch,
   onClear,
   hideHistoryDropdown = false,
-  className,
+  className = '',
 }: SearchHubInputProps) {
   const [inputValue, setInputValue] = useState(initialQuery)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
@@ -39,7 +37,7 @@ export function SearchHubInput({
     clearSuggestions,
   } = useSearchSuggestions()
 
-  // Sync with initialQuery prop (e.g. when URL changes)
+  // Sync with initialQuery prop
   useEffect(() => {
     setInputValue(initialQuery)
   }, [initialQuery])
@@ -53,7 +51,6 @@ export function SearchHubInput({
     }
   }, [])
 
-  // Derived state for dropdown
   const hasContent = inputValue.trim().length > 0
   const hasHistory = searchHistory.length > 0
   const hasSuggestions = suggestions.length > 0
@@ -121,111 +118,122 @@ export function SearchHubInput({
   }
 
   return (
-    <div className={`w-full max-w-3xl ${className}`}>
+    <div className={`w-full max-w-2xl ${className}`}>
       <Popover open={shouldShowDropdown}>
         <PopoverAnchor asChild>
-          <div className="relative flex w-full">
+          <div className="relative flex items-center w-full h-12 md:h-13 rounded-full border border-border/50 bg-card/50 backdrop-blur-xl shadow-lg shadow-black/5 dark:shadow-black/25 focus-within:border-primary/60 focus-within:ring-2 focus-within:ring-primary/15 transition-all">
+            {/* 前置放大镜图标 */}
             <Search
-              className="text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2"
+              className="text-muted-foreground ml-4 shrink-0 transition-colors"
               size={18}
             />
-            <Input
+
+            {/* 一体化无缝输入框 */}
+            <input
               ref={inputRef}
-              placeholder="搜索电影、剧集..."
-              className="h-11 rounded-full rounded-r-none pr-8 pl-10 text-base focus-visible:ring-1"
+              type="text"
+              placeholder="搜索电影、剧集、演员..."
+              className="h-full flex-1 bg-transparent border-0 px-3 text-sm md:text-base text-foreground placeholder:text-muted-foreground/60 focus:outline-none"
               value={inputValue}
               onChange={e => handleInputChange(e.target.value)}
               onKeyDown={handleKeyDown}
               onFocus={handleFocus}
               onBlur={handleBlur}
             />
+
+            {/* 清空按钮 */}
             {inputValue.length > 0 && (
               <button
                 type="button"
                 onClick={handleClear}
-                className="text-muted-foreground hover:text-foreground absolute top-1/2 right-24 -translate-y-1/2 transition-colors"
+                className="text-muted-foreground hover:text-foreground size-7 rounded-full hover:bg-muted/70 flex items-center justify-center mr-1 transition-colors"
+                aria-label="清空输入"
               >
-                <X size={16} />
+                <X size={15} />
               </button>
             )}
-            <Button
+
+            {/* 灵动搜索胶囊按钮 */}
+            <button
+              type="button"
               disabled={inputValue.length === 0}
-              className="dark:bg-accent dark:hover:bg-accent/80 h-11 w-20 rounded-full rounded-l-none bg-gray-200 hover:bg-gray-300"
               onClick={() => handleSearch(inputValue)}
+              className="mr-1.5 h-9 md:h-9.5 px-4 rounded-full bg-primary text-primary-foreground font-semibold text-xs md:text-sm flex items-center gap-1.5 shadow-sm transition-all hover:opacity-90 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              <Search className="text-primary" size={20} />
-            </Button>
+              <span>搜索</span>
+              <ArrowRight size={14} />
+            </button>
           </div>
         </PopoverAnchor>
+
         <PopoverContent
-          className="w-[var(--radix-popover-trigger-width)] p-0"
+          className="w-[var(--radix-popover-trigger-width)] p-1.5 rounded-2xl border border-border/50 bg-popover/90 backdrop-blur-2xl shadow-2xl"
           align="start"
           sideOffset={8}
           onOpenAutoFocus={e => e.preventDefault()}
         >
-          <div className="p-1">
-            <ScrollArea className="max-h-80 px-3">
-              {!hasContent ? (
-                // History
-                <div>
-                  <div className="text-muted-foreground px-3 py-2 text-xs font-medium">
-                    最近搜索
+          <ScrollArea className="max-h-80 px-1 py-0.5">
+            {!hasContent ? (
+              // 搜索历史记录
+              <div className="space-y-1">
+                <div className="px-3 py-1.5 text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+                  <History size={13} />
+                  <span>最近搜索</span>
+                </div>
+                {searchHistory.map(item => (
+                  <div
+                    key={item.id}
+                    className="flex items-center justify-between rounded-xl px-3 py-2 text-sm text-foreground hover:bg-accent/80 cursor-pointer transition-colors group"
+                    onClick={() => handleSearch(item.content)}
+                    onKeyDown={e => handleInteractiveItemKeyDown(e, () => handleSearch(item.content))}
+                    role="button"
+                    tabIndex={0}
+                  >
+                    <span className="truncate">{item.content}</span>
+                    <button
+                      type="button"
+                      className="text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 size-6 rounded-full flex items-center justify-center transition-opacity"
+                      onClick={e => {
+                        e.stopPropagation()
+                        removeSearchHistoryItem(item.id)
+                      }}
+                      aria-label="删除此条记录"
+                    >
+                      <Trash2 size={13} />
+                    </button>
                   </div>
-                  {searchHistory.map(item => (
+                ))}
+              </div>
+            ) : (
+              // 智能补全联想
+              <div className="space-y-1">
+                {suggestionsLoading ? (
+                  <div className="px-3 py-3 text-xs text-muted-foreground text-center">
+                    正在联想...
+                  </div>
+                ) : (
+                  suggestions.map((suggestion, index) => (
                     <div
-                      key={item.id}
-                      className="hover:bg-accent group flex cursor-pointer items-center rounded-lg px-3 py-2 transition-colors"
-                      onClick={() => handleSearch(item.content)}
+                      key={suggestion.id || index}
+                      className="flex items-center justify-between rounded-xl px-3 py-2 text-sm text-foreground hover:bg-accent/80 cursor-pointer transition-colors"
+                      onClick={() => handleSearch(suggestion.title)}
+                      onKeyDown={e => handleInteractiveItemKeyDown(e, () => handleSearch(suggestion.title))}
                       role="button"
                       tabIndex={0}
-                      onKeyDown={e => handleInteractiveItemKeyDown(e, () => handleSearch(item.content))}
                     >
-                      <History className="text-muted-foreground mr-3 size-4 shrink-0" />
-                      <span className="flex-1 truncate">{item.content}</span>
-                      <button
-                        type="button"
-                        className="text-muted-foreground hover:text-destructive shrink-0 p-1 opacity-0 transition-colors group-hover:opacity-100"
-                        onMouseDown={e => e.preventDefault()}
-                        onKeyDown={e => e.stopPropagation()}
-                        onClick={e => {
-                          e.stopPropagation()
-                          removeSearchHistoryItem(item.id)
-                        }}
-                      >
-                        <Trash2 className="size-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                // Suggestions
-                <div>
-                  {suggestionsLoading ? (
-                    <div className="text-muted-foreground px-3 py-4 text-center text-sm">
-                      搜索中...
-                    </div>
-                  ) : (
-                    suggestions.map(item => (
-                      <div
-                        key={`${item.mediaType}-${item.id}`}
-                        className="hover:bg-accent flex cursor-pointer items-center rounded-lg px-3 py-2 transition-colors"
-                        onClick={() => handleSearch(item.title)}
-                        role="button"
-                        tabIndex={0}
-                        onKeyDown={e => handleInteractiveItemKeyDown(e, () => handleSearch(item.title))}
-                      >
-                        <Search className="text-muted-foreground mr-3 size-4 shrink-0" />
-                        <span className="flex-1 truncate">{item.title}</span>
-                        <span className="text-muted-foreground ml-2 shrink-0 text-xs">
-                          {item.mediaType === 'movie' ? '电影' : '剧集'}
-                        </span>
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <Search size={14} className="text-muted-foreground shrink-0" />
+                        <span className="truncate">{suggestion.title}</span>
                       </div>
-                    ))
-                  )}
-                </div>
-              )}
-            </ScrollArea>
-          </div>
+                      <span className="text-[11px] text-muted-foreground/70 shrink-0 ml-2">
+                        {suggestion.mediaType === 'movie' ? '电影' : '剧集'}
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </ScrollArea>
         </PopoverContent>
       </Popover>
     </div>

@@ -32,17 +32,17 @@ export function PlayerSourceSeasonPanel({
   className,
 }: PlayerSourceSeasonPanelProps) {
   return (
-    <section className={cn('space-y-3 rounded-lg border border-border/60 bg-card/55 p-3 md:p-4', className)}>
+    <section className={cn('space-y-4 rounded-2xl border border-border/40 bg-card/35 backdrop-blur-md p-3.5 sm:p-5 shadow-xs', className)}>
       {showSourceSection && (
-        <article className="space-y-2.5">
+        <article className="space-y-3">
           <div className="flex items-center justify-between gap-3">
-            <h2 className="flex items-center gap-2 text-sm font-semibold">
-              <RadioTower className="size-4" />
-              换源
+            <h2 className="flex items-center gap-2 text-sm sm:text-base font-bold text-foreground">
+              <RadioTower className="size-4 text-primary" />
+              切换视频源
             </h2>
             {isTmdbRoute && (
-              <Badge variant="outline" className="text-xs">
-                {loadingSources ? '匹配中' : `${sourceOptions.length} 源`}
+              <Badge variant="outline" className="rounded-full text-xs font-medium px-2.5 py-0.5 border-border/50 bg-card/60">
+                {loadingSources ? '正在匹配...' : `${sourceOptions.length} 个可用源`}
               </Badge>
             )}
           </div>
@@ -55,11 +55,16 @@ export function PlayerSourceSeasonPanel({
                   key={option.sourceCode}
                   size="sm"
                   variant={active ? 'default' : 'secondary'}
-                  className="rounded-full"
+                  className={cn(
+                    'rounded-full px-3.5 h-8 text-xs sm:text-sm font-medium transition-all',
+                    active
+                      ? 'bg-primary text-primary-foreground border-primary shadow-xs shadow-primary/20 scale-[1.03]'
+                      : 'bg-card/50 hover:bg-card/80 border border-border/40 text-foreground/80 hover:text-foreground',
+                  )}
                   onClick={() => onSourceChange(option.sourceCode)}
                 >
                   {option.sourceName}
-                  {isTmdbRoute && <span className="text-[11px] opacity-70">{option.bestScore}</span>}
+                  {isTmdbRoute && <span className="text-[11px] opacity-75 ml-1">({option.bestScore})</span>}
                 </Button>
               )
             })}
@@ -68,13 +73,13 @@ export function PlayerSourceSeasonPanel({
       )}
 
       {showSeasonSection && seasonOptions.length > 0 && (
-        <article className="space-y-2.5 border-t border-border/45 pt-3">
+        <article className="space-y-3 border-t border-border/30 pt-3.5">
           <div className="flex items-center justify-between gap-3">
-            <h2 className="flex items-center gap-2 text-sm font-semibold">
-              <Layers3 className="size-4" />
-              选季
+            <h2 className="flex items-center gap-2 text-sm sm:text-base font-bold text-foreground">
+              <Layers3 className="size-4 text-primary" />
+              选择播放季
             </h2>
-            <Badge variant="outline" className="text-xs">
+            <Badge variant="outline" className="rounded-full text-xs font-medium px-2.5 py-0.5 border-border/50 bg-card/60">
               {seasonOptions.length} 季
             </Badge>
           </div>
@@ -87,11 +92,16 @@ export function PlayerSourceSeasonPanel({
                   key={option.seasonNumber}
                   size="sm"
                   variant={active ? 'default' : 'secondary'}
-                  className="rounded-full"
+                  className={cn(
+                    'rounded-full px-3.5 h-8 text-xs sm:text-sm font-medium transition-all',
+                    active
+                      ? 'bg-primary text-primary-foreground border-primary shadow-xs shadow-primary/20 scale-[1.03]'
+                      : 'bg-card/50 hover:bg-card/80 border border-border/40 text-foreground/80 hover:text-foreground',
+                  )}
                   onClick={() => onSeasonChange(option.seasonNumber)}
                 >
-                  S{option.seasonNumber}
-                  <span className="text-[11px] opacity-70">{option.matchedSourceCount}</span>
+                  第 {option.seasonNumber} 季
+                  <span className="text-[11px] opacity-75 ml-1">({option.matchedSourceCount}源)</span>
                 </Button>
               )
             })}

@@ -113,7 +113,7 @@ export default function AccountView() {
                   onChange={event => setConfirmation(event.target.value)}
                 />
               </label>
-              <Button type="submit" disabled={busy}>
+              <Button type="submit" disabled={busy} className="rounded-full px-5 font-medium shadow-xs">
                 {busy ? '正在修改…' : '保存新密码'}
               </Button>
             </fieldset>

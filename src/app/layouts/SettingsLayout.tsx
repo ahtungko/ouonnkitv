@@ -106,7 +106,7 @@ export default function SettingsLayout() {
 
   return (
     <div className="min-h-[90vh] pb-8">
-      <header className="border-border bg-sidebar/80 sticky top-0 z-20 border-b backdrop-blur-md">
+      <header className="border-border/40 bg-background/80 sticky top-0 z-20 border-b backdrop-blur-xl">
         <div className="py-1.5 md:py-3">
           <div className="flex flex-wrap items-center gap-1.5 md:gap-2">
             <Button
@@ -153,7 +153,7 @@ export default function SettingsLayout() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.22, ease: [0.25, 0.1, 0.25, 1] }}
-              className="from-muted/35 to-muted/20 border-border/70 mb-4 rounded-xl border border-dashed bg-gradient-to-r px-3 py-2.5 md:px-4 md:py-3"
+              className="mb-4 rounded-2xl border border-border/40 bg-card/35 backdrop-blur-md px-4 py-3.5 shadow-xs"
             >
               <div className="flex items-start gap-2.5 md:gap-3">
                 <div className="bg-background text-muted-foreground flex size-7 shrink-0 items-center justify-center rounded-lg border md:size-8">

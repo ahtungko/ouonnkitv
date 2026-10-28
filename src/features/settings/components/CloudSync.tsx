@@ -35,8 +35,9 @@ export default function CloudSync() {
             {state.status}
             {state.lastSynced ? ` · 最近同步：${new Date(state.lastSynced).toLocaleString()}` : ''}
           </p>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 pt-1">
             <Button
+              className="rounded-full px-4 text-xs sm:text-sm font-medium shadow-xs"
               disabled={busy || state.status === '同步中…' || reminders.status === '提醒同步中…'}
               onClick={() => void Promise.all([syncNow(), syncSeriesNotificationsNow()])}
             >
@@ -44,6 +45,7 @@ export default function CloudSync() {
             </Button>
             <Button
               variant="outline"
+              className="rounded-full px-4 text-xs sm:text-sm font-medium border-border/50 bg-card/60 backdrop-blur-md shadow-xs"
               disabled={busy}
               onClick={() => {
                 try {
@@ -58,6 +60,7 @@ export default function CloudSync() {
             </Button>
             <Button
               variant="outline"
+              className="rounded-full px-4 text-xs sm:text-sm font-medium border-border/50 bg-card/60 backdrop-blur-md shadow-xs text-rose-500 hover:text-rose-600 hover:bg-rose-500/10"
               disabled={busy}
               onClick={() => {
                 setBusy(true)

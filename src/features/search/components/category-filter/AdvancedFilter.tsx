@@ -26,26 +26,26 @@ export function AdvancedFilter({
   onFilterChange,
 }: AdvancedFilterProps) {
   return (
-    <div className="flex gap-3">
-      <span className="text-muted-foreground w-12 shrink-0 pt-1.5 text-sm font-medium">
+    <div className="flex items-center gap-3">
+      <span className="text-foreground/75 w-12 shrink-0 text-xs sm:text-sm font-semibold tracking-wide">
         更多
       </span>
-      <div className="flex flex-1 flex-wrap items-center gap-2">
+      <div className="flex flex-1 flex-wrap items-center gap-3">
         {/* 评分筛选 */}
         <div className="flex items-center gap-2">
-          <span className="text-muted-foreground text-sm">评分</span>
+          <span className="text-muted-foreground text-xs sm:text-sm font-medium">评分</span>
           <Select
             value={String(filterOptions.minVoteAverage || 0)}
             onValueChange={value =>
               onFilterChange({ minVoteAverage: Number(value) || undefined })
             }
           >
-            <SelectTrigger className="h-8 w-[90px]">
+            <SelectTrigger className="h-7.5 w-[92px] rounded-full text-xs border-border/40 bg-card/40">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="rounded-xl border-border/40">
               {RATING_OPTIONS.map(option => (
-                <SelectItem key={option.value} value={String(option.value)}>
+                <SelectItem key={option.value} value={String(option.value)} className="rounded-lg text-xs">
                   {option.label}
                 </SelectItem>
               ))}
@@ -55,7 +55,7 @@ export function AdvancedFilter({
 
         {/* 排序筛选 */}
         <div className="flex items-center gap-2">
-          <span className="text-muted-foreground text-sm">排序</span>
+          <span className="text-muted-foreground text-xs sm:text-sm font-medium">排序</span>
           <Select
             value={filterOptions.sortBy || 'default'}
             onValueChange={value =>
@@ -65,12 +65,12 @@ export function AdvancedFilter({
               })
             }
           >
-            <SelectTrigger className="h-8 w-[90px]">
+            <SelectTrigger className="h-7.5 w-[96px] rounded-full text-xs border-border/40 bg-card/40">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="rounded-xl border-border/40">
               {SORT_OPTIONS.map(option => (
-                <SelectItem key={option.value} value={option.value}>
+                <SelectItem key={option.value} value={option.value} className="rounded-lg text-xs">
                   {option.label}
                 </SelectItem>
               ))}
@@ -79,16 +79,17 @@ export function AdvancedFilter({
           <Button
             variant="ghost"
             size="icon"
-            className="size-8"
+            className="size-7.5 rounded-full border border-border/40 bg-card/40 hover:bg-accent/80"
             onClick={() =>
               onFilterChange({
                 sortOrder: filterOptions.sortOrder === 'asc' ? 'desc' : 'asc',
               })
             }
+            title={filterOptions.sortOrder === 'asc' ? '当前升序，点击切换降序' : '当前降序，点击切换升序'}
           >
             <ArrowUpDown
               className={cn(
-                'size-4 transition-transform',
+                'size-3.5 transition-transform duration-200',
                 filterOptions.sortOrder === 'asc' && 'rotate-180',
               )}
             />

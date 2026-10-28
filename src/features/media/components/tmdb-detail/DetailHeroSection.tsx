@@ -54,11 +54,11 @@ export function DetailHeroSection({
   onToggleFavorite,
 }: DetailHeroSectionProps) {
   const heroBadgeClass =
-    'h-6 gap-1 px-2 text-[10px] leading-none text-white [&_svg]:size-3 md:h-7 md:gap-1.5 md:px-2.5 md:text-xs md:[&_svg]:size-3.5'
+    'h-6 gap-1 px-2.5 text-[11px] font-medium leading-none text-white/95 rounded-full bg-white/15 backdrop-blur-md border border-white/20 shadow-xs [&_svg]:size-3 md:h-7 md:gap-1.5 md:px-3 md:text-xs md:[&_svg]:size-3.5'
   const playNowLabel = onContinueWatching ? '从头播放' : '立即播放'
 
   return (
-    <section className="relative overflow-hidden rounded-lg">
+    <section className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-zinc-950 shadow-2xl ring-1 ring-black/10 dark:ring-white/10 dark:shadow-[0_24px_60px_rgba(0,0,0,0.7)]">
       {detail.backdropPath ? (
         <img
           src={getBackdropUrl(detail.backdropPath, 'w1280')}
@@ -69,22 +69,24 @@ export function DetailHeroSection({
         <div className="absolute inset-0 bg-gradient-to-br from-zinc-800 to-zinc-950" />
       )}
 
-      <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/65 via-50% to-black/20" />
-      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-transparent" />
+      {/* 影院级多层晕影：左侧深暗衬底凸显文字，底部深黑锚定按钮，顶部暗化保证悬浮胶囊清晰 */}
+      <div className="absolute inset-0 bg-gradient-to-r from-black/95 via-black/80 via-45% md:via-60% to-black/25" />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/45 via-35% to-transparent" />
+      <div className="absolute top-0 inset-x-0 h-28 bg-gradient-to-b from-black/60 to-transparent" />
 
       <Button
         variant="ghost"
         onClick={onBack}
-        className="absolute top-4 left-4 z-20 h-8 rounded-full px-2.5 !bg-transparent text-white/90 transition-colors hover:!bg-transparent hover:text-primary dark:hover:!bg-transparent sm:h-9 sm:px-3"
+        className="absolute top-4 left-4 z-20 h-8 sm:h-9 rounded-full px-3 gap-1.5 bg-black/40 hover:bg-black/60 active:scale-95 text-white/90 hover:text-white backdrop-blur-xl border border-white/15 shadow-md transition-all"
       >
         <ArrowLeft className="size-4" />
-        返回
+        <span className="text-xs sm:text-sm font-medium">返回</span>
       </Button>
       {richDetail.homepage && (
         <Button
           asChild
           variant="ghost"
-          className="absolute top-4 right-24 z-20 h-8 rounded-full px-2.5 !bg-transparent text-white/90 transition-colors hover:!bg-transparent hover:text-white sm:right-16 sm:h-9 sm:px-3 md:right-4"
+          className="absolute top-4 right-20 sm:right-24 md:right-4 z-20 h-8 sm:h-9 rounded-full px-3 gap-1.5 bg-black/40 hover:bg-black/60 active:scale-95 text-white/90 hover:text-white backdrop-blur-xl border border-white/15 shadow-md transition-all"
         >
           <a href={richDetail.homepage} target="_blank" rel="noreferrer">
             <ExternalLink className="size-4" />
@@ -96,7 +98,7 @@ export function DetailHeroSection({
       )}
       <Button
         variant="ghost"
-        className="absolute top-4 right-4 z-20 h-8 gap-1 rounded-full px-1.5 !bg-transparent text-white/90 hover:!bg-transparent hover:text-white focus-visible:!bg-transparent active:!bg-transparent sm:h-9 sm:px-2 md:hidden"
+        className="absolute top-4 right-4 z-20 h-8 sm:h-9 gap-1.5 rounded-full px-3 bg-black/40 hover:bg-black/60 active:scale-95 text-white/90 hover:text-white backdrop-blur-xl border border-white/15 shadow-md transition-all md:hidden"
         onClick={onToggleFavorite}
         aria-label={favorited ? '取消收藏' : '加入收藏'}
       >
@@ -111,23 +113,23 @@ export function DetailHeroSection({
         <span className="text-xs font-medium">{favorited ? '已收藏' : '收藏'}</span>
       </Button>
 
-      <div className="relative z-10 flex min-h-[420px] flex-col justify-end gap-5 p-4 sm:min-h-[460px] sm:p-5 md:min-h-[620px] md:gap-6 md:p-8 lg:flex-row lg:items-end lg:justify-between">
+      <div className="relative z-10 flex min-h-[440px] flex-col justify-end gap-5 p-5 sm:min-h-[480px] sm:p-7 md:min-h-[620px] md:gap-6 md:p-10 lg:flex-row lg:items-end lg:justify-between">
         <div className="flex flex-col gap-4 md:max-w-2xl">
           <div className="space-y-3">
             {heroLogo ? (
               <img
                 src={getPosterUrl(heroLogo.file_path, 'w500')}
                 alt={detail.title}
-                className="max-h-24 max-w-[78vw] object-contain sm:max-w-[320px] md:max-h-36 md:max-w-[420px]"
+                className="max-h-24 max-w-[78vw] object-contain drop-shadow-lg sm:max-w-[340px] md:max-h-36 md:max-w-[440px]"
               />
             ) : (
-              <h1 className="text-3xl leading-tight font-bold text-white md:text-5xl">{detail.title}</h1>
+              <h1 className="text-3xl leading-tight font-extrabold tracking-tight text-white drop-shadow-md sm:text-4xl md:text-5xl lg:text-6xl">{detail.title}</h1>
             )}
-            {richDetail.tagline && <p className="text-sm italic text-white/80 md:text-base">{richDetail.tagline}</p>}
+            {richDetail.tagline && <p className="text-sm italic text-white/80 font-light tracking-wide md:text-base">{richDetail.tagline}</p>}
           </div>
 
           <div className="flex items-center gap-1.5 overflow-hidden text-xs md:hidden">
-            <Badge className={`${heroBadgeClass} shrink-0 bg-white/20`}>
+            <Badge className={`${heroBadgeClass} shrink-0`}>
               {tmdbType === 'movie' ? (
                 <>
                   <Film />
@@ -141,25 +143,25 @@ export function DetailHeroSection({
               )}
             </Badge>
             {releaseYear && (
-              <Badge className={`${heroBadgeClass} shrink-0 bg-white/20`}>
+              <Badge className={`${heroBadgeClass} shrink-0`}>
                 <CalendarDays />
                 {releaseYear}
               </Badge>
             )}
             {detail.voteAverage > 0 ? (
-              <Badge className={`${heroBadgeClass} shrink-0 bg-white/20`}>
+              <Badge className={`${heroBadgeClass} shrink-0`}>
                 <Star className="fill-current text-amber-300" />
                 {detail.voteAverage.toFixed(1)}
               </Badge>
             ) : (
-              <Badge className={`${heroBadgeClass} shrink-0 bg-white/20`}>
+              <Badge className={`${heroBadgeClass} shrink-0`}>
                 <Flame className="text-orange-300" />
                 {detail.popularity.toFixed(1)}
               </Badge>
             )}
             {adultLevel && (
               <Badge
-                className={`${heroBadgeClass} shrink-0 ${adultLevel === 'NSFW' ? 'bg-red-500/80' : 'bg-emerald-500/80'}`}
+                className={`${heroBadgeClass} shrink-0 ${adultLevel === 'NSFW' ? 'bg-red-500/80 border-red-500/40' : 'bg-emerald-500/80 border-emerald-500/40'}`}
               >
                 {adultLevel}
               </Badge>
@@ -167,7 +169,7 @@ export function DetailHeroSection({
           </div>
 
           <div className="hidden flex-wrap items-center gap-2 text-sm md:flex">
-            <Badge className={`${heroBadgeClass} bg-white/20 hover:bg-white/30`}>
+            <Badge className={`${heroBadgeClass} hover:bg-white/25`}>
               {tmdbType === 'movie' ? (
                 <>
                   <Film />
@@ -181,73 +183,73 @@ export function DetailHeroSection({
               )}
             </Badge>
             {releaseYear && (
-              <Badge className={`${heroBadgeClass} bg-white/20 hover:bg-white/30`}>
+              <Badge className={`${heroBadgeClass} hover:bg-white/25`}>
                 <CalendarDays />
                 {releaseYear}
               </Badge>
             )}
             {detail.voteAverage > 0 && (
-              <Badge className={`${heroBadgeClass} bg-white/20 hover:bg-white/30`}>
+              <Badge className={`${heroBadgeClass} hover:bg-white/25`}>
                 <Star className="fill-current text-amber-300" />
                 {detail.voteAverage.toFixed(1)}
               </Badge>
             )}
-            <Badge className={`${heroBadgeClass} bg-white/20 hover:bg-white/30`}>
+            <Badge className={`${heroBadgeClass} hover:bg-white/25`}>
               <Flame className="text-orange-300" />
               热度 {detail.popularity.toFixed(1)}
             </Badge>
             {adultLevel && (
               <Badge
-                className={`${heroBadgeClass} ${adultLevel === 'NSFW' ? 'bg-red-500/80 hover:bg-red-500' : 'bg-emerald-500/80 hover:bg-emerald-500'}`}
+                className={`${heroBadgeClass} ${adultLevel === 'NSFW' ? 'bg-red-500/80 border-red-500/40 hover:bg-red-500' : 'bg-emerald-500/80 border-emerald-500/40 hover:bg-emerald-500'}`}
               >
                 {adultLevel}
               </Badge>
             )}
             {runtimeLabel && (
-              <Badge className={`${heroBadgeClass} bg-white/20 hover:bg-white/30`}>
+              <Badge className={`${heroBadgeClass} hover:bg-white/25`}>
                 <Clock3 />
                 {runtimeLabel}
               </Badge>
             )}
             {tmdbType === 'tv' && (
-              <Badge className={`${heroBadgeClass} bg-white/20 hover:bg-white/30`}>
+              <Badge className={`${heroBadgeClass} hover:bg-white/25`}>
                 {richDetail.number_of_seasons || 0} 季 / {richDetail.number_of_episodes || 0} 集
               </Badge>
             )}
           </div>
 
-          <p className="line-clamp-2 text-sm leading-6 text-white/85 md:line-clamp-4 md:text-base">{detail.overview || '暂无简介'}</p>
+          <p className="line-clamp-2 text-sm leading-6 text-white/85 drop-shadow-sm md:line-clamp-4 md:text-base">{detail.overview || '暂无简介'}</p>
 
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap items-center gap-3 pt-2">
             {onContinueWatching ? (
               <Button
-                className="group relative rounded-full bg-[#E50914] font-semibold text-white shadow-lg hover:bg-[#ca0812]"
+                className="group relative h-11 sm:h-12 rounded-full bg-[#E50914] px-6 sm:px-7 font-semibold text-white shadow-lg shadow-red-950/40 hover:bg-[#c80812] active:scale-95 transition-all"
                 onClick={onContinueWatching}
               >
-                <span className="inline-flex items-center gap-1.5 transition-opacity duration-200 group-hover:opacity-0">
-                  <Play className="size-4 fill-current" />
-                  继续观看
+                <span className="inline-flex items-center gap-2 transition-opacity duration-200 group-hover:opacity-0">
+                  <Play className="size-4.5 fill-current" />
+                  <span>继续观看</span>
                   {continueWatchingLabel ? (
-                    <span className="hidden sm:inline">· {continueWatchingLabel}</span>
+                    <span className="hidden sm:inline font-normal text-white/80">· {continueWatchingLabel}</span>
                   ) : null}
                 </span>
                 {continueWatchingProgressLabel ? (
-                  <span className="pointer-events-none absolute inset-0 hidden items-center justify-center text-xs font-semibold opacity-0 transition-opacity duration-200 group-hover:opacity-100 sm:flex">
+                  <span className="pointer-events-none absolute inset-0 hidden items-center justify-center text-xs font-semibold tracking-wide opacity-0 transition-opacity duration-200 group-hover:opacity-100 sm:flex">
                     {continueWatchingProgressLabel}
                   </span>
                 ) : null}
               </Button>
             ) : null}
             <Button
-              className="rounded-full bg-white font-semibold text-black shadow-lg hover:bg-white/90"
+              className="h-11 sm:h-12 rounded-full bg-white px-6 sm:px-7 font-semibold text-zinc-950 shadow-lg hover:bg-white/90 active:scale-95 transition-all flex items-center gap-2"
               onClick={onPlayNow}
             >
-              <Play className="size-4" />
-              {playNowLabel}
+              <Play className="size-4.5 fill-current" />
+              <span>{playNowLabel}</span>
             </Button>
             <Button
               variant="outline"
-              className="hidden rounded-full border-white/35 bg-white/12 font-semibold text-white hover:bg-white/20 hover:text-white md:inline-flex"
+              className="hidden h-11 sm:h-12 rounded-full border-white/25 bg-white/10 px-5 font-semibold text-white backdrop-blur-md shadow-md hover:bg-white/20 hover:text-white active:scale-95 transition-all md:inline-flex items-center gap-2"
               onClick={onToggleFavorite}
             >
               <motion.span
@@ -256,22 +258,22 @@ export function DetailHeroSection({
                 animate={{ scale: 1, rotate: 0, opacity: 1 }}
                 transition={{ type: 'spring', stiffness: 520, damping: 24 }}
               >
-                <Heart className={`size-4 transition-colors ${favorited ? 'fill-rose-500 text-rose-500' : ''}`} />
+                <Heart className={`size-4.5 transition-colors ${favorited ? 'fill-rose-500 text-rose-500' : ''}`} />
               </motion.span>
-              {favorited ? '已加入收藏' : '加入收藏'}
+              <span>{favorited ? '已加入收藏' : '加入收藏'}</span>
             </Button>
           </div>
         </div>
 
-        <div className="hidden w-36 shrink-0 overflow-hidden rounded-lg border border-white/20 shadow-xl lg:block">
+        <div className="hidden w-44 shrink-0 overflow-hidden rounded-2xl border border-white/20 shadow-2xl shadow-black/80 ring-1 ring-white/15 lg:block aspect-[2/3] group/poster bg-zinc-900">
           {detail.posterPath ? (
             <img
               src={getPosterUrl(detail.posterPath, 'w342')}
               alt={detail.title}
-              className="h-full w-full object-cover"
+              className="h-full w-full object-cover transition-transform duration-500 group-hover/poster:scale-105"
             />
           ) : (
-            <div className="bg-muted text-muted-foreground flex aspect-[2/3] items-center justify-center text-xs">无海报</div>
+            <div className="bg-muted text-muted-foreground flex h-full w-full items-center justify-center text-xs">无海报</div>
           )}
         </div>
       </div>

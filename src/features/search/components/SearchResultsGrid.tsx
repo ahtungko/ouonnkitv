@@ -38,20 +38,20 @@ interface SearchResultsGridProps {
 }
 
 // 骨架屏数量
-const SKELETON_COUNT = 20
+const SKELETON_COUNT = 18
 
 /**
- * ResultSkeleton - 结果骨架屏
+ * ResultSkeleton - 院线级海报骨架屏
  */
 function ResultSkeleton() {
   return (
     <div className="space-y-2">
-      <div className="overflow-hidden rounded-lg">
+      <div className="overflow-hidden rounded-xl border border-border/40 bg-card/20">
         <AspectRatio ratio={2 / 3}>
-          <Skeleton className="h-full w-full" />
+          <Skeleton className="size-full rounded-none" />
         </AspectRatio>
       </div>
-      <Skeleton className="h-4 w-3/4" />
+      <Skeleton className="h-4 w-3/4 rounded-md mt-2" />
     </div>
   )
 }
@@ -61,17 +61,22 @@ function ResultSkeleton() {
  */
 function EmptyState({ mode }: { mode: SearchMode }) {
   return (
-    <div className="flex flex-col items-center justify-center py-16">
-      <NoResultIcon size={128} className="text-muted-foreground/30" />
-      <p className="text-muted-foreground mt-4 text-sm">
-        {mode === 'tmdb' ? '未找到相关内容，试试其他关键词' : '换个关键词试试吧'}
+    <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
+      <div className="size-20 rounded-full bg-muted/40 border border-border/40 flex items-center justify-center mb-4">
+        <NoResultIcon size={44} className="text-muted-foreground/60" />
+      </div>
+      <h3 className="text-base font-semibold text-foreground">未找到相关影视内容</h3>
+      <p className="text-muted-foreground mt-1.5 text-xs sm:text-sm max-w-sm">
+        {mode === 'tmdb'
+          ? '尝试精简关键词，或切换至“直连聚合”模式搜索全网影视源'
+          : '试试更换视频源别名，或检查关键字是否有错别字'}
       </p>
     </div>
   )
 }
 
 /**
- * SearchResultsGrid - 搜索结果网格组件
+ * SearchResultsGrid - 院线级搜索海报网格流 (Cinema Poster Grid)
  */
 export function SearchResultsGrid({
   mode,
@@ -91,33 +96,32 @@ export function SearchResultsGrid({
   if (mode === 'tmdb') {
     const results = tmdbResults
     const hasResults = results.length > 0
-    // 判断骨架屏显示：
-    // 1. 正在加载且没有已有结果（首次加载）
-    // 2. 正在搜索新查询（更换关键词或切换筛选）
     const showSkeleton = loading && (!hasResults || isSearchingNewQuery)
 
     return (
       <div className={cn('space-y-6', className)}>
-        {/* 结果统计 - 仅在非加载状态且有 totalResults 时显示 */}
+        {/* 结果统计 */}
         {!loading && hasResults && totalResults !== undefined && (
-          <div className="text-muted-foreground text-sm">
-            共找到 <span className="text-primary font-medium">{totalResults}</span> 个结果
-            {results.length !== totalResults && (
-              <>，已显示 <span className="text-primary font-medium">{results.length}</span> 个</>
-            )}
+          <div className="flex items-center justify-between text-xs sm:text-sm text-muted-foreground px-1">
+            <div>
+              共检索到 <span className="text-foreground font-bold">{totalResults}</span> 部作品
+              {results.length !== totalResults && (
+                <>（当前已加载 <span className="text-foreground font-semibold">{results.length}</span> 部）</>
+              )}
+            </div>
           </div>
         )}
 
-        {/* 内容区域 */}
+        {/* 内容海报网格 */}
         <div>
           {showSkeleton ? (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 md:gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7">
               {Array.from({ length: SKELETON_COUNT }).map((_, index) => (
                 <ResultSkeleton key={index} />
               ))}
             </div>
           ) : hasResults ? (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 md:gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7">
               {results.map(item => (
                 <div key={`${item.mediaType}-${item.id}`}>
                   <MediaPosterCard
@@ -135,21 +139,21 @@ export function SearchResultsGrid({
           )}
         </div>
 
-        {/* 加载更多状态 - 哨兵元素始终渲染，但只在有结果时显示内容 */}
-        <div ref={sentinelRef} className="py-8 flex justify-center min-h-[60px]">
+        {/* 加载更多状态哨兵 */}
+        <div ref={sentinelRef} className="py-8 flex justify-center min-h-[50px]">
           {hasResults ? (
             loading ? (
-              <div className="text-muted-foreground text-sm flex items-center gap-2">
-                <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />
-                加载下一页...
+              <div className="inline-flex items-center gap-2 rounded-full border border-border/40 bg-card/40 backdrop-blur-md px-4 py-1.5 text-xs text-muted-foreground shadow-xs">
+                <div className="size-3.5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                <span>加载更多精彩作品...</span>
               </div>
             ) : hasMore ? (
-              <div className="text-muted-foreground text-sm">
+              <div className="inline-flex items-center rounded-full border border-border/30 bg-card/20 px-4 py-1.5 text-xs text-muted-foreground">
                 下滑加载更多
               </div>
             ) : (
-              <div className="text-muted-foreground text-sm">
-                已加载全部内容
+              <div className="text-xs text-muted-foreground/70">
+                — 已显示全部内容 —
               </div>
             )
           ) : null}
@@ -165,14 +169,14 @@ export function SearchResultsGrid({
   return (
     <div className={cn('space-y-6', className)}>
       {/* 结果统计 + 源状态 */}
-      <div className="flex items-center justify-between gap-4">
-        {/* 左侧：结果统计 */}
-        {hasResults && (
-          <div className="text-muted-foreground text-sm">
-            共找到 <span className="text-primary font-medium">{results.length}</span> 个结果
+      <div className="flex flex-wrap items-center justify-between gap-3 px-1">
+        {hasResults ? (
+          <div className="text-xs sm:text-sm text-muted-foreground">
+            聚合全网找到 <span className="text-foreground font-bold">{results.length}</span> 条视频资源
           </div>
+        ) : (
+          <div />
         )}
-        {/* 右侧：源状态徽章 */}
         {searchProgress && (
           <SourceStatusBadge
             completed={searchProgress.completed}
@@ -184,22 +188,21 @@ export function SearchResultsGrid({
         )}
       </div>
 
-      {/* 内容区域 */}
+      {/* 内容网格 */}
       <div>
         {loading && !hasResults ? (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 md:gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7">
             {Array.from({ length: SKELETON_COUNT }).map((_, index) => (
               <ResultSkeleton key={index} />
             ))}
           </div>
         ) : hasResults ? (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 md:gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7">
             {results.map(item => {
               if (!item.source_code || !item.vod_id) {
                 return null
               }
 
-              // 根据源代码生成配色方案
               const colorScheme = item.source_code
                 ? getSourceColorScheme(item.source_code)
                 : undefined
@@ -232,23 +235,23 @@ export function SearchResultsGrid({
 
       {/* 加载更多状态 */}
       {hasResults && (
-        <div ref={sentinelRef} className="py-8 flex justify-center">
+        <div ref={sentinelRef} className="py-8 flex justify-center min-h-[50px]">
           {!hasMore ? (
-            <div className="text-muted-foreground text-sm">
-              已加载全部内容
+            <div className="text-xs text-muted-foreground/70">
+              — 全部源已检索完成 —
             </div>
           ) : loading && isCurrentPageComplete ? (
-            <div className="text-muted-foreground text-sm flex items-center gap-2">
-              <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />
-              加载下一页...
+            <div className="inline-flex items-center gap-2 rounded-full border border-border/40 bg-card/40 backdrop-blur-md px-4 py-1.5 text-xs text-muted-foreground shadow-xs">
+              <div className="size-3.5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+              <span>正在向更多源检索下一批结果...</span>
             </div>
           ) : !isCurrentPageComplete ? (
-            <div className="text-muted-foreground text-sm flex items-center gap-2">
-              <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />
-              等待更多源返回结果...
+            <div className="inline-flex items-center gap-2 rounded-full border border-border/40 bg-card/40 backdrop-blur-md px-4 py-1.5 text-xs text-muted-foreground shadow-xs">
+              <div className="size-3.5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+              <span>正在等待所有已连通的视频源返回...</span>
             </div>
           ) : (
-            <div className="text-muted-foreground text-sm">
+            <div className="inline-flex items-center rounded-full border border-border/30 bg-card/20 px-4 py-1.5 text-xs text-muted-foreground">
               下滑加载更多
             </div>
           )}

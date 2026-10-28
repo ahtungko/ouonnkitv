@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import { motion } from 'framer-motion'
+import { cn } from '@/shared/lib/utils'
 import type { DetailTab } from './types'
 
 interface TabIndicator {
@@ -21,7 +22,6 @@ export function DetailTabNav({
   tabItems,
   activeTab,
   onTabChange,
-  tabIndicator,
 }: DetailTabNavProps) {
   const navScrollRef = useRef<HTMLDivElement | null>(null)
   const [edgeHint, setEdgeHint] = useState({ left: false, right: false })
@@ -65,9 +65,12 @@ export function DetailTabNav({
   }, [tabItems.length, tabListRef])
 
   return (
-    <section className="-mt-px relative px-2 md:flex md:justify-center md:px-0">
-      <div ref={navScrollRef} className="scrollbar-hide overflow-x-auto md:overflow-visible">
-        <div ref={tabListRef} className="relative flex min-w-max items-center gap-4 md:gap-6">
+    <section className="relative mt-4 flex items-center justify-start px-2 sm:justify-center md:px-0">
+      <div
+        ref={navScrollRef}
+        className="scrollbar-hide max-w-full overflow-x-auto rounded-full bg-card/60 p-1.5 backdrop-blur-xl border border-border/45 shadow-xs"
+      >
+        <div ref={tabListRef} className="relative flex min-w-max items-center gap-1">
           {tabItems.map(tab => {
             const isActive = activeTab === tab.key
             return (
@@ -75,30 +78,36 @@ export function DetailTabNav({
                 key={tab.key}
                 type="button"
                 data-tab={tab.key}
-                className="relative shrink-0 whitespace-nowrap px-1 py-3 text-sm font-medium"
+                className={cn(
+                  'relative z-10 shrink-0 whitespace-nowrap rounded-full px-4 py-1.5 text-xs sm:text-sm font-medium transition-colors duration-200 select-none',
+                  isActive
+                    ? 'text-primary-foreground font-semibold'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/30',
+                )}
                 onClick={() => onTabChange(tab.key)}
               >
-                <span className={isActive ? 'text-foreground' : 'text-muted-foreground'}>{tab.label}</span>
+                {isActive && (
+                  <motion.div
+                    layoutId="detail-tab-active-capsule"
+                    className="absolute inset-0 -z-10 rounded-full bg-primary shadow-xs"
+                    transition={{ type: 'spring', stiffness: 460, damping: 36 }}
+                  />
+                )}
+                <span>{tab.label}</span>
               </button>
             )
           })}
-          {tabIndicator.ready && (
-            <motion.div
-              className="bg-primary pointer-events-none absolute bottom-0 left-0 h-0.5 rounded-full"
-              initial={false}
-              animate={{ x: tabIndicator.x, width: tabIndicator.width }}
-              transition={{ type: 'spring', stiffness: 420, damping: 38, mass: 0.35 }}
-            />
-          )}
         </div>
       </div>
+
+      {/* 移动端滚动边缘提示 */}
       <div
-        className={`pointer-events-none absolute top-1 bottom-1 left-0 z-10 w-5 rounded-full bg-gradient-to-r from-background/85 via-background/45 to-transparent transition-opacity duration-300 ease-out md:hidden ${
+        className={`pointer-events-none absolute top-1 bottom-1 left-0 z-10 w-6 rounded-l-full bg-gradient-to-r from-background via-background/60 to-transparent transition-opacity duration-300 ease-out sm:hidden ${
           edgeHint.left ? 'opacity-100' : 'opacity-0'
         }`}
       />
       <div
-        className={`pointer-events-none absolute top-1 bottom-1 right-0 z-10 w-6 rounded-full bg-gradient-to-l from-background/85 via-background/45 to-transparent transition-opacity duration-300 ease-out md:hidden ${
+        className={`pointer-events-none absolute top-1 bottom-1 right-0 z-10 w-6 rounded-r-full bg-gradient-to-l from-background via-background/60 to-transparent transition-opacity duration-300 ease-out sm:hidden ${
           edgeHint.right ? 'opacity-100' : 'opacity-0'
         }`}
       />

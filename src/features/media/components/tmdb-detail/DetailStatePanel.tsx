@@ -56,7 +56,7 @@ export function DetailStatePanel({
   return (
     <section
       className={cn(
-        'flex w-full flex-col items-center justify-center gap-4 text-center',
+        'flex w-full flex-col items-center justify-center gap-4 text-center rounded-2xl border border-border/40 bg-card/25 backdrop-blur-md p-6 sm:p-8 shadow-xs',
         compact ? 'min-h-[280px] py-4' : 'min-h-[60vh] py-6',
         className,
       )}

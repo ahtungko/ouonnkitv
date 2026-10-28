@@ -10,18 +10,18 @@ interface ExpandToggleProps {
 }
 
 /**
- * 展开/收起按钮组件
+ * ExpandToggle - 展开/收起胶囊按钮组件
  */
 export function ExpandToggle({ isExpanded, onToggle, className }: ExpandToggleProps) {
   return (
-    <div className={cn('flex justify-center pt-1', className)}>
+    <div className={cn('flex justify-center', className)}>
       <button
         type="button"
         onClick={onToggle}
-        className="text-muted-foreground hover:text-primary flex items-center gap-1 text-sm transition-colors"
+        className="inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-card/40 px-3.5 py-1 text-xs font-medium text-muted-foreground transition-all hover:bg-accent/80 hover:text-foreground active:scale-95"
       >
-        <span>{isExpanded ? '收起' : '展开更多'}</span>
-        <ChevronDown className={cn('size-4 transition-transform', isExpanded && 'rotate-180')} />
+        <span>{isExpanded ? '收起更多' : '展开更多'}</span>
+        <ChevronDown className={cn('size-3.5 transition-transform duration-200', isExpanded && 'rotate-180')} />
       </button>
     </div>
   )

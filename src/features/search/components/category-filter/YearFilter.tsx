@@ -44,64 +44,59 @@ export function YearFilter({ years, filterOptions, onFilterChange }: YearFilterP
     <>
       {/* 移动端：前5个年份 + 更多按钮 */}
       <div className="md:hidden">
-        <div className="flex gap-3">
-          <span className="text-muted-foreground w-12 shrink-0 pt-1.5 text-sm font-medium">
-            年份
-          </span>
-          <div className="flex flex-1 flex-wrap gap-2">
+        <WrapFilterRow label="年份">
+          <FilterChip
+            label="全部"
+            isSelected={!filterOptions.releaseYear}
+            onClick={() => onFilterChange({ releaseYear: undefined })}
+          />
+          {mobileYears.map(year => (
             <FilterChip
-              label="全部"
-              isSelected={!filterOptions.releaseYear}
-              onClick={() => onFilterChange({ releaseYear: undefined })}
+              key={year}
+              label={String(year)}
+              isSelected={filterOptions.releaseYear === year}
+              onClick={() => onFilterChange({ releaseYear: year })}
             />
-            {mobileYears.map(year => (
-              <FilterChip
-                key={year}
-                label={String(year)}
-                isSelected={filterOptions.releaseYear === year}
-                onClick={() => onFilterChange({ releaseYear: year })}
-              />
-            ))}
-            <Drawer open={isYearDrawerOpen} onOpenChange={setIsYearDrawerOpen}>
-              <DrawerTrigger asChild>
-                <div>
-                  <MoreButton
-                    count={Math.max(0, (years.length > 5 ? years.length - 5 : 0) || 15)}
-                    isSelected={isMoreSelected}
+          ))}
+          <Drawer open={isYearDrawerOpen} onOpenChange={setIsYearDrawerOpen}>
+            <DrawerTrigger asChild>
+              <div>
+                <MoreButton
+                  count={Math.max(0, (years.length > 5 ? years.length - 5 : 0) || 15)}
+                  isSelected={isMoreSelected}
+                />
+              </div>
+            </DrawerTrigger>
+            <DrawerContent className="max-h-[75vh] rounded-t-3xl border-t border-border/50 bg-background/95 backdrop-blur-2xl">
+              <DrawerHeader className="border-b border-border/40 pb-3">
+                <DrawerTitle className="text-base font-bold">选择年份</DrawerTitle>
+              </DrawerHeader>
+              <div className="overflow-y-auto p-4 sm:p-5">
+                <div className="flex flex-wrap gap-2">
+                  <FilterChip
+                    label="全部年份"
+                    isSelected={!filterOptions.releaseYear}
+                    onClick={() => {
+                      onFilterChange({ releaseYear: undefined })
+                      setIsYearDrawerOpen(false)
+                    }}
                   />
-                </div>
-              </DrawerTrigger>
-              <DrawerContent className="max-h-[70vh]">
-                <DrawerHeader>
-                  <DrawerTitle>选择年份</DrawerTitle>
-                </DrawerHeader>
-                <div className="overflow-y-auto p-4">
-                  <div className="flex flex-wrap gap-2">
+                  {drawerYears.map(year => (
                     <FilterChip
-                      label="全部年份"
-                      isSelected={!filterOptions.releaseYear}
+                      key={year}
+                      label={String(year)}
+                      isSelected={filterOptions.releaseYear === year}
                       onClick={() => {
-                        onFilterChange({ releaseYear: undefined })
+                        onFilterChange({ releaseYear: year })
                         setIsYearDrawerOpen(false)
                       }}
                     />
-                    {drawerYears.map(year => (
-                      <FilterChip
-                        key={year}
-                        label={String(year)}
-                        isSelected={filterOptions.releaseYear === year}
-                        onClick={() => {
-                          onFilterChange({ releaseYear: year })
-                          setIsYearDrawerOpen(false)
-                        }}
-                      />
-                    ))}
-                  </div>
+                  ))}
                 </div>
-              </DrawerContent>
-            </Drawer>
-          </div>
-        </div>
+              </div>
+            </DrawerContent>
+          </Drawer>
+        </WrapFilterRow>
       </div>
 
       {/* 桌面端：前10个年份 */}
@@ -132,20 +127,20 @@ interface MoreButtonProps {
 }
 
 /**
- * MoreButton - 更多按钮组件
+ * MoreButton - 更多胶囊按钮组件
  */
 function MoreButton({ count, isSelected }: MoreButtonProps) {
   return (
     <button
       type="button"
-      className={`flex shrink-0 items-center gap-1 rounded-full border px-3 py-1.5 text-sm font-medium transition-all ${
+      className={`inline-flex items-center gap-1 shrink-0 rounded-full px-3 py-1 text-xs sm:text-[13px] font-medium transition-all duration-200 select-none active:scale-95 ${
         isSelected
-          ? 'border-primary bg-primary text-primary-foreground'
-          : 'border-border bg-background text-muted-foreground hover:border-primary/50 hover:text-primary'
+          ? 'bg-primary text-primary-foreground font-semibold shadow-xs shadow-primary/25 border border-primary/20 scale-[1.02]'
+          : 'border border-border/40 bg-card/40 text-muted-foreground hover:text-foreground hover:bg-accent/80 hover:border-border/80'
       }`}
     >
       <span>更多</span>
-      <span className="text-xs opacity-70">({count})</span>
+      <span className="text-[10px] opacity-75">({count})</span>
       <ChevronRight className="size-3" />
     </button>
   )

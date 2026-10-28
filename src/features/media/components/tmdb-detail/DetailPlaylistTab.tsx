@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
-import { Check, ChevronDown, ImageOff, List, Play, RefreshCcw } from 'lucide-react'
+import { Check, ChevronDown, ImageOff, List, Play, Radio, RefreshCcw } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Spinner } from '@/shared/components/ui/spinner'
 import { Badge } from '@/shared/components/ui/badge'
@@ -67,7 +67,7 @@ function MotionCollapse({
           transition={{ duration: 0.18, ease: 'easeOut' }}
           className="overflow-hidden"
         >
-          <div className="pt-3">{children}</div>
+          <div className="pt-2">{children}</div>
         </motion.div>
       )}
     </AnimatePresence>
@@ -135,7 +135,7 @@ function ProgressPill({
   completedAt: number | null
 }) {
   const containerClass =
-    'inline-flex items-center gap-2 rounded-full border border-border/45 bg-background/70 px-3 py-1.5 text-xs text-foreground/85 backdrop-blur-sm'
+    'inline-flex items-center gap-2 rounded-full border border-border/50 bg-card/70 px-3.5 py-1.5 text-xs text-foreground/85 backdrop-blur-md shadow-xs'
 
   if (loading) {
     const currentSearch =
@@ -183,7 +183,7 @@ function ProgressPill({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -6 }}
       transition={{ duration: 0.2, ease: 'easeOut' }}
-      className={containerClass.replace('text-foreground/85', 'text-green-600')}
+      className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-1.5 text-xs font-medium text-emerald-500 backdrop-blur-md shadow-xs"
     >
       <Check className="size-4" />
       <span>匹配完成{durationText}</span>
@@ -211,15 +211,26 @@ function MatchRow({
   const cover = entry.item.vod_pic || ''
   const rowClass =
     density === 'compact'
-      ? 'flex flex-col gap-2.5 sm:flex-row sm:items-start sm:justify-between sm:gap-3'
-      : 'flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4'
+      ? 'flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3 group/match'
+      : 'flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 group/match'
 
   return (
     <div className={rowClass}>
-      <div className="flex min-w-0 w-full gap-3 sm:w-auto sm:flex-1">
-        <div className={density === 'compact' ? 'border-border/40 bg-muted/30 size-12 shrink-0 overflow-hidden rounded-md border' : 'border-border/40 bg-muted/30 size-14 shrink-0 overflow-hidden rounded-md border'}>
+      <div className="flex min-w-0 w-full gap-3 sm:w-auto sm:flex-1 items-center">
+        <div
+          className={
+            density === 'compact'
+              ? 'size-12 shrink-0 overflow-hidden rounded-xl border border-border/40 bg-muted/40 shadow-xs'
+              : 'size-14 shrink-0 overflow-hidden rounded-xl border border-border/40 bg-muted/40 shadow-xs'
+          }
+        >
           {cover ? (
-            <img src={cover} alt={title} className="h-full w-full object-cover" loading="lazy" />
+            <img
+              src={cover}
+              alt={title}
+              className="h-full w-full object-cover transition-transform duration-300 group-hover/match:scale-105"
+              loading="lazy"
+            />
           ) : (
             <div className="text-muted-foreground flex h-full w-full items-center justify-center">
               <ImageOff className="size-4" />
@@ -228,13 +239,13 @@ function MatchRow({
         </div>
 
         <div className="min-w-0 flex-1 space-y-1">
-          <p className={density === 'compact' ? 'line-clamp-1 text-sm font-medium' : 'line-clamp-1 text-sm font-semibold'}>
+          <p className="line-clamp-1 text-xs sm:text-sm font-semibold text-foreground/95 group-hover/match:text-primary transition-colors">
             {title}
           </p>
-          <div className="text-muted-foreground flex flex-wrap items-center gap-2 text-xs">
-            {year && <span>{year}</span>}
+          <div className="text-muted-foreground flex flex-wrap items-center gap-1.5 text-xs">
+            {year && <span className="text-[11px] font-medium">{year}</span>}
             {remarks && (
-              <Badge variant="outline" className="max-w-full rounded-full text-[11px] whitespace-nowrap">
+              <Badge variant="outline" className="max-w-full rounded-full text-[10px] px-2 py-0 border-border/50 text-muted-foreground">
                 {remarks}
               </Badge>
             )}
@@ -242,20 +253,23 @@ function MatchRow({
         </div>
       </div>
 
-      <div className="flex w-full shrink-0 items-center justify-between gap-2 sm:w-auto sm:justify-end sm:self-center">
-        <p className="text-muted-foreground text-xs sm:hidden">分数 {entry.score}</p>
-        <Badge variant="outline" className="hidden h-7 rounded-full px-2.5 py-0 text-[11px] sm:inline-flex">
-          分数 {entry.score}
+      <div className="flex w-full shrink-0 items-center justify-between gap-2 sm:w-auto sm:justify-end">
+        <Badge variant="outline" className="h-6 rounded-full px-2 py-0 text-[10px] font-medium border-border/50 bg-card/60">
+          匹配度 {entry.score}
         </Badge>
         {playLink ? (
-          <Button asChild size="xs" className="h-7 shrink-0 rounded-full px-3">
+          <Button
+            asChild
+            size="xs"
+            className="h-7.5 shrink-0 rounded-full px-3.5 bg-primary text-primary-foreground hover:bg-primary/90 font-medium text-xs shadow-xs shadow-primary/20 transition-all hover:scale-105 active:scale-95"
+          >
             <Link to={playLink}>
-              <Play className="size-3.5" />
+              <Play className="size-3 fill-current" />
               立即播放
             </Link>
           </Button>
         ) : (
-          <Button size="xs" variant="outline" className="h-7 shrink-0 rounded-full px-3" disabled>
+          <Button size="xs" variant="outline" className="h-7.5 shrink-0 rounded-full px-3 text-xs" disabled>
             不可播
           </Button>
         )}
@@ -281,40 +295,49 @@ function SourceMatchBlock({
   const useScrollArea = totalMatches > 6
 
   return (
-    <article className="space-y-3 rounded-lg border border-border/45 p-3 md:p-4">
+    <article className="group relative space-y-3 rounded-2xl border border-border/40 bg-card/35 backdrop-blur-md p-3.5 sm:p-4.5 transition-all duration-300 hover:border-primary/30 hover:bg-card/50 hover:shadow-lg hover:shadow-black/5 dark:hover:shadow-black/20">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="line-clamp-1 text-sm font-semibold">{sourceMatch.sourceName || sourceMatch.sourceCode}</p>
-            <Badge variant={best ? 'secondary' : 'outline'} className="h-7 rounded-full px-2.5 py-0 text-[11px]">
-              {best ? `最高分 ${best.score}` : '无匹配'}
+            <p className="line-clamp-1 text-sm font-bold text-foreground">
+              {sourceMatch.sourceName || sourceMatch.sourceCode}
+            </p>
+            <Badge variant={best ? 'secondary' : 'outline'} className="h-6 rounded-full px-2.5 py-0 text-[10px] font-medium">
+              {best ? `最佳匹配 ${best.score}` : '无匹配'}
             </Badge>
           </div>
         </div>
 
         <Dialog>
           <DialogTrigger asChild>
-            <Button variant="ghost" size="xs" className="h-7 gap-1 rounded-full px-3" disabled={totalMatches === 0}>
+            <Button
+              variant="ghost"
+              size="xs"
+              className="h-7.5 gap-1 rounded-full px-3 text-xs bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground border border-border/40 transition-colors"
+              disabled={totalMatches === 0}
+            >
               <List className="size-3.5" />
-              全部（{totalMatches}）
+              <span>全部 ({totalMatches})</span>
             </Button>
           </DialogTrigger>
           <DialogContent
             className={
               isSingle
-                ? 'h-fit gap-3 p-4 sm:max-w-xl sm:rounded-xl'
-                : 'max-h-[85vh] flex flex-col sm:max-w-3xl'
+                ? 'h-fit gap-4 p-5 sm:max-w-xl sm:rounded-2xl border-border/50 bg-background/95 backdrop-blur-xl shadow-2xl'
+                : 'max-h-[85vh] flex flex-col sm:max-w-3xl sm:rounded-2xl border-border/50 bg-background/95 backdrop-blur-xl shadow-2xl'
             }
           >
             <DialogHeader>
-              <DialogTitle>{sourceMatch.sourceName || sourceMatch.sourceCode}</DialogTitle>
-              <DialogDescription className={isSingle ? 'sr-only' : undefined}>
-                {isSingle ? '源匹配详情' : `共 ${totalMatches} 条，按综合分从高到低排序。`}    
+              <DialogTitle className="text-base sm:text-lg font-bold">
+                {sourceMatch.sourceName || sourceMatch.sourceCode}
+              </DialogTitle>
+              <DialogDescription className={isSingle ? 'sr-only' : 'text-xs text-muted-foreground'}>
+                {isSingle ? '源匹配详情' : `共 ${totalMatches} 条匹配源，按综合分从高到低排序`}
               </DialogDescription>
             </DialogHeader>
 
             {isSingle && best ? (
-              <div className="rounded-lg border border-border/45 p-3">
+              <div className="rounded-xl border border-border/40 bg-card/40 p-3.5">
                 <MatchRow
                   tmdbType={tmdbType}
                   tmdbId={tmdbId}
@@ -323,12 +346,12 @@ function SourceMatchBlock({
                 />
               </div>
             ) : useScrollArea ? (
-              <ScrollArea className="max-h-[65vh]">
+              <ScrollArea className="max-h-[65vh] pr-3">
                 <div className="space-y-4">
                   {best && (
                     <section className="space-y-2">
-                      <p className="text-muted-foreground text-xs">最佳匹配</p>
-                      <div className="rounded-lg border border-border/45 p-3">
+                      <p className="text-muted-foreground text-xs font-medium">最佳匹配</p>
+                      <div className="rounded-xl border border-primary/30 bg-primary/5 p-3.5">
                         <MatchRow
                           tmdbType={tmdbType}
                           tmdbId={tmdbId}
@@ -341,8 +364,8 @@ function SourceMatchBlock({
 
                   {sourceMatch.alternatives.length > 0 && (
                     <section className="space-y-2">
-                      <p className="text-muted-foreground text-xs">其他匹配项</p>
-                      <ul className="divide-border/35 border-border/35 divide-y rounded-lg border">
+                      <p className="text-muted-foreground text-xs font-medium">其他匹配项</p>
+                      <ul className="divide-border/30 border-border/40 divide-y rounded-xl border bg-card/30">
                         {sourceMatch.alternatives.map(entry => (
                           <li key={`${sourceMatch.sourceCode}-${entry.item.vod_id}-alt-all`} className="p-3">
                             <MatchRow
@@ -363,8 +386,8 @@ function SourceMatchBlock({
               <div className="space-y-4">
                 {best && (
                   <section className="space-y-2">
-                    <p className="text-muted-foreground text-xs">最佳匹配</p>
-                    <div className="rounded-lg border border-border/45 p-3">
+                    <p className="text-muted-foreground text-xs font-medium">最佳匹配</p>
+                    <div className="rounded-xl border border-primary/30 bg-primary/5 p-3.5">
                       <MatchRow
                         tmdbType={tmdbType}
                         tmdbId={tmdbId}
@@ -377,8 +400,8 @@ function SourceMatchBlock({
 
                 {sourceMatch.alternatives.length > 0 && (
                   <section className="space-y-2">
-                    <p className="text-muted-foreground text-xs">其他匹配项</p>
-                    <ul className="divide-border/35 border-border/35 divide-y rounded-lg border">
+                    <p className="text-muted-foreground text-xs font-medium">其他匹配项</p>
+                    <ul className="divide-border/30 border-border/40 divide-y rounded-xl border bg-card/30">
                       {sourceMatch.alternatives.map(entry => (
                         <li key={`${sourceMatch.sourceCode}-${entry.item.vod_id}-alt-all`} className="p-3">
                           <MatchRow
@@ -400,7 +423,7 @@ function SourceMatchBlock({
       </div>
 
       {best ? (
-        <div className="rounded-lg border border-border/45 p-3">
+        <div className="rounded-xl border border-border/35 bg-card/25 p-3.5">
           <MatchRow
             tmdbType={tmdbType}
             tmdbId={tmdbId}
@@ -409,8 +432,8 @@ function SourceMatchBlock({
           />
         </div>
       ) : (
-        <div className="rounded-lg border border-dashed border-border/55 p-3">
-          <p className="text-muted-foreground text-sm">该源暂未筛选到可播放条目</p>
+        <div className="rounded-xl border border-dashed border-border/55 p-3.5 text-center">
+          <p className="text-muted-foreground text-xs sm:text-sm">该源暂未筛选到可播放条目</p>
         </div>
       )}
     </article>
@@ -434,27 +457,27 @@ function TvSeasonBlock({
   const matchedSources = seasonMatch.sourceMatches.filter(match => Boolean(match.bestMatch))
 
   return (
-    <section className="space-y-2">
+    <section className="space-y-2.5">
       <button
         type="button"
         onClick={onToggle}
-        className="flex w-full items-center justify-between gap-3 rounded-lg border border-border/45 px-3 py-2 text-left"
+        className="flex w-full items-center justify-between gap-3 rounded-2xl border border-border/40 bg-card/35 backdrop-blur-md px-4 py-3 text-left transition-all hover:bg-card/60 hover:border-border/70"
       >
-        <div className="flex min-w-0 items-center gap-2">
+        <div className="flex min-w-0 items-center gap-2.5">
           <ChevronDown
             className={
               expanded
-                ? 'text-muted-foreground size-4 rotate-180 transition-transform'
-                : 'text-muted-foreground size-4 transition-transform'
+                ? 'text-primary size-4.5 rotate-180 transition-transform duration-200'
+                : 'text-muted-foreground size-4.5 transition-transform duration-200'
             }
           />
-          <p className="line-clamp-1 text-sm font-semibold">
+          <p className="line-clamp-1 text-sm font-bold text-foreground">
             S{seasonMatch.season.season_number} · {seasonMatch.season.name}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <Badge variant={matchedCount > 0 ? 'secondary' : 'outline'} className="h-7 rounded-full px-2.5 py-0 text-[11px]">
-            {matchedCount > 0 ? `已匹配 ${matchedCount}` : '暂无匹配'}
+          <Badge variant={matchedCount > 0 ? 'secondary' : 'outline'} className="h-6 rounded-full px-2.5 py-0 text-[11px] font-medium">
+            {matchedCount > 0 ? `已匹配 ${matchedCount} 个源` : '暂无匹配'}
           </Badge>
         </div>
       </button>
@@ -473,7 +496,7 @@ function TvSeasonBlock({
             ))}
           </div>
         ) : (
-          <p className="text-muted-foreground text-sm">这一季没有匹配到可播放条目</p>
+          <p className="text-muted-foreground text-xs sm:text-sm px-2">这一季没有匹配到可播放条目</p>
         )}
       </MotionCollapse>
     </section>
@@ -519,13 +542,18 @@ export function DetailPlaylistTab({
     (tmdbType === 'movie' ? movieMatchedSources.length === 0 : !hasTvMatchedSources)
 
   return (
-    <section className="space-y-5">
+    <section className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
-          <h2 className="text-lg font-semibold">匹配结果</h2>
-          <p className="text-muted-foreground text-xs">
-            基于剧名在已启用的视频源中检索，并按标题相似度/年份/季信息计算最佳匹配。结果会增量显示。
-            {searchedKeyword ? ` 当前关键词：“${searchedKeyword}”。` : ''}
+          <div className="flex items-center gap-2">
+            <Radio className="size-4 text-primary" />
+            <h2 className="text-base sm:text-lg font-bold tracking-tight text-foreground">源匹配结果</h2>
+          </div>
+          <p className="text-muted-foreground text-xs leading-relaxed max-w-xl">
+            基于剧名在已启用的视频源中检索，并按相似度与年份智能评分。结果会增量展示。
+            {searchedKeyword ? (
+              <span className="text-foreground/85 font-medium"> 当前关键词：“{searchedKeyword}”。</span>
+            ) : null}
           </p>
         </div>
 
@@ -560,17 +588,16 @@ export function DetailPlaylistTab({
                 <Button
                   variant="secondary"
                   size="sm"
-                  className="h-9 rounded-full px-4"
+                  className="h-8.5 rounded-full px-4 text-xs font-medium border border-border/40 bg-card/60 backdrop-blur-md hover:bg-accent shadow-xs active:scale-95 transition-all"
                   onClick={onRetry}
                 >
-                  <RefreshCcw className="size-4" />
+                  <RefreshCcw className="size-3.5 mr-1" />
                   重新匹配
                 </Button>
               </motion.div>
             )}
           </AnimatePresence>
 
-          {/* 占位，保证右侧区域在切换时稳定 */}
           <motion.div
             className="h-0"
             initial={false}
@@ -626,9 +653,9 @@ export function DetailPlaylistTab({
       )}
 
       {!error && searched && tmdbType === 'tv' && (
-        <div className="space-y-4">
+        <div className="space-y-3">
           {seasonSourceMatches.length > 0 && !shouldShowNoMatchState ? (
-            <div className="space-y-4">
+            <div className="space-y-3">
               {seasonSourceMatches.map(seasonMatch => (
                 <TvSeasonBlock
                   key={seasonMatch.season.id}
@@ -644,7 +671,9 @@ export function DetailPlaylistTab({
             </div>
           ) : (
             !loading &&
-            !shouldShowNoMatchState && <p className="text-muted-foreground text-sm">当前剧集没有可匹配的季信息</p>
+            !shouldShowNoMatchState && (
+              <p className="text-muted-foreground text-xs sm:text-sm">当前剧集没有可匹配的季信息</p>
+            )
           )}
         </div>
       )}
