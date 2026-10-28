@@ -1,8 +1,8 @@
 import { lazy, Suspense } from 'react'
 import { LoadingFallback } from './LoadingFallback'
 import { AppErrorBoundary } from './AppErrorBoundary'
+import AuthGuard from '@/shared/components/AuthGuard'
 
-const AuthGuard = lazy(() => import('@/shared/components/AuthGuard'))
 const ProtectedRouter = lazy(() => import('./routes'))
 
 export { AppErrorBoundary }

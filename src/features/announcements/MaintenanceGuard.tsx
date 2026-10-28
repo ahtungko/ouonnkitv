@@ -4,6 +4,7 @@ import { Button } from '@/shared/components/ui/button'
 import { OkiLogo } from '@/shared/components/icons'
 import AdminEntry from '@/shared/components/AdminEntry'
 import { useAuthStore } from '@/shared/store/authStore'
+import { LoadingFallback } from '@/app/router/LoadingFallback'
 import {
   maintenanceIsActive,
   readMaintenance,
@@ -144,6 +145,7 @@ function VisitorMaintenanceGuard({
     : 0
   const active = snapshot && maintenanceIsActive(snapshot.status, serverNow)
   if (snapshot && !error && !active) return <>{children}</>
+  if (!snapshot && !error) return <LoadingFallback />
   const maintenance = active ? snapshot.status.maintenance : null
 
   return (

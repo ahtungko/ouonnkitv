@@ -9,6 +9,7 @@ import { syncClient } from '@/shared/sync/client'
 import { useApiStore } from '@/shared/store/apiStore'
 import { MaintenanceGuard } from '@/features/announcements/MaintenanceGuard'
 import { PROJECT } from '@/shared/config/project'
+import { LoadingFallback } from '@/app/router/LoadingFallback'
 
 export default function AuthGuard({ children }: { children: ReactNode }) {
   const { account, initialized, error, login } = useAuthStore()
@@ -32,6 +33,7 @@ export default function AuthGuard({ children }: { children: ReactNode }) {
   const isPartyGuestRoute =
     typeof window !== 'undefined' && window.location.pathname.startsWith('/party/')
   if (isPartyGuestRoute) return <>{children}</>
+  if (!initialized && !adminLogin) return <LoadingFallback />
   if (account && (!adminLogin || account.role === 'admin'))
     return <MaintenanceGuard>{children}</MaintenanceGuard>
   const loginPage = (
