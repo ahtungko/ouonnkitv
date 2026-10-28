@@ -74,6 +74,12 @@ afterEach(async () => {
 })
 
 describe('登录前维护与管理入口', () => {
+  it.each(['/p/room123', '/party/room123'])('允许未登录访客打开影厅地址 %s', async path => {
+    window.history.replaceState({}, '', path)
+    await mount()
+    expect(host.querySelector('[data-testid="protected"]')).not.toBeNull()
+    expect(host.querySelector('form')).toBeNull()
+  })
   it('公开检查完成前不显示登录表单，无维护时锁图标链接到管理员入口且没有页脚', async () => {
     let finish!: (value: ReturnType<typeof status>) => void
     mocks.publicStatus.mockImplementationOnce(

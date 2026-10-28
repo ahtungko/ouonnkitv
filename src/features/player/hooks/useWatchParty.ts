@@ -520,10 +520,9 @@ export function useWatchParty({
       let fullUrl = ''
       if (selectedMode === 'guest_cinema') {
         const params = new URLSearchParams()
-        if (inviter) params.set('inviter', inviter)
-        if (poster) params.set('poster', poster)
+        if (inviter) params.set('i', inviter)
         const qs = params.toString() ? `?${params.toString()}` : ''
-        fullUrl = `${window.location.origin}/party/${newRoomId}${qs}`
+        fullUrl = `${window.location.origin}/p/${newRoomId}${qs}`
       } else {
         const url = new URL(window.location.href)
         url.searchParams.set('partyRoom', newRoomId)
@@ -532,9 +531,7 @@ export function useWatchParty({
         if (inviter) {
           url.searchParams.set('inviter', inviter)
         }
-        if (poster) {
-          url.searchParams.set('poster', poster)
-        }
+        url.searchParams.delete('poster')
         fullUrl = url.toString()
       }
 
@@ -608,13 +605,11 @@ export function useWatchParty({
     if (isPartyActive && roomId) {
       try {
         const inviter = accountUsername || ''
-        const poster = posterUrlRef.current || ''
         if (mode === 'guest_cinema') {
           const params = new URLSearchParams()
-          if (inviter) params.set('inviter', inviter)
-          if (poster) params.set('poster', poster)
+          if (inviter) params.set('i', inviter)
           const qs = params.toString() ? `?${params.toString()}` : ''
-          setInviteUrl(`${window.location.origin}/party/${roomId}${qs}`)
+          setInviteUrl(`${window.location.origin}/p/${roomId}${qs}`)
         } else {
           const url = new URL(window.location.href)
           url.searchParams.set('partyRoom', roomId)
@@ -623,9 +618,7 @@ export function useWatchParty({
           if (inviter) {
             url.searchParams.set('inviter', inviter)
           }
-          if (poster) {
-            url.searchParams.set('poster', poster)
-          }
+          url.searchParams.delete('poster')
           setInviteUrl(url.toString())
         }
       } catch {

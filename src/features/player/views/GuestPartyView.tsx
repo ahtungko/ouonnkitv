@@ -28,7 +28,7 @@ function getInviterName(): string {
   if (typeof window === 'undefined') return ''
   try {
     const params = new URLSearchParams(window.location.search)
-    return params.get('inviter') || params.get('partyInviter') || ''
+    return params.get('i') || params.get('inviter') || params.get('partyInviter') || ''
   } catch {
     return ''
   }

@@ -94,15 +94,23 @@ export function WatchPartyModal({
 
   const effectiveInviteUrl = useMemo(() => {
     if (!activeInviteUrl) return ''
-    if (!currentInviter) return activeInviteUrl
     try {
       const url = new URL(activeInviteUrl)
-      url.searchParams.set('inviter', currentInviter)
+      url.searchParams.delete('poster')
+      if (currentInviter) {
+        if (mode === 'guest_cinema') {
+          url.searchParams.delete('inviter')
+          url.searchParams.delete('partyInviter')
+          url.searchParams.set('i', currentInviter)
+        } else {
+          url.searchParams.set('inviter', currentInviter)
+        }
+      }
       return url.toString()
     } catch {
       return activeInviteUrl
     }
-  }, [activeInviteUrl, currentInviter])
+  }, [activeInviteUrl, currentInviter, mode])
 
   const inviteMessage = useMemo(() => {
     return buildInviteMessage({

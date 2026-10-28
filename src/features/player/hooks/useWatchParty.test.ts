@@ -55,12 +55,14 @@ describe('useWatchParty', () => {
     art?: any
     currentVideoUrl?: string
     adFilteringEnabled?: boolean
+    posterUrl?: string
   }) {
     currentResult = useWatchParty({
       art: props.art || null,
       selectedEpisode: 0,
       currentVideoUrl: props.currentVideoUrl,
       adFilteringEnabled: props.adFilteringEnabled,
+      posterUrl: props.posterUrl,
       onSelectEpisode: props.onEpisode || vi.fn(),
       showNotice: props.onNotice || vi.fn(),
     })
@@ -117,9 +119,9 @@ describe('useWatchParty', () => {
     expect(mockChannel.track).toHaveBeenCalled()
   })
 
-  it('创建免登录影厅生成专属 /party/ 独立短链', async () => {
+  it('创建免登录影厅生成专属 /p/ 独立短链', async () => {
     await act(async () => {
-      root.render(createElement(TestHarness))
+      root.render(createElement(TestHarness, { posterUrl: 'https://example.com/long-poster.jpg' }))
     })
 
     let url = ''
@@ -130,7 +132,17 @@ describe('useWatchParty', () => {
     expect(currentResult.isPartyActive).toBe(true)
     expect(currentResult.isHost).toBe(true)
     expect(currentResult.mode).toBe('guest_cinema')
-    expect(url).toContain('/party/')
+    expect(url).toContain('/p/')
+    expect(new URL(url).searchParams.has('poster')).toBe(false)
+    expect(new URL(currentResult.inviteUrl).searchParams.has('poster')).toBe(false)
+  })
+
+  it('普通放映室分享地址也不包含海报地址', async () => {
+    await act(async () => root.render(createElement(TestHarness, { posterUrl: 'https://example.com/long-poster.jpg' })))
+    let url = ''
+    await act(async () => { url = currentResult.createParty('host_only') })
+    expect(new URL(url).searchParams.has('poster')).toBe(false)
+    expect(new URL(currentResult.inviteUrl).searchParams.has('poster')).toBe(false)
   })
 
   it('房主刷新后以房主身份恢复同一房间并清除退出记录', async () => {
@@ -264,7 +276,7 @@ describe('useWatchParty', () => {
     await act(async () => {
       cinemaUrl = currentResult.createParty('guest_cinema')
     })
-    expect(cinemaUrl).toContain('inviter=testuser')
+    expect(cinemaUrl).toContain('i=testuser')
   })
 
   it('通过包含邀请人的链接加入时弹出专属欢迎提示', async () => {

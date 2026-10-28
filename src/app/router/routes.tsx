@@ -59,6 +59,15 @@ const RequireAuth = ({ children }: { children: React.ReactNode }) => {
 }
 
 const router = createBrowserRouter([
+  {
+    path: 'p/:roomId',
+    element: (
+      <SuspenseWrapper>
+        <GuestPartyView />
+      </SuspenseWrapper>
+    ),
+    ErrorBoundary: RootErrorBoundary,
+  },
   // A. 专属免登录极简影院 (脱离主站核心布局，无顶部导航与搜索)
   {
     path: 'party/:roomId',

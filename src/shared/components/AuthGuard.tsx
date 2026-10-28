@@ -31,7 +31,8 @@ export default function AuthGuard({ children }: { children: ReactNode }) {
     if (initialized && !account) clearRestrictedSources()
   }, [account, clearRestrictedSources, initialized])
   const isPartyGuestRoute =
-    typeof window !== 'undefined' && window.location.pathname.startsWith('/party/')
+    typeof window !== 'undefined' &&
+    (window.location.pathname.startsWith('/party/') || window.location.pathname.startsWith('/p/'))
   if (isPartyGuestRoute) return <>{children}</>
   if (!initialized && !adminLogin) return <LoadingFallback />
   if (account && (!adminLogin || account.role === 'admin'))

@@ -149,6 +149,17 @@ describe('GuestPartyView 访客退出安全守卫', () => {
     expect(document.title).toContain('xkaTV')
   })
 
+  it('短链接的 i 参数显示邀请人', async () => {
+    window.location = {
+      ...originalLocation,
+      href: 'http://localhost/p/test-room-123?i=Nicholas',
+      pathname: '/p/test-room-123',
+      search: '?i=Nicholas',
+    } as any
+    await act(async () => root.render(createElement(GuestPartyView)))
+    expect(document.title).toContain('Nicholas')
+  })
+
   it('当 URL 携带 poster 参数时，候播厅展示海报封面图片', async () => {
     mockSyncState.syncClient = mockSyncClientObj
     window.location = {
@@ -187,5 +198,15 @@ describe('GuestPartyView 访客退出安全守卫', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+
+  it('短链接没有海报参数时仍能从房主状态获取海报', async () => {
+    mockSyncState.syncClient = mockSyncClientObj
+    await act(async () => root.render(createElement(GuestPartyView)))
+    const broadcast = mockChannel.on.mock.calls.find(call => call[0] === 'broadcast')?.[2]
+    await act(async () => {
+      broadcast({ payload: { type: 'state_sync', senderId: 'host', time: 0, posterUrl: 'https://example.com/poster.jpg' } })
+    })
+    expect(host.querySelector('img[src="https://example.com/poster.jpg"]')).not.toBeNull()
   })
 })
