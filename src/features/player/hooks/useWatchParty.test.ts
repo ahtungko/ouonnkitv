@@ -6,6 +6,7 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true
 import { createRoot, type Root } from 'react-dom/client'
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
 import { useWatchParty } from './useWatchParty'
+import { resetWatchPartyStore, useWatchPartyStore } from '../store/watchPartyStore'
 
 const mockChannel = {
   on: vi.fn().mockReturnThis(),
@@ -71,6 +72,7 @@ describe('useWatchParty', () => {
   }
 
   beforeEach(() => {
+    resetWatchPartyStore()
     vi.clearAllMocks()
     mockSyncClient.rpc.mockReset().mockResolvedValue({ data: 'open', error: null })
     sessionStorage.clear()
@@ -277,6 +279,61 @@ describe('useWatchParty', () => {
     )
   })
 
+  it('观众播放器尚未准备好时保留房主的初始播放进度', async () => {
+    mockSearchParams.set('partyRoom', 'room123')
+    await act(async () => root.render(createElement(TestHarness)))
+    const broadcast = mockChannel.on.mock.calls.find(call => call[0] === 'broadcast' && call[1]?.event === 'party_action')?.[2]
+    await act(async () => broadcast({ payload: { type: 'state_sync', senderId: 'host', time: 42, isPlaying: true, episodeIndex: 0 } }))
+    const art = { currentTime: 0, video: { paused: true }, on: vi.fn(), off: vi.fn(), play: vi.fn().mockResolvedValue(undefined), pause: vi.fn() }
+    await act(async () => root.render(createElement(TestHarness, { art })))
+    expect(art.currentTime).toBe(42)
+    expect(art.play).toHaveBeenCalled()
+  })
+
+  it('初始状态指向其他集数时先切集，再应用进度', async () => {
+    mockSearchParams.set('partyRoom', 'room123')
+    await act(async () => root.render(createElement(TestHarness)))
+    const broadcast = mockChannel.on.mock.calls.find(call => call[0] === 'broadcast' && call[1]?.event === 'party_action')?.[2]
+    const onSelectEpisode = vi.fn()
+    const first = { isReady: true, currentTime: 0, video: { paused: true }, on: vi.fn(), off: vi.fn(), play: vi.fn().mockResolvedValue(undefined), pause: vi.fn() }
+    let unbind!: () => void
+    await act(async () => { unbind = useWatchPartyStore.getState().bindPlayer({ art: first as any, selectedEpisode: 0, onSelectEpisode, showNotice: vi.fn() }) })
+    await act(async () => broadcast({ payload: { type: 'state_sync', senderId: 'host', time: 88, isPlaying: true, episodeIndex: 2 } }))
+    expect(onSelectEpisode).toHaveBeenCalledWith(2)
+    expect(first.currentTime).toBe(0)
+    const second = { ...first, currentTime: 0, play: vi.fn().mockResolvedValue(undefined) }
+    await act(async () => { unbind(); unbind = useWatchPartyStore.getState().bindPlayer({ art: second as any, selectedEpisode: 2, onSelectEpisode, showNotice: vi.fn() }) })
+    expect(second.currentTime).toBe(88)
+    expect(second.play).toHaveBeenCalled()
+    unbind()
+  })
+
+  it('服务端房间已关闭时不恢复本地房主身份', async () => {
+    sessionStorage.setItem('xkatv-watch-party-host', JSON.stringify({ roomId: 'room123', accountId: 'account-1', mode: 'guest_cinema' }))
+    mockSyncClient.rpc.mockResolvedValueOnce({ data: 'closed', error: null })
+    await act(async () => { await useWatchPartyStore.getState().restoreHostSessionIfNeeded() })
+    expect(useWatchPartyStore.getState().isPartyActive).toBe(false)
+    expect(mockSyncClient.channel).not.toHaveBeenCalled()
+    expect(sessionStorage.getItem('xkatv-watch-party-host')).toBeNull()
+  })
+
+  it('并发恢复请求只在服务端确认开放后连接一次', async () => {
+    sessionStorage.setItem('xkatv-watch-party-host', JSON.stringify({ roomId: 'room123', accountId: 'account-1', mode: 'guest_cinema' }))
+    let resolve!: (value: { data: string; error: null }) => void
+    mockSyncClient.rpc.mockReturnValueOnce(new Promise(result => { resolve = result }))
+    let first!: Promise<boolean>
+    let second!: Promise<boolean>
+    act(() => {
+      first = useWatchPartyStore.getState().restoreHostSessionIfNeeded()
+      second = useWatchPartyStore.getState().restoreHostSessionIfNeeded()
+    })
+    expect(mockSyncClient.channel).not.toHaveBeenCalled()
+    await act(async () => { resolve({ data: 'open', error: null }); await Promise.all([first, second]) })
+    expect(mockSyncClient.rpc).toHaveBeenCalledTimes(1)
+    expect(mockSyncClient.channel).toHaveBeenCalledTimes(1)
+    expect(useWatchPartyStore.getState().isHost).toBe(true)
+  })
+
   it('普通房间收到房主结束消息后退出，旧地址不能让观众立刻重新加入', async () => {
     mockSearchParams.set('partyRoom', 'expired-room')
     const notices: string[] = []
@@ -355,7 +412,7 @@ describe('useWatchParty', () => {
         art, currentVideoUrl: 'https://example.com/video.m3u8', adFilteringEnabled: true,
       })))
       await act(async () => { await currentResult.createParty('guest_cinema') })
-      await act(async () => { await vi.advanceTimersByTimeAsync(5000) })
+      await act(async () => { await vi.advanceTimersByTimeAsync(2000) })
       expect(mockChannel.send).toHaveBeenCalledWith(expect.objectContaining({
         payload: expect.objectContaining({
           type: 'heartbeat', videoUrl: 'https://example.com/video.m3u8', time: 42, isPlaying: true, adFilteringEnabled: true,

@@ -1994,6 +1994,7 @@ export default function UnifiedPlayer() {
                 onToggleDanmaku={() => party.setDanmakuEnabled(prev => !prev)}
                 isHost={party.isHost}
                 currentUserName={party.inviterName || undefined}
+                currentUserId={party.myClientId}
                 isPlaying={activeArt ? !activeArt.video?.paused : true}
                 participantCount={party.participantCount}
               />

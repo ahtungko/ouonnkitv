@@ -57,6 +57,7 @@ describe('GuestPartyView 访客退出安全守卫', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    sessionStorage.clear()
     mockSyncState.syncClient = null
     mockSyncClientObj.rpc.mockReset().mockResolvedValue({ data: 'open', error: null })
     mockAuthStore.account = null
@@ -160,6 +161,35 @@ describe('GuestPartyView 访客退出安全守卫', () => {
     } as any
     await act(async () => root.render(createElement(GuestPartyView)))
     expect(document.title).toContain('Nicholas')
+  })
+
+  it('同一标签页刷新后保留访客 ID 和成员名称', async () => {
+    mockSyncState.syncClient = mockSyncClientObj
+    await act(async () => root.render(createElement(GuestPartyView)))
+    const first = mockChannel.track.mock.calls.at(-1)?.[0]
+    expect(first?.clientId).toMatch(/^guest_/)
+    expect(mockChannel.send).toHaveBeenCalledWith(expect.objectContaining({
+      payload: expect.objectContaining({ type: 'request_state', senderId: first.clientId, senderName: first.name }),
+    }))
+    await act(async () => root.unmount())
+    root = createRoot(host)
+    await act(async () => root.render(createElement(GuestPartyView)))
+    const second = mockChannel.track.mock.calls.at(-1)?.[0]
+    expect(second?.clientId).toBe(first.clientId)
+    expect(second?.name).toBe(first.name)
+  })
+
+  it('浏览器阻止 sessionStorage 时仍可生成访客身份', async () => {
+    mockSyncState.syncClient = mockSyncClientObj
+    const getItem = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('storage blocked') })
+    const setItem = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('storage blocked') })
+    try {
+      await act(async () => root.render(createElement(GuestPartyView)))
+      expect(mockChannel.track.mock.calls.at(-1)?.[0]?.clientId).toMatch(/^guest_/)
+    } finally {
+      getItem.mockRestore()
+      setItem.mockRestore()
+    }
   })
 
   it('当 URL 携带 poster 参数时，候播厅展示海报封面图片', async () => {

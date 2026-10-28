@@ -18,6 +18,8 @@ import { useScrollChromeVisibility } from '@/shared/hooks'
 import { useLocation } from 'react-router'
 import { getInitialContentConfigId } from '@/shared/config/runtimeEnv'
 import { useSeriesUpdateChecker } from '@/features/favorites/hooks/useSeriesUpdateChecker'
+import { GlobalWatchPartyPill } from '@/features/player/components'
+import { useWatchPartyStore } from '@/features/player/store/watchPartyStore'
 
 export default function MainLayout() {
   const hasNewVersion = useVersionStore(state => state.hasNewVersion)
@@ -40,6 +42,14 @@ export default function MainLayout() {
   useSubscriptionAutoRefresh()
   useEnvSourcesAutoRefresh()
   useSeriesUpdateChecker()
+
+  const restoreHostSessionIfNeeded = useWatchPartyStore(
+    state => state.restoreHostSessionIfNeeded,
+  )
+
+  useEffect(() => {
+    void restoreHostSessionIfNeeded()
+  }, [restoreHostSessionIfNeeded])
 
   // 初始化逻辑 (从 MyRouter 迁移)
   useEffect(() => {
@@ -95,6 +105,7 @@ export default function MainLayout() {
         </SidebarInset>
       </div>
       <MobileTabBar />
+      <GlobalWatchPartyPill />
     </SidebarProvider>
   )
 }

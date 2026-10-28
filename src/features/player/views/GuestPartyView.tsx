@@ -29,6 +29,22 @@ import {
 } from '../components/WatchPartyChatOverlay'
 
 const m3u8Processor = createM3u8Processor({ filterAds: true })
+const GUEST_ID_KEY = 'xkatv-watch-party-guest-id'
+
+function getGuestId(): string {
+  try {
+    const saved = sessionStorage.getItem(GUEST_ID_KEY)
+    if (saved && /^guest_[a-z0-9]{6,32}$/.test(saved)) return saved
+  } catch {
+    // Continue with an in-memory identity when session storage is unavailable.
+  }
+  const suffix = typeof globalThis.crypto?.randomUUID === 'function'
+    ? globalThis.crypto.randomUUID().replace(/-/g, '').slice(0, 8)
+    : Math.random().toString(36).slice(2, 10).padEnd(8, '0')
+  const id = `guest_${suffix}`
+  try { sessionStorage.setItem(GUEST_ID_KEY, id) } catch { /* Storage may be blocked. */ }
+  return id
+}
 
 function getInviterName(): string {
   if (typeof window === 'undefined') return ''
@@ -60,6 +76,7 @@ export default function GuestPartyView() {
   const [participants, setParticipants] = useState<WatchPartyParticipant[]>([])
   const [messages, setMessages] = useState<WatchPartyChatMessage[]>([])
   const [danmakuEnabled, setDanmakuEnabled] = useState(true)
+  const [isSelectingMedia, setIsSelectingMedia] = useState(false)
   const channelRef = useRef<ReturnType<NonNullable<typeof syncClient>['channel']> | null>(null)
   const [videoUrl, setVideoUrl] = useState<string | null>(null)
   const [adFilteringEnabled, setAdFilteringEnabled] = useState(false)
@@ -99,7 +116,8 @@ export default function GuestPartyView() {
   const terminatedRef = useRef(false)
   const isRemoteRef = useRef(false)
   const countdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const myClientIdRef = useRef<string>(`guest_${Math.random().toString(36).substring(2, 8)}`)
+  const [myClientId] = useState(getGuestId)
+  const myClientIdRef = useRef(myClientId)
 
   const playGuest = useCallback((player: Artplayer) => {
     void player.play().then(() => setNeedsPlaybackGesture(false)).catch(error => {
@@ -123,9 +141,7 @@ export default function GuestPartyView() {
       const channel = channelRef.current
       if (!trimmed || trimmed.length > 100 || !channel || terminatedRef.current) return false
 
-      const guestName =
-        account?.username ||
-        (inviter ? `访客_${myClientIdRef.current.substring(6)}` : '观众')
+      const guestName = account?.username || `访客_${myClientIdRef.current.substring(6)}`
 
       const chatMsg: WatchPartyChatMessage = {
         id: `${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
@@ -145,7 +161,7 @@ export default function GuestPartyView() {
         return false
       }
     },
-    [account, inviter],
+    [account],
   )
 
   // Prevent right-click context menu and inspection shortcuts for cleaner cinema feel
@@ -257,6 +273,15 @@ export default function GuestPartyView() {
       switch (action.type) {
         case 'state_sync':
         case 'heartbeat': {
+          if (action.isSelectingMedia) {
+            setIsSelectingMedia(true)
+            setIsPlaying(false)
+            if (player && !player.video?.paused) player.pause()
+            break
+          } else {
+            setIsSelectingMedia(false)
+          }
+
           if (action.mediaTitle) setMediaTitle(action.mediaTitle)
           if (action.episodeTitle) setEpisodeTitle(action.episodeTitle)
           if (action.posterUrl) setPosterUrl(action.posterUrl)
@@ -714,9 +739,11 @@ export default function GuestPartyView() {
             <p className="mt-2 text-xs sm:text-sm text-zinc-400 leading-relaxed max-w-sm">
               {disconnectCountdown !== null
                 ? `等待房主重新连接，${disconnectCountdown} 秒后放映厅将关闭。`
-                : inviter
-                ? `「${inviter}」正在为你调试放映设备，入场就绪，稍后开播...`
-                : '房主正在为你挑选片源与调试设备，入场就绪，稍后开播...'}
+                : isSelectingMedia
+                  ? `「${inviter || '房主'}」正在全站挑选新片中，入场就绪，稍后开播 🍿`
+                  : inviter
+                    ? `「${inviter}」正在为你调试放映设备，入场就绪，稍后开播...`
+                    : '房主正在为你挑选片源与调试设备，入场就绪，稍后开播...'}
             </p>
 
             <div className="mt-8 flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-xs text-amber-300 shadow-inner">
@@ -774,6 +801,7 @@ export default function GuestPartyView() {
                 onToggleDanmaku={() => setDanmakuEnabled(prev => !prev)}
                 isHost={false}
                 currentUserName={account?.username || undefined}
+                currentUserId={myClientIdRef.current}
                 isPlaying={isPlaying}
                 participantCount={Math.max(participants.length, 1)}
               />

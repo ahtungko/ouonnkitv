@@ -21,8 +21,11 @@ export interface WatchPartyChatOverlayProps {
   onToggleDanmaku: () => void
   isHost?: boolean
   currentUserName?: string
+  currentUserId?: string
   isPlaying?: boolean
   participantCount?: number
+  standalone?: boolean
+  onRequestClose?: () => void
 }
 
 interface ActiveDanmakuItem {
@@ -51,10 +54,17 @@ export function WatchPartyChatOverlay({
   onSendMessage,
   danmakuEnabled,
   onToggleDanmaku,
+  currentUserId,
   isPlaying = true,
   participantCount = 1,
+  standalone = false,
+  onRequestClose,
 }: WatchPartyChatOverlayProps) {
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false)
+  const [isDrawerOpen, setIsDrawerOpen] = useState(standalone)
+  const [unreadCount, setUnreadCount] = useState(0)
+  const seenMessageIdsRef = useRef<Set<string> | null>(null)
+  const [controlsVisible, setControlsVisible] = useState(!playerOverlayContainer || playerOverlayContainer.classList.contains('art-control-show'))
+  const [videoPaused, setVideoPaused] = useState<boolean | null>(null)
   const [inputText, setInputText] = useState('')
   const [sendError, setSendError] = useState(false)
   const [sending, setSending] = useState(false)
@@ -63,6 +73,42 @@ export function WatchPartyChatOverlay({
   const trackCursorRef = useRef(0)
   const messagesEndRef = useRef<HTMLDivElement | null>(null)
   const isInitialMountRef = useRef(true)
+
+  useEffect(() => {
+    if (!playerOverlayContainer) {
+      setControlsVisible(true)
+      setVideoPaused(null)
+      return
+    }
+    const updateControls = () => setControlsVisible(playerOverlayContainer.classList.contains('art-control-show'))
+    updateControls()
+    const observer = new MutationObserver(updateControls)
+    observer.observe(playerOverlayContainer, { attributes: true, attributeFilter: ['class'] })
+    const video = playerOverlayContainer.querySelector('video')
+    const updatePlayback = () => setVideoPaused(video?.paused ?? null)
+    updatePlayback()
+    video?.addEventListener('play', updatePlayback)
+    video?.addEventListener('pause', updatePlayback)
+    return () => {
+      observer.disconnect()
+      video?.removeEventListener('play', updatePlayback)
+      video?.removeEventListener('pause', updatePlayback)
+    }
+  }, [playerOverlayContainer])
+
+  useEffect(() => {
+    const previous = seenMessageIdsRef.current
+    const next = new Set(messages.map(message => message.id))
+    seenMessageIdsRef.current = next
+    if (!previous || isDrawerOpen || messages.length === 0) {
+      setUnreadCount(0)
+      return
+    }
+    const added = messages.filter(message => !previous.has(message.id) && message.senderId !== currentUserId).length
+    if (added) setUnreadCount(count => Math.min(100, count + added))
+  }, [messages, isDrawerOpen, currentUserId])
+
+  const showControls = !playerOverlayContainer || controlsVisible || isDrawerOpen || (videoPaused ?? !isPlaying)
 
   // Listen for new incoming messages and convert to danmaku
   useEffect(() => {
@@ -136,9 +182,9 @@ export function WatchPartyChatOverlay({
 
   const overlayContent = useMemo(() => {
     return (
-      <div className="pointer-events-none absolute inset-0 z-30 select-none overflow-hidden party-danmaku-container">
+      <div className={`pointer-events-none z-30 select-none overflow-hidden party-danmaku-container ${standalone ? 'relative h-[350px] w-[min(90vw,320px)]' : 'absolute inset-0'}`}>
         {/* Floating Danmaku Bullet Comments */}
-        {danmakuEnabled && (
+        {danmakuEnabled && !standalone && (
           <div className="absolute inset-0 pointer-events-none overflow-hidden">
             {activeDanmakus.map(item => (
               <div
@@ -168,25 +214,26 @@ export function WatchPartyChatOverlay({
         )}
 
         {/* Floating Player Control Pill (Danmaku Toggle & Chat Drawer Toggle) */}
-        <div className="pointer-events-auto absolute bottom-14 right-3 z-35 flex items-center gap-1 rounded-full border border-white/20 bg-black/75 p-1 shadow-2xl backdrop-blur-md transition-all hover:bg-black/85">
+        {!standalone && <div
+          data-party-controls
+          aria-hidden={!showControls}
+          className={`absolute bottom-14 right-3 z-35 flex items-center gap-1 rounded-full border border-white/20 bg-black/75 p-1 shadow-2xl backdrop-blur-md transition-opacity ${showControls ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'}`}
+        >
           <button
             type="button"
             onClick={onToggleDanmaku}
             title={danmakuEnabled ? '关闭弹幕' : '开启弹幕'}
             aria-label={danmakuEnabled ? '关闭弹幕' : '开启弹幕'}
-            className="flex items-center gap-1 rounded-full px-2 py-1 text-xs transition-colors hover:bg-white/15"
+            tabIndex={showControls ? 0 : -1}
+            className="flex size-9 items-center justify-center rounded-full transition-colors hover:bg-white/15"
           >
             {danmakuEnabled ? (
               <>
-                <Radio className="size-3 text-emerald-400" />
-                <span className="text-[11px] font-medium text-emerald-300">
-                  弹幕
-                </span>
+                <Radio className="size-4 text-emerald-400" />
               </>
             ) : (
               <>
-                <EyeOff className="size-3 text-zinc-400" />
-                <span className="text-[11px] text-zinc-400">弹幕</span>
+                <EyeOff className="size-4 text-zinc-400" />
               </>
             )}
           </button>
@@ -198,22 +245,22 @@ export function WatchPartyChatOverlay({
             onClick={() => setIsDrawerOpen(prev => !prev)}
             title="放映室聊天"
             aria-label="放映室聊天"
-            className="flex items-center gap-1.5 rounded-full px-2 py-1 text-xs text-white transition-colors hover:bg-white/15"
+            tabIndex={showControls ? 0 : -1}
+            className="flex min-h-9 min-w-9 items-center justify-center gap-1 rounded-full px-2 text-white transition-colors hover:bg-white/15"
           >
-            <MessageCircle className="size-3 text-amber-400" />
-            <span className="text-[11px] font-medium">聊天</span>
-            {messages.length > 0 && (
-              <span className="rounded-full bg-amber-500/90 px-1.5 py-0.2 text-[9px] font-bold text-black">
-                {messages.length > 99 ? '99+' : messages.length}
+            <MessageCircle className="size-4 text-amber-400" />
+            {unreadCount > 0 && (
+              <span data-unread-count className="rounded-full bg-amber-500/90 px-1.5 py-0.5 text-[9px] font-bold text-black">
+                {unreadCount > 99 ? '99+' : unreadCount}
               </span>
             )}
           </button>
-        </div>
+        </div>}
 
         {/* Floating Chat Drawer Popover */}
         {isDrawerOpen && (
           <div
-            className="pointer-events-auto absolute bottom-14 right-3 z-40 flex h-[min(350px,calc(100%-4rem))] w-[min(90vw,320px)] flex-col overflow-hidden rounded-2xl border border-white/20 bg-zinc-950/92 shadow-2xl backdrop-blur-2xl text-white"
+            className={`pointer-events-auto absolute z-40 flex flex-col overflow-hidden rounded-2xl border border-white/20 bg-zinc-950/92 shadow-2xl backdrop-blur-2xl text-white ${standalone ? 'inset-0 h-full w-full' : 'bottom-14 right-3 h-[min(350px,calc(100%-4rem))] w-[min(90vw,320px)]'}`}
             onClick={e => e.stopPropagation()}
           >
             {/* Drawer Header */}
@@ -229,7 +276,7 @@ export function WatchPartyChatOverlay({
               </div>
               <button
                 type="button"
-                onClick={() => setIsDrawerOpen(false)}
+                onClick={() => { setIsDrawerOpen(false); onRequestClose?.() }}
                 className="rounded-full p-1 text-zinc-400 hover:bg-white/10 hover:text-white transition-colors"
                 aria-label="关闭聊天面板"
               >
@@ -337,6 +384,10 @@ export function WatchPartyChatOverlay({
     inputText,
     sendError,
     sending,
+    showControls,
+    unreadCount,
+    standalone,
+    onRequestClose,
     onToggleDanmaku,
     handleRemoveDanmaku,
     handleReactionClick,

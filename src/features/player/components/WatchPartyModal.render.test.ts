@@ -38,3 +38,21 @@ it('创建界面只显示免登录影厅，创建时默认使用该模式', asyn
     host.remove()
   }
 })
+
+it('创建失败时在弹窗显示错误并可重试', async () => {
+  const host = document.createElement('div')
+  document.body.appendChild(host)
+  const root = createRoot(host)
+  const createParty = vi.fn().mockRejectedValue(new Error('网络不可用'))
+  try {
+    await act(async () => root.render(createElement(WatchPartyModal, {
+      isOpen: true, onClose: vi.fn(), isPartyActive: false, isHost: false,
+      mode: 'host_only', roomId: null, participants: [], isSupabaseAvailable: true,
+      onCreateParty: createParty, onLeaveParty: vi.fn().mockResolvedValue(true),
+    })))
+    const button = Array.from(host.querySelectorAll('button')).find(item => item.textContent?.includes('创建放映室'))!
+    await act(async () => button.click())
+    expect(host.querySelector('[role="alert"]')?.textContent).toContain('网络不可用')
+    expect(button.disabled).toBe(false)
+  } finally { await act(async () => root.unmount()); host.remove() }
+})

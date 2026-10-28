@@ -155,6 +155,40 @@ describe('WatchPartyChatOverlay', () => {
     expect(host.querySelector('.animate-party-danmaku')).toBeNull()
   })
 
+  it('播放时跟随播放器控件隐藏，暂停或打开聊天时保持可见', async () => {
+    const player = document.createElement('div')
+    const video = document.createElement('video')
+    Object.defineProperty(video, 'paused', { configurable: true, value: false })
+    player.appendChild(video)
+    document.body.appendChild(player)
+    const props = { playerOverlayContainer: player, messages: [], onSendMessage: vi.fn().mockResolvedValue(true), danmakuEnabled: true, onToggleDanmaku: vi.fn(), isPlaying: true }
+    try {
+      await act(async () => root.render(createElement(WatchPartyChatOverlay, props)))
+      const controls = player.querySelector('[data-party-controls]')!
+      expect(controls.getAttribute('aria-hidden')).toBe('true')
+      await act(async () => { player.classList.add('art-control-show'); await Promise.resolve() })
+      expect(controls.getAttribute('aria-hidden')).toBe('false')
+      await act(async () => { (player.querySelector('[aria-label="放映室聊天"]') as HTMLButtonElement).click() })
+      await act(async () => { player.classList.remove('art-control-show'); await Promise.resolve() })
+      expect(controls.getAttribute('aria-hidden')).toBe('false')
+      await act(async () => { (player.querySelector('[aria-label="关闭聊天面板"]') as HTMLButtonElement).click() })
+      expect(controls.getAttribute('aria-hidden')).toBe('true')
+      Object.defineProperty(video, 'paused', { configurable: true, value: true })
+      await act(async () => video.dispatchEvent(new Event('pause')))
+      expect(controls.getAttribute('aria-hidden')).toBe('false')
+    } finally { player.remove() }
+  })
+
+  it('只计未读的他人消息，打开聊天后清零', async () => {
+    const props = { playerOverlayContainer: null, onSendMessage: vi.fn().mockResolvedValue(true), danmakuEnabled: true, onToggleDanmaku: vi.fn(), currentUserId: 'self' }
+    const makeMessage = (id: string, senderId: string) => ({ id, senderId, senderName: '用户', text: id, timestamp: 1 })
+    await act(async () => root.render(createElement(WatchPartyChatOverlay, { ...props, messages: [] })))
+    await act(async () => root.render(createElement(WatchPartyChatOverlay, { ...props, messages: [makeMessage('own', 'self'), makeMessage('new', 'other')] })))
+    expect(host.querySelector('[data-unread-count]')?.textContent).toBe('1')
+    await act(async () => (host.querySelector('[aria-label="放映室聊天"]') as HTMLButtonElement).click())
+    expect(host.querySelector('[data-unread-count]')).toBeNull()
+  })
+
   it('发送失败时显示提示并保留输入，重试成功后清空', async () => {
     const send = vi.fn().mockResolvedValueOnce(false).mockResolvedValueOnce(true)
     await act(async () => root.render(createElement(WatchPartyInlineBar, {

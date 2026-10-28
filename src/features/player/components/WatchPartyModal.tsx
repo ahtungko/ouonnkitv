@@ -90,6 +90,7 @@ export function WatchPartyModal({
   const [copiedLink, setCopiedLink] = useState(false)
   const [customName, setCustomName] = useState('')
   const [partyBusy, setPartyBusy] = useState(false)
+  const [partyError, setPartyError] = useState<string | null>(null)
 
   const activeInviteUrl =
     propInviteUrl || (typeof window !== 'undefined' ? window.location.href : '')
@@ -128,7 +129,10 @@ export function WatchPartyModal({
 
   const handleCreate = async () => {
     setPartyBusy(true)
-    try { await onCreateParty(selectedMode) } finally { setPartyBusy(false) }
+    setPartyError(null)
+    try { await onCreateParty(selectedMode) } catch (error) {
+      setPartyError(error instanceof Error ? error.message : '无法创建放映室，请重试')
+    } finally { setPartyBusy(false) }
   }
 
   const handleCopyMessage = async () => {
@@ -440,6 +444,7 @@ export function WatchPartyModal({
           </div>
         )}
 
+        {partyError && !isPartyActive && <p role="alert" className="text-sm text-destructive">{partyError}</p>}
         <DialogFooter className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-between sm:gap-0">
           {isPartyActive ? (
             <Button
