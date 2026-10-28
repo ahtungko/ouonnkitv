@@ -54,11 +54,13 @@ describe('useWatchParty', () => {
     onEpisode?: (ep: number) => void
     art?: any
     currentVideoUrl?: string
+    adFilteringEnabled?: boolean
   }) {
     currentResult = useWatchParty({
       art: props.art || null,
       selectedEpisode: 0,
       currentVideoUrl: props.currentVideoUrl,
+      adFilteringEnabled: props.adFilteringEnabled,
       onSelectEpisode: props.onEpisode || vi.fn(),
       showNotice: props.onNotice || vi.fn(),
     })
@@ -283,13 +285,13 @@ describe('useWatchParty', () => {
     try {
       const art = { currentTime: 42, video: { paused: false }, on: vi.fn(), off: vi.fn() }
       await act(async () => root.render(createElement(TestHarness, {
-        art, currentVideoUrl: 'https://example.com/video.m3u8',
+        art, currentVideoUrl: 'https://example.com/video.m3u8', adFilteringEnabled: true,
       })))
       await act(async () => { currentResult.createParty('guest_cinema') })
       await act(async () => { await vi.advanceTimersByTimeAsync(5000) })
       expect(mockChannel.send).toHaveBeenCalledWith(expect.objectContaining({
         payload: expect.objectContaining({
-          type: 'heartbeat', videoUrl: 'https://example.com/video.m3u8', time: 42, isPlaying: true,
+          type: 'heartbeat', videoUrl: 'https://example.com/video.m3u8', time: 42, isPlaying: true, adFilteringEnabled: true,
         }),
       }))
     } finally {

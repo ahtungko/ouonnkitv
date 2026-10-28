@@ -681,6 +681,7 @@ export default function UnifiedPlayer() {
   )
 
   const currentVideoUrl = detail?.episodes[selectedEpisode] || ''
+  const [partyAdFiltering, setPartyAdFiltering] = useState(false)
   const partyMediaTitle = detail?.videoInfo?.title || tmdbPlayback.tmdbDetail?.title || '未知视频'
   const partyEpisodeTitle = episodes[selectedEpisode] || `第 ${selectedEpisode + 1} 集`
   const partyPosterUrl =
@@ -702,6 +703,7 @@ export default function UnifiedPlayer() {
     mediaTitle: partyMediaTitle,
     episodeTitle: partyEpisodeTitle,
     posterUrl: partyPosterUrl,
+    adFilteringEnabled: partyAdFiltering,
   })
 
   const partyRef = useRef(party)
@@ -853,6 +855,8 @@ export default function UnifiedPlayer() {
   useEffect(() => {
     if (!detail?.episodes || !detail.episodes[selectedEpisode] || !containerRef.current) return
 
+    setPartyAdFiltering(false)
+
     if (playerRef.current && playerRef.current.destroy) {
       playerRef.current.destroy(false)
     }
@@ -928,6 +932,7 @@ export default function UnifiedPlayer() {
               if (playerRef.current !== art) return
 
               if (HlsClass.isSupported()) {
+                setPartyAdFiltering(adFilteringEnabled)
                 if (artWithHls.hls) artWithHls.hls.destroy()
                 const hlsConfig: Partial<HlsConfig> = adFilteringEnabled
                   ? {

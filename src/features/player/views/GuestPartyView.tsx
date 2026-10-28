@@ -11,6 +11,8 @@ import {
   AlertTriangle,
 } from 'lucide-react'
 import Artplayer from 'artplayer'
+import type { HlsConfig } from 'hls.js'
+import { createHlsLoaderClass, createM3u8Processor } from '@ouonnki/cms-core/m3u8'
 import { syncClient } from '@/shared/sync/client'
 import { useAuthStore } from '@/shared/store/authStore'
 import { Button } from '@/shared/components/ui/button'
@@ -19,6 +21,8 @@ import type {
   WatchPartyAction,
   WatchPartyParticipant,
 } from '../hooks/useWatchParty'
+
+const m3u8Processor = createM3u8Processor({ filterAds: true })
 
 function getInviterName(): string {
   if (typeof window === 'undefined') return ''
@@ -49,6 +53,8 @@ export default function GuestPartyView() {
 
   const [participants, setParticipants] = useState<WatchPartyParticipant[]>([])
   const [videoUrl, setVideoUrl] = useState<string | null>(null)
+  const [adFilteringEnabled, setAdFilteringEnabled] = useState(false)
+  const [filterUnavailable, setFilterUnavailable] = useState(false)
   const [mediaTitle, setMediaTitle] = useState<string>('')
   const [episodeTitle, setEpisodeTitle] = useState<string>('')
   const [isPlaying, setIsPlaying] = useState<boolean>(false)
@@ -76,6 +82,7 @@ export default function GuestPartyView() {
   const artRef = useRef<Artplayer | null>(null)
   const playerReadyRef = useRef(false)
   const videoUrlRef = useRef<string | null>(null)
+  const adFilteringRef = useRef(false)
   const pendingPlaybackRef = useRef<{ time: number; isPlaying?: boolean } | null>(null)
   const latestHostPlaybackRef = useRef<{ time: number; isPlaying: boolean; receivedAt: number } | null>(null)
   const terminatedRef = useRef(false)
@@ -191,7 +198,12 @@ export default function GuestPartyView() {
           if (action.episodeTitle) setEpisodeTitle(action.episodeTitle)
           if (action.posterUrl) setPosterUrl(action.posterUrl)
           const sourceChanged = Boolean(action.videoUrl && action.videoUrl !== videoUrlRef.current)
-          if (sourceChanged) playerReadyRef.current = false
+          const filterChanged = typeof action.adFilteringEnabled === 'boolean' && action.adFilteringEnabled !== adFilteringRef.current
+          if (filterChanged) {
+            adFilteringRef.current = action.adFilteringEnabled!
+            setAdFilteringEnabled(action.adFilteringEnabled!)
+          }
+          if (sourceChanged || filterChanged) playerReadyRef.current = false
           if (action.videoUrl) {
             videoUrlRef.current = action.videoUrl
             setVideoUrl(action.videoUrl)
@@ -201,7 +213,7 @@ export default function GuestPartyView() {
           latestHostPlaybackRef.current = { time: action.time || 0, isPlaying: Boolean(action.isPlaying), receivedAt: Date.now() }
           if (!action.isPlaying) setNeedsPlaybackGesture(false)
 
-          if (sourceChanged || !player || !playerReadyRef.current) {
+          if (sourceChanged || filterChanged || !player || !playerReadyRef.current) {
             pendingPlaybackRef.current = { time: action.time || 0, isPlaying: action.isPlaying }
           } else if (player) {
             isRemoteRef.current = true
@@ -395,6 +407,7 @@ export default function GuestPartyView() {
           m => m.default as typeof import('hls.js')['default'],
         )
         if (isDestroyed || !containerRef.current) return
+        setFilterUnavailable(adFilteringEnabled && !HlsClass.isSupported())
 
         if (artRef.current) {
           artRef.current.destroy(true)
@@ -419,7 +432,10 @@ export default function GuestPartyView() {
           customType: {
             m3u8: (video: HTMLMediaElement, url: string, player: Artplayer) => {
               if (HlsClass.isSupported()) {
-                const hls = new HlsClass()
+                const config: Partial<HlsConfig> = adFilteringEnabled
+                  ? { loader: createHlsLoaderClass({ m3u8Processor, Hls: HlsClass }) as typeof HlsClass.DefaultConfig.loader }
+                  : {}
+                const hls = new HlsClass(config)
                 hls.loadSource(url)
                 hls.attachMedia(video)
                 ;(player as unknown as { hls?: unknown }).hls = hls
@@ -465,7 +481,7 @@ export default function GuestPartyView() {
         artRef.current = null
       }
     }
-  }, [videoUrl, terminatedReason, playGuest])
+  }, [videoUrl, terminatedReason, playGuest, adFilteringEnabled])
 
   const handleLeave = () => {
     terminateSession('你已主动退出放映厅')
@@ -641,6 +657,11 @@ export default function GuestPartyView() {
         ) : (
           /* Active Cinema Player Container */
           <div className="relative w-full max-w-6xl">
+            {filterUnavailable && (
+              <p role="alert" className="mb-3 rounded-lg bg-amber-500/15 px-4 py-3 text-sm text-amber-200">
+                当前浏览器无法使用房主的广告过滤方式，画面可能无法与房主对齐。请尝试支持 HLS.js 的浏览器。
+              </p>
+            )}
             {/* Host Disconnect 30s Floating Countdown Alert */}
             {disconnectCountdown !== null && (
               <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2.5 rounded-full border border-amber-500/40 bg-zinc-950/90 px-4 py-2 text-xs text-amber-300 shadow-2xl backdrop-blur-xl">

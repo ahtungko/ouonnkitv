@@ -23,6 +23,7 @@ export interface WatchPartyAction {
   mediaTitle?: string
   episodeTitle?: string
   posterUrl?: string
+  adFilteringEnabled?: boolean
   mode?: WatchPartyMode
   senderId?: string
   senderName?: string
@@ -45,6 +46,7 @@ interface UseWatchPartyOptions {
   mediaTitle?: string
   episodeTitle?: string
   posterUrl?: string
+  adFilteringEnabled?: boolean
 }
 
 function generateRoomId(): string {
@@ -79,6 +81,7 @@ export function useWatchParty({
   mediaTitle,
   episodeTitle,
   posterUrl,
+  adFilteringEnabled,
 }: UseWatchPartyOptions) {
   const [searchParams, setSearchParams] = useSearchParams()
   const accountUsername = useAuthStore(state => state.account?.username)
@@ -122,6 +125,11 @@ export function useWatchParty({
   useEffect(() => {
     posterUrlRef.current = posterUrl
   }, [posterUrl])
+
+  const adFilteringRef = useRef(adFilteringEnabled)
+  useEffect(() => {
+    adFilteringRef.current = adFilteringEnabled
+  }, [adFilteringEnabled])
 
   const selectedEpisodeRef = useRef(selectedEpisode)
   useEffect(() => {
@@ -325,6 +333,7 @@ export function useWatchParty({
                 mediaTitle: mediaTitleRef.current,
                 episodeTitle: episodeTitleRef.current,
                 posterUrl: posterUrlRef.current,
+                adFilteringEnabled: adFilteringRef.current,
                 mode: modeRef.current,
                 senderId: myClientIdRef.current,
                 senderName: currentUsernameRef.current,
@@ -641,6 +650,7 @@ export function useWatchParty({
           mediaTitle: mediaTitleRef.current,
           episodeTitle: episodeTitleRef.current,
           posterUrl: posterUrlRef.current,
+          adFilteringEnabled: adFilteringRef.current,
         } : {}),
       })
     }, 2000)
