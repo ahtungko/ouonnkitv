@@ -1,5 +1,6 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { persist, createJSONStorage } from 'zustand/middleware'
+import { safeLocalStorage } from '@/shared/lib/safeStorage'
 import { mergeSeriesUpdate, unreadEpisodeNumbers, type SeriesUpdate } from '../lib/seriesTracking'
 import { useSeriesNotificationsStore, syncedNotificationView } from './seriesNotificationsStore'
 
@@ -103,6 +104,7 @@ export const useSeriesUpdatesStore = create<SeriesUpdatesStore>()(
     }),
     {
       name: 'ouonnki-tv-series-updates',
+      storage: createJSONStorage(() => safeLocalStorage),
       partialize: state => ({ ownerId: state.ownerId, entries: state.entries }),
     },
   ),

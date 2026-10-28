@@ -1,5 +1,6 @@
 import { create } from 'zustand'
-import { devtools, persist } from 'zustand/middleware'
+import { devtools, persist, createJSONStorage } from 'zustand/middleware'
+import { safeLocalStorage } from '@/shared/lib/safeStorage'
 import { immer } from 'zustand/middleware/immer'
 import type {
   PlaylistMatchItem,
@@ -65,6 +66,8 @@ export const useTmdbMatchCacheStore = create<TmdbMatchCacheStore>()(
               payload,
             }
           })
+          // 自动控制上限为 20 条，杜绝无节制填满 localStorage
+          get().prune(20)
         },
 
         clearEntries: () => {
@@ -96,6 +99,7 @@ export const useTmdbMatchCacheStore = create<TmdbMatchCacheStore>()(
       {
         name: 'ouonnki-tv-tmdb-match-cache-store',
         version: 1,
+        storage: createJSONStorage(() => safeLocalStorage),
         partialize: state => ({ entries: state.entries }),
       },
     ),

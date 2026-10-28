@@ -125,37 +125,37 @@ export function SeriesUpdates() {
   if (!rows.length) return null
 
   return (
-    <section aria-label="追剧更新" className="border-border rounded-xl border p-3 md:p-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+    <section aria-label="追剧更新" className="rounded-2xl border border-border/40 bg-card/25 backdrop-blur-md p-4 sm:p-5 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
           <Bell className="text-primary size-5" />
-          <h2 className="text-primary text-xl font-semibold">追剧更新</h2>
+          <h2 className="text-primary text-xl font-bold tracking-tight">追剧更新</h2>
           {updatedSeries > 0 && (
-            <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-xs text-amber-700 dark:text-amber-400">
+            <span className="rounded-full bg-amber-500/15 px-2.5 py-0.5 text-xs font-semibold text-amber-600 dark:text-amber-400">
               {updatedSeries} 部有更新
             </span>
           )}
           {pendingSeries > 0 && (
-            <span className="bg-primary/10 text-primary rounded-full px-2 py-0.5 text-xs">
+            <span className="bg-primary/10 text-primary rounded-full px-2.5 py-0.5 text-xs font-semibold">
               {pendingSeries} 部待看
             </span>
           )}
         </div>
         <div className="flex items-center gap-2">
-          <Button asChild size="sm" variant="ghost">
+          <Button asChild size="sm" variant="ghost" className="h-8 rounded-full text-xs">
             <NavLink to="/favorites">管理追更</NavLink>
           </Button>
-          <Button size="sm" variant="outline" disabled={checking} onClick={refresh}>
+          <Button size="sm" variant="outline" className="h-8 rounded-full text-xs gap-1.5" disabled={checking} onClick={refresh}>
             <RefreshCw className={`size-3.5 ${checking ? 'animate-spin' : ''}`} />
             {checking ? '检查中…' : '检查更新'}
           </Button>
         </div>
       </div>
-      <p className="text-muted-foreground mt-1 text-xs">
+      <p className="text-muted-foreground mt-1.5 text-xs">
         首次追更只显示待看，之后的新集单独提醒；待看集数按观看进度估算，当前未看完的一集也计入。
       </p>
       {batchProgress && (batchProgress.total > 0 || batchProgress.cached > 0) && (
-        <div className="mt-3 space-y-1.5" aria-label="追更检查进度">
+        <div className="mt-3.5 space-y-1.5" aria-label="追更检查进度">
           <p
             role="status"
             aria-live="polite"
@@ -192,29 +192,24 @@ export function SeriesUpdates() {
           )}
         </div>
       )}
-      <div role="group" aria-label="追更筛选" className="mt-3 flex flex-wrap gap-1">
+      <div role="group" aria-label="追更筛选" className="mt-3.5 flex flex-wrap gap-1.5">
         {FILTERS.map(option => (
           <Button
             key={option.value}
             type="button"
             size="sm"
             variant={filter === option.value ? 'secondary' : 'ghost'}
-            className="h-8 gap-1.5 px-2.5 text-xs"
+            className="h-7.5 rounded-full px-3 text-xs font-medium"
             aria-pressed={filter === option.value}
             aria-controls={listId}
             onClick={() => setSelection({ ownerId, value: option.value })}
-          >
-            {option.label}
-            <span className="text-muted-foreground tabular-nums">
-              {rows.filter(row => row.matches[option.value]).length}
-            </span>
-          </Button>
+          >{option.label}<span className="text-muted-foreground tabular-nums ml-1">{rows.filter(row => row.matches[option.value]).length}</span></Button>
         ))}
       </div>
-      <div id={listId} className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3" aria-live="polite">
+      <div id={listId} className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3" aria-live="polite">
         {!visibleRows.length && (
           <div
-            className="text-muted-foreground col-span-full py-6 text-center text-sm"
+            className="text-muted-foreground col-span-full py-8 text-center text-sm"
             role="status"
           >
             <p>{FILTERS.find(option => option.value === filter)?.empty}</p>
@@ -222,7 +217,7 @@ export function SeriesUpdates() {
               type="button"
               size="sm"
               variant="ghost"
-              className="mt-2"
+              className="mt-2.5 rounded-full"
               onClick={() => setSelection({ ownerId, value: 'all' })}
             >
               查看全部追更
@@ -243,14 +238,14 @@ export function SeriesUpdates() {
               ? getPosterUrl(item.media.posterPath, 'w342')
               : item.media.vodPic
           return (
-            <article key={item.id} className="bg-muted/30 flex gap-3 rounded-lg p-3">
+            <article key={item.id} className="group rounded-xl border border-border/30 bg-muted/20 hover:bg-muted/40 p-3 transition-colors flex gap-3.5">
               <NavLink
                 to={detailPath}
                 aria-label={`打开${title}`}
-                className="focus-visible:ring-ring block h-28 w-[4.5rem] shrink-0 overflow-hidden rounded-md outline-none focus-visible:ring-2"
+                className="focus-visible:ring-ring block h-28 w-[4.5rem] shrink-0 overflow-hidden rounded-lg outline-none focus-visible:ring-2 shadow-sm"
               >
                 {poster ? (
-                  <img src={poster} alt="" loading="lazy" className="size-full object-cover" />
+                  <img src={poster} alt="" loading="lazy" className="size-full object-cover transition-transform duration-300 group-hover:scale-105" />
                 ) : (
                   <div className="bg-muted text-muted-foreground flex size-full items-center justify-center">
                     <Bell className="size-6" />
@@ -258,7 +253,7 @@ export function SeriesUpdates() {
                 )}
               </NavLink>
               <div className="min-w-0 flex-1 space-y-1.5">
-                <h3 className="line-clamp-1 text-sm font-semibold" title={title}>
+                <h3 className="line-clamp-1 text-sm font-semibold text-foreground" title={title}>
                   <NavLink to={detailPath} className="hover:underline focus-visible:underline">
                     {title}
                   </NavLink>
@@ -272,7 +267,7 @@ export function SeriesUpdates() {
                   <>
                     <p className="text-xs">
                       {newCount > 0 && (
-                        <span className="mr-2 font-semibold text-amber-700 dark:text-amber-400">
+                        <span className="mr-2 font-semibold text-amber-600 dark:text-amber-400">
                           新增 {newCount} 集
                         </span>
                       )}
@@ -307,11 +302,11 @@ export function SeriesUpdates() {
                     {update?.checkedAt ? '（显示上次成功结果）' : ''}
                   </p>
                 )}
-                <div className="mt-1 flex flex-wrap items-center gap-1">
+                <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                   {path && (
-                    <Button asChild size="sm" variant="secondary" className="h-7 text-xs">
+                    <Button asChild size="sm" variant="secondary" className="h-7 rounded-full px-2.5 text-xs font-medium">
                       <NavLink to={path}>
-                        <Play className="size-3" />
+                        <Play className="size-3 fill-current" />
                         {!progress.pendingCount
                           ? '重新观看'
                           : progress.currentEpisode
@@ -328,7 +323,7 @@ export function SeriesUpdates() {
                       type="button"
                       size="sm"
                       variant="ghost"
-                      className="h-7 px-1.5 text-xs"
+                      className="h-7 rounded-full px-2 text-xs"
                       aria-label={`标记${title}更新提醒为已读`}
                       title="清除新集提醒，保留待看进度"
                       onClick={() => markRead(ownerId, trackingKey(item), update)}

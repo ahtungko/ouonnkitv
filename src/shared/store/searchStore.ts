@@ -1,5 +1,6 @@
 import { create } from 'zustand'
-import { devtools, persist } from 'zustand/middleware'
+import { devtools, persist, createJSONStorage } from 'zustand/middleware'
+import { safeLocalStorage } from '@/shared/lib/safeStorage'
 import { immer } from 'zustand/middleware/immer'
 import type { SearchHistory, SearchHistoryItem } from '@/shared/types'
 import { v4 as uuidv4 } from 'uuid'
@@ -108,6 +109,7 @@ export const useSearchStore = create<SearchStore>()(
       })),
       {
         name: 'ouonnki-tv-search-store', // 持久化存储的键名
+        storage: createJSONStorage(() => safeLocalStorage),
         partialize: state => ({
           // 持久化搜索历史
           searchHistory: state.searchHistory,

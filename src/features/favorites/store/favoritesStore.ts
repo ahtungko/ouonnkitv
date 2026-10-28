@@ -1,5 +1,6 @@
 import { create } from 'zustand'
-import { devtools, persist } from 'zustand/middleware'
+import { devtools, persist, createJSONStorage } from 'zustand/middleware'
+import { safeLocalStorage } from '@/shared/lib/safeStorage'
 import { immer } from 'zustand/middleware/immer'
 import { normalizeVodId } from '@ouonnki/cms-core'
 import type { FavoriteItem, FavoriteList, FavoriteFilterOptions, FavoriteStats } from '../types/favorites'
@@ -154,7 +155,7 @@ function generateCmsFavoriteId(vodId: string, sourceCode: string): string {
 /**
  * 从 TmdbMediaItem 创建轻量化媒体快照
  */
-function createTmdbMediaSnapshot(media: TmdbMediaItem): TmdbFavoriteItem['media'] {
+function createTmdbMediaSnapshot(media: TmdbMediaItem | TmdbFavoriteItem['media']): TmdbFavoriteItem['media'] {
   return {
     id: media.id,
     mediaType: media.mediaType,
@@ -170,16 +171,75 @@ function createTmdbMediaSnapshot(media: TmdbMediaItem): TmdbFavoriteItem['media'
 /**
  * 从 VideoItem 创建轻量化媒体快照
  */
-function createCmsMediaSnapshot(video: VideoItem): CmsFavoriteItem['media'] {
+function createCmsMediaSnapshot(video: VideoItem | CmsFavoriteItem['media']): CmsFavoriteItem['media'] {
+  if ('vod_id' in video) {
+    return {
+      vodId: video.vod_id,
+      vodName: video.vod_name,
+      vodPic: video.vod_pic,
+      typeName: video.type_name,
+      vodYear: video.vod_year,
+      vodArea: video.vod_area,
+      sourceCode: video.source_code || '',
+      sourceName: video.source_name || '',
+    }
+  }
   return {
-    vodId: video.vod_id,
-    vodName: video.vod_name,
-    vodPic: video.vod_pic,
-    typeName: video.type_name,
-    vodYear: video.vod_year,
-    vodArea: video.vod_area,
-    sourceCode: video.source_code || '',
-    sourceName: video.source_name || '',
+    vodId: video.vodId,
+    vodName: video.vodName,
+    vodPic: video.vodPic,
+    typeName: video.typeName,
+    vodYear: video.vodYear,
+    vodArea: video.vodArea,
+    sourceCode: video.sourceCode || '',
+    sourceName: video.sourceName || '',
+  }
+}
+
+/**
+ * 深度精简收藏项，剔除任何可能导致 LocalStorage 配额爆满的冗余播放列表与剧集详情
+ */
+function sanitizeFavoriteItem(item: FavoriteItem): FavoriteItem {
+  if (item.sourceType === 'tmdb') {
+    return {
+      id: item.id,
+      sourceType: 'tmdb',
+      addedAt: item.addedAt,
+      updatedAt: item.updatedAt,
+      watchStatus: item.watchStatus,
+      rating: item.rating,
+      notes: item.notes,
+      tags: Array.isArray(item.tags) ? item.tags : [],
+      tracking: item.tracking
+        ? {
+            enabled: item.tracking.enabled,
+            seasonNumber: item.tracking.seasonNumber,
+            bindings: item.tracking.bindings,
+            progress: item.tracking.progress,
+          }
+        : undefined,
+      media: createTmdbMediaSnapshot(item.media),
+    }
+  }
+
+  return {
+    id: item.id,
+    sourceType: 'cms',
+    addedAt: item.addedAt,
+    updatedAt: item.updatedAt,
+    watchStatus: item.watchStatus,
+    rating: item.rating,
+    notes: item.notes,
+    tags: Array.isArray(item.tags) ? item.tags : [],
+    tracking: item.tracking
+      ? {
+          enabled: item.tracking.enabled,
+          seasonNumber: item.tracking.seasonNumber,
+          bindings: item.tracking.bindings,
+          progress: item.tracking.progress,
+        }
+      : undefined,
+    media: createCmsMediaSnapshot(item.media),
   }
 }
 
@@ -721,11 +781,15 @@ export const useFavoritesStore = create<FavoritesStore>()(
       {
         name: 'ouonnki-tv-favorites-store',
         version: 2,
-        partialize: state => ({ favorites: state.favorites }),
+        storage: createJSONStorage(() => safeLocalStorage),
+        partialize: state => ({
+          favorites: (state.favorites || []).map(sanitizeFavoriteItem),
+        }),
         migrate: persistedState => {
           const state = persistedState as Partial<FavoritesState> | undefined
+          const raw = Array.isArray(state?.favorites) ? state.favorites : []
           return {
-            favorites: Array.isArray(state?.favorites) ? state.favorites : [],
+            favorites: raw.map(sanitizeFavoriteItem),
           }
         },
         onRehydrateStorage: () => state => {

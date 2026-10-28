@@ -8,7 +8,6 @@ import {
   CarouselItem,
 } from '@/shared/components/ui/carousel'
 import { AspectRatio } from '@/shared/components/ui/aspect-ratio'
-import { Button } from '@/shared/components/ui/button'
 import { Skeleton } from '@/shared/components/ui/skeleton'
 import { useIsMobile } from '@/shared/hooks/use-mobile'
 import { buildCmsPlayPath } from '@/shared/lib/routes'
@@ -24,7 +23,7 @@ interface CmsMediaCarouselProps {
 }
 
 /**
- * CmsMediaCarouselSkeleton - 骨架屏组件
+ * CmsMediaCarouselSkeleton - CMS 骨架屏
  */
 function CmsMediaCarouselSkeleton({ title }: { title: string }) {
   const isMobile = useIsMobile()
@@ -35,17 +34,17 @@ function CmsMediaCarouselSkeleton({ title }: { title: string }) {
       : 6
 
   return (
-    <div>
+    <div className="space-y-3">
       <div className="px-1">
-        <h2 className="text-primary text-xl font-semibold">{title}</h2>
+        <h2 className="text-lg md:text-xl font-bold tracking-tight text-foreground">{title}</h2>
       </div>
-      <div className="flex gap-4 pt-2">
+      <div className="flex gap-3 md:gap-4">
         {Array.from({ length: skeletonCount }).map((_, index) => (
           <div key={index} className="flex-1">
             <AspectRatio ratio={2 / 3}>
-              <Skeleton className="size-full rounded-lg" />
+              <Skeleton className="size-full rounded-xl" />
             </AspectRatio>
-            <Skeleton className="mt-2 h-4 w-3/4" />
+            <Skeleton className="mt-2.5 h-4 w-3/4 rounded-md" />
           </div>
         ))}
       </div>
@@ -55,7 +54,6 @@ function CmsMediaCarouselSkeleton({ title }: { title: string }) {
 
 /**
  * CmsMediaCarousel - CMS 视频卡片轮播组件
- * 展示 CMS 视频源的视频列表，使用竖向海报卡片
  */
 export function CmsMediaCarousel({ title, items, loading = false }: CmsMediaCarouselProps) {
   const isMobile = useIsMobile()
@@ -95,17 +93,17 @@ export function CmsMediaCarousel({ title, items, loading = false }: CmsMediaCaro
   }
 
   return (
-    <div className="group/carousel">
-      <div className="px-1">
-        <h2 className="text-primary text-xl font-semibold">{title}</h2>
+    <div className="group/carousel relative">
+      <div className="mb-3 px-1">
+        <h2 className="text-lg md:text-xl font-bold tracking-tight text-foreground">{title}</h2>
       </div>
-      <div className="pt-2">
+      <div className="relative">
         <Carousel opts={{ watchDrag: canDrag, slidesToScroll }} setApi={setCarouselApi}>
-          <CarouselContent>
+          <CarouselContent className="-ml-3 md:-ml-4">
             {items.map(item => (
               <CarouselItem
                 key={`${item.source_code}-${item.vod_id}`}
-                className="h-fit basis-1/3 md:basis-1/4 lg:basis-1/6"
+                className="h-fit basis-1/3 pl-3 md:basis-1/4 md:pl-4 lg:basis-1/6"
               >
                 <MediaPosterCard
                   to={buildCmsPlayPath(item.source_code || '', String(item.vod_id))}
@@ -118,24 +116,24 @@ export function CmsMediaCarousel({ title, items, loading = false }: CmsMediaCaro
             ))}
           </CarouselContent>
           {canDrag && canScrollPrev && (
-            <Button
-              variant="outline"
-              size="icon"
-              className="absolute top-1/2 -left-5 size-10 -translate-y-1/2 rounded-full transition-opacity duration-300 md:size-12 lg:opacity-0 lg:group-hover/carousel:opacity-100 dark:bg-zinc-800"
+            <button
+              type="button"
+              aria-label="前一组"
+              className="absolute top-1/2 -left-3 md:-left-4 z-20 flex size-9 md:size-11 -translate-y-1/2 items-center justify-center rounded-full border border-border/50 bg-background/80 backdrop-blur-md text-foreground shadow-lg transition-all duration-200 hover:scale-105 hover:bg-background active:scale-95 lg:opacity-0 lg:group-hover/carousel:opacity-100"
               onClick={() => carouselApi?.scrollPrev()}
             >
-              <ChevronLeft className="size-4 translate-x-1.5 md:size-6 md:translate-x-0.5" />
-            </Button>
+              <ChevronLeft className="size-5" />
+            </button>
           )}
           {canDrag && canScrollNext && (
-            <Button
-              variant="outline"
-              size="icon"
-              className="absolute top-1/2 -right-5 size-10 -translate-y-1/2 rounded-full transition-opacity duration-300 md:size-12 lg:opacity-0 lg:group-hover/carousel:opacity-100 dark:bg-zinc-800"
+            <button
+              type="button"
+              aria-label="后一组"
+              className="absolute top-1/2 -right-3 md:-right-4 z-20 flex size-9 md:size-11 -translate-y-1/2 items-center justify-center rounded-full border border-border/50 bg-background/80 backdrop-blur-md text-foreground shadow-lg transition-all duration-200 hover:scale-105 hover:bg-background active:scale-95 lg:opacity-0 lg:group-hover/carousel:opacity-100"
               onClick={() => carouselApi?.scrollNext()}
             >
-              <ChevronRight className="size-4 -translate-x-1.5 md:size-6 md:-translate-x-0.5" />
-            </Button>
+              <ChevronRight className="size-5" />
+            </button>
           )}
         </Carousel>
       </div>

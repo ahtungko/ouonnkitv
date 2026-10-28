@@ -64,7 +64,7 @@ function TmdbHomeContent() {
   )
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-8 md:gap-10 pb-8">
       {/* 首页趋势轮播 */}
       <FeaturedCarousel items={trending} loading={loading} />
       {/* 继续观看 */}

@@ -77,8 +77,8 @@ export function ViewingHistoryCard({
     <div
       className={cn(
         selectionMode
-          ? 'relative cursor-pointer overflow-hidden rounded-lg'
-          : 'group relative cursor-pointer overflow-hidden rounded-lg',
+          ? 'relative cursor-pointer overflow-hidden rounded-xl border border-border/40 bg-card/30 shadow-sm'
+          : 'group relative cursor-pointer overflow-hidden rounded-xl border border-border/40 bg-card/30 shadow-sm transition-all duration-300 ease-out group-hover:-translate-y-1 group-hover:border-white/20 group-hover:shadow-[0_12px_28px_rgba(0,0,0,0.45)]',
         selected && 'ring-primary ring-offset-background ring-2 ring-offset-2',
       )}
     >
@@ -101,48 +101,55 @@ export function ViewingHistoryCard({
         </AnimatePresence>
       )}
 
-      <AspectRatio ratio={1.778}>
+      <AspectRatio ratio={1.778} className="bg-muted">
         <img
-          className="h-full w-full object-cover transition-transform duration-300 ease-out group-hover:scale-110"
+          className="size-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
           src={item.imageUrl}
           alt={item.title}
+          loading="lazy"
         />
+
+        {/* 左上角记录源标签 */}
         <div className="pointer-events-none absolute top-2 left-2 flex max-w-[82%] items-center gap-1 transition-opacity duration-300 group-hover:opacity-0">
-          <span className="rounded bg-black/65 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-white">
+          <span className="rounded-md border border-white/10 bg-black/65 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-white backdrop-blur-md">
             {getRecordTypeLabel(item)}
           </span>
         </div>
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-2 pt-6 transition-opacity duration-300 group-hover:opacity-0">
-          <span className="line-clamp-1 text-sm font-medium text-white">{item.title}</span>
+
+        {/* 底部暗色渐变与片名 */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent p-2.5 pt-7 transition-opacity duration-300 group-hover:opacity-0">
+          <span className="line-clamp-1 text-xs md:text-sm font-medium text-white">{item.title}</span>
         </div>
       </AspectRatio>
 
+      {/* 底部播放进度条 */}
       <Progress
-        className="h-1 transition-opacity duration-300 group-hover:opacity-0 [&>*]:bg-red-600 dark:[&>*]:bg-red-800"
+        className="h-1 rounded-none border-t border-black/30 transition-opacity duration-300 group-hover:opacity-0 [&>*]:bg-primary shadow-[0_0_8px_rgba(var(--primary),0.6)]"
         value={progressValue}
       />
 
-      <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-        <div className="flex size-12 items-center justify-center rounded-full bg-white/90 text-black shadow-lg">
-          <Play className="size-6 fill-current" />
+      {/* Hover 全卡片半透明遮罩 + 播放按钮 */}
+      <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/35 backdrop-blur-[2px] opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+        <div className="flex size-11 items-center justify-center rounded-full bg-white text-black shadow-2xl transition-transform duration-300 ease-out scale-90 group-hover:scale-100">
+          <Play className="size-5 fill-current ml-0.5" />
         </div>
       </div>
 
       {!selectionMode ? (
         <div className="pointer-events-none absolute top-2 right-2 flex max-w-[82%] items-center gap-1 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-          <span className="max-w-[56%] truncate rounded bg-black/60 px-1.5 py-0.5 text-xs font-medium text-white">
+          <span className="max-w-[56%] truncate rounded-md border border-white/10 bg-black/70 px-1.5 py-0.5 text-[11px] font-medium text-white backdrop-blur-md">
             {getSourceLabel(item)}
           </span>
-          <span className="rounded bg-black/60 px-1.5 py-0.5 text-xs font-medium text-white">
+          <span className="rounded-md border border-white/10 bg-black/70 px-1.5 py-0.5 text-[11px] font-medium text-white backdrop-blur-md">
             {getEpisodeLabel(item)}
           </span>
         </div>
       ) : null}
 
       {!selectionMode ? (
-        <div className="pointer-events-none absolute bottom-2 left-2 flex items-center gap-1 rounded bg-black/65 px-2 py-1 text-[11px] text-white opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-          <span className="font-semibold">已观看 {progressPercentLabel}</span>
-          <span className="text-white/80">{progressDetailLabel}</span>
+        <div className="pointer-events-none absolute bottom-2 left-2 flex items-center gap-1.5 rounded-md border border-white/10 bg-black/75 px-2 py-1 text-[11px] text-white backdrop-blur-md opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+          <span className="font-semibold text-primary-foreground">已看 {progressPercentLabel}</span>
+          <span className="text-white/75">{progressDetailLabel}</span>
         </div>
       ) : null}
     </div>
@@ -152,8 +159,8 @@ export function ViewingHistoryCard({
     <div
       className={cn(
         selectionMode
-          ? 'relative cursor-pointer overflow-hidden rounded-lg border border-border/50 bg-card'
-          : 'relative cursor-pointer overflow-hidden rounded-lg border border-border/50 bg-card',
+          ? 'relative cursor-pointer overflow-hidden rounded-xl border border-border/40 bg-card/40'
+          : 'relative cursor-pointer overflow-hidden rounded-xl border border-border/40 bg-card/40 active:bg-muted/40 transition-colors',
         selected && 'ring-primary ring-offset-background ring-2 ring-offset-2',
       )}
     >
@@ -176,30 +183,30 @@ export function ViewingHistoryCard({
         </AnimatePresence>
       )}
 
-      <div className="flex items-start gap-2.5 p-2">
-        <div className="relative w-[50%] shrink-0 overflow-hidden rounded-md">
-          <AspectRatio ratio={16 / 9}>
-            <img className="h-full w-full object-cover" src={item.imageUrl} alt={item.title} />
-            <div className="pointer-events-none absolute right-1 bottom-1 rounded bg-black/65 px-1.5 py-0.5 text-[10px] text-white">
+      <div className="flex items-start gap-3 p-2.5">
+        <div className="relative w-[48%] shrink-0 overflow-hidden rounded-lg">
+          <AspectRatio ratio={16 / 9} className="bg-muted">
+            <img className="size-full object-cover" src={item.imageUrl} alt={item.title} />
+            <div className="pointer-events-none absolute right-1 bottom-1 rounded bg-black/70 backdrop-blur-sm px-1.5 py-0.5 text-[10px] text-white">
               {progressDetailLabel}
             </div>
             <Progress
-              className="absolute inset-x-0 bottom-0 z-10 h-1 rounded-none [&>*]:bg-red-600 dark:[&>*]:bg-red-800"
+              className="absolute inset-x-0 bottom-0 z-10 h-1 rounded-none [&>*]:bg-primary"
               value={progressValue}
             />
           </AspectRatio>
         </div>
 
         <div className="flex min-h-full min-w-0 flex-1 flex-col justify-between py-0.5">
-          <div className="line-clamp-1 overflow-hidden text-sm font-semibold leading-5">
+          <div className="line-clamp-1 overflow-hidden text-sm font-semibold leading-5 text-foreground">
             {item.title}
           </div>
 
           <div className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground">
-            <span className="max-w-[52%] truncate rounded bg-muted px-1.5 py-0.5">
+            <span className="max-w-[52%] truncate rounded bg-muted/70 px-1.5 py-0.5">
               {getSourceLabel(item)}
             </span>
-            <span className="rounded bg-muted px-1.5 py-0.5">{getEpisodeLabel(item)}</span>
+            <span className="rounded bg-muted/70 px-1.5 py-0.5">{getEpisodeLabel(item)}</span>
           </div>
 
           <div className="mt-1 text-[11px] text-muted-foreground">{timestampLabel}</div>
@@ -211,7 +218,7 @@ export function ViewingHistoryCard({
   return (
     <NavLink
       to={getPlayPath(item)}
-      className={cn('block', className)}
+      className={cn('block focus-visible:outline-none', className)}
       onClick={handleCardClick}
       aria-pressed={selectionMode ? selected : undefined}
     >
