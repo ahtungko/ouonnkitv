@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router'
 import type Artplayer from 'artplayer'
 import { syncClient } from '@/shared/sync/client'
 import { useAuthStore } from '@/shared/store/authStore'
+import { isWatchPartyChatMessage } from '../lib/watchPartyChat'
 
 export type WatchPartyMode = 'host_only' | 'collaborative' | 'guest_cinema'
 export type WatchPartyActionType =
@@ -29,6 +30,15 @@ export interface WatchPartyAction {
   senderName?: string
   isPlaying?: boolean
   message?: string
+}
+
+export interface WatchPartyChatMessage {
+  id: string
+  senderId: string
+  senderName: string
+  isHost?: boolean
+  text: string
+  timestamp: number
 }
 
 export interface WatchPartyParticipant {
@@ -92,6 +102,8 @@ export function useWatchParty({
   const [mode, setMode] = useState<WatchPartyMode>('host_only')
   const [roomId, setRoomId] = useState<string | null>(null)
   const [participants, setParticipants] = useState<WatchPartyParticipant[]>([])
+  const [messages, setMessages] = useState<WatchPartyChatMessage[]>([])
+  const [danmakuEnabled, setDanmakuEnabled] = useState(true)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [inviteUrl, setInviteUrl] = useState('')
 
@@ -213,6 +225,34 @@ export function useWatchParty({
     [isPartyActive, mode, isHost],
   )
 
+  // Send a chat message to the room
+  const sendChatMessage = useCallback(
+    async (text: string): Promise<boolean> => {
+      const trimmed = text.trim()
+      const channel = channelRef.current
+      if (!trimmed || trimmed.length > 100 || !channel || !isPartyActive) return false
+
+      const chatMsg: WatchPartyChatMessage = {
+        id: `${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        senderId: myClientIdRef.current,
+        senderName: currentUsernameRef.current,
+        isHost,
+        text: trimmed,
+        timestamp: Date.now(),
+      }
+
+      try {
+        const result = await channel.send({ type: 'broadcast', event: 'party_chat', payload: chatMsg })
+        if (result !== 'ok' || channelRef.current !== channel) return false
+        setMessages(prev => [...prev.slice(-99), chatMsg])
+        return true
+      } catch {
+        return false
+      }
+    },
+    [isPartyActive, isHost],
+  )
+
   // Leave room logic
   const leaveParty = useCallback(async () => {
     const leavingRoom = roomIdRef.current || new URLSearchParams(window.location.search).get('partyRoom')
@@ -264,6 +304,7 @@ export function useWatchParty({
     setIsHost(false)
     setRoomId(null)
     setParticipants([])
+    setMessages([])
     setInviteUrl('')
     pendingSyncRef.current = null
 
@@ -325,6 +366,7 @@ export function useWatchParty({
       setMode(roomMode)
       setIsHost(asHost)
       setIsPartyActive(true)
+      setMessages([])
 
       const channelName = `watch_party_${targetRoomId}`
       const channel = syncClient.channel(channelName, {
@@ -472,6 +514,13 @@ export function useWatchParty({
             isRemoteEventRef.current = false
           }, 600)
         }
+      })
+
+      // Listen for chat messages
+      channel.on('broadcast', { event: 'party_chat' }, ({ payload }) => {
+        if (!isWatchPartyChatMessage(payload) || payload.senderId === myClientIdRef.current) return
+        const chat = payload
+        setMessages(prev => [...prev.slice(-99), chat])
       })
 
       // Listen for presence changes
@@ -784,6 +833,10 @@ export function useWatchParty({
     inviterName: accountUsername || null,
     posterUrl: posterUrl || null,
     isSupabaseAvailable,
+    messages,
+    danmakuEnabled,
+    setDanmakuEnabled,
+    sendChatMessage,
     createParty,
     leaveParty,
     broadcastAction,

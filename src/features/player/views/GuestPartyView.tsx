@@ -17,10 +17,16 @@ import { syncClient } from '@/shared/sync/client'
 import { useAuthStore } from '@/shared/store/authStore'
 import { Button } from '@/shared/components/ui/button'
 import { Badge } from '@/shared/components/ui/badge'
+import { isWatchPartyChatMessage } from '../lib/watchPartyChat'
 import type {
   WatchPartyAction,
   WatchPartyParticipant,
+  WatchPartyChatMessage,
 } from '../hooks/useWatchParty'
+import {
+  WatchPartyChatOverlay,
+  WatchPartyInlineBar,
+} from '../components/WatchPartyChatOverlay'
 
 const m3u8Processor = createM3u8Processor({ filterAds: true })
 
@@ -52,6 +58,9 @@ export default function GuestPartyView() {
   const [posterUrl, setPosterUrl] = useState<string>(() => getPosterFromUrl())
 
   const [participants, setParticipants] = useState<WatchPartyParticipant[]>([])
+  const [messages, setMessages] = useState<WatchPartyChatMessage[]>([])
+  const [danmakuEnabled, setDanmakuEnabled] = useState(true)
+  const channelRef = useRef<ReturnType<NonNullable<typeof syncClient>['channel']> | null>(null)
   const [videoUrl, setVideoUrl] = useState<string | null>(null)
   const [adFilteringEnabled, setAdFilteringEnabled] = useState(false)
   const [filterUnavailable, setFilterUnavailable] = useState(false)
@@ -81,6 +90,7 @@ export default function GuestPartyView() {
 
   const containerRef = useRef<HTMLDivElement | null>(null)
   const artRef = useRef<Artplayer | null>(null)
+  const [playerOverlayContainer, setPlayerOverlayContainer] = useState<HTMLElement | null>(null)
   const playerReadyRef = useRef(false)
   const videoUrlRef = useRef<string | null>(null)
   const adFilteringRef = useRef(false)
@@ -106,6 +116,37 @@ export default function GuestPartyView() {
     playGuest(player)
     setTimeout(() => { isRemoteRef.current = false }, 600)
   }
+
+  const sendChatMessage = useCallback(
+    async (text: string): Promise<boolean> => {
+      const trimmed = text.trim()
+      const channel = channelRef.current
+      if (!trimmed || trimmed.length > 100 || !channel || terminatedRef.current) return false
+
+      const guestName =
+        account?.username ||
+        (inviter ? `访客_${myClientIdRef.current.substring(6)}` : '观众')
+
+      const chatMsg: WatchPartyChatMessage = {
+        id: `${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        senderId: myClientIdRef.current,
+        senderName: guestName,
+        isHost: false,
+        text: trimmed,
+        timestamp: Date.now(),
+      }
+
+      try {
+        const result = await channel.send({ type: 'broadcast', event: 'party_chat', payload: chatMsg })
+        if (result !== 'ok' || channelRef.current !== channel || terminatedRef.current) return false
+        setMessages(prev => [...prev.slice(-99), chatMsg])
+        return true
+      } catch {
+        return false
+      }
+    },
+    [account, inviter],
+  )
 
   // Prevent right-click context menu and inspection shortcuts for cleaner cinema feel
   useEffect(() => {
@@ -141,6 +182,7 @@ export default function GuestPartyView() {
       }
       artRef.current = null
     }
+    setPlayerOverlayContainer(null)
     setVideoUrl(null)
     playerReadyRef.current = false
     videoUrlRef.current = null
@@ -189,6 +231,7 @@ export default function GuestPartyView() {
         presence: { key: myClientIdRef.current },
       },
     })
+    channelRef.current = channel
     let subscribed = false
     const requestState = () => {
       if (!subscribed || videoUrlRef.current || terminatedRef.current) return
@@ -321,6 +364,13 @@ export default function GuestPartyView() {
       }
     })
 
+    // Listen to chat messages
+    channel.on('broadcast', { event: 'party_chat' }, ({ payload }) => {
+      if (!isWatchPartyChatMessage(payload) || payload.senderId === myClientIdRef.current) return
+      const chat = payload
+      setMessages(prev => [...prev.slice(-99), chat])
+    })
+
     // Listen to presence events
     channel.on('presence', { event: 'sync' }, () => {
       const presenceState = channel.presenceState()
@@ -363,6 +413,7 @@ export default function GuestPartyView() {
     })
 
     return () => {
+      channelRef.current = null
       window.clearInterval(retryState)
       if (countdownTimerRef.current) {
         clearInterval(countdownTimerRef.current)
@@ -475,6 +526,7 @@ export default function GuestPartyView() {
         })
 
         artRef.current = art
+        setPlayerOverlayContainer(art.template.$player)
         art.on('ready', () => {
           playerReadyRef.current = true
           const pending = pendingPlaybackRef.current
@@ -496,6 +548,7 @@ export default function GuestPartyView() {
     return () => {
       isDestroyed = true
       playerReadyRef.current = false
+      setPlayerOverlayContainer(null)
       if (artRef.current) {
         artRef.current.destroy(true)
         artRef.current = null
@@ -713,6 +766,27 @@ export default function GuestPartyView() {
                   </Button>
                 </div>
               )}
+              <WatchPartyChatOverlay
+                playerOverlayContainer={playerOverlayContainer}
+                messages={messages}
+                onSendMessage={sendChatMessage}
+                danmakuEnabled={danmakuEnabled}
+                onToggleDanmaku={() => setDanmakuEnabled(prev => !prev)}
+                isHost={false}
+                currentUserName={account?.username || undefined}
+                isPlaying={isPlaying}
+                participantCount={Math.max(participants.length, 1)}
+              />
+            </div>
+
+            {/* Inline Quick Chat Bar */}
+            <div className="mt-3">
+              <WatchPartyInlineBar
+                onSendMessage={sendChatMessage}
+                danmakuEnabled={danmakuEnabled}
+                onToggleDanmaku={() => setDanmakuEnabled(prev => !prev)}
+                messagesCount={messages.length}
+              />
             </div>
 
             {/* Cinema Screen Footer Bar */}

@@ -14,7 +14,7 @@ const mockChannel = {
     return mockChannel
   }),
   unsubscribe: vi.fn(),
-  send: vi.fn().mockResolvedValue(undefined),
+  send: vi.fn().mockResolvedValue('ok'),
   track: vi.fn().mockResolvedValue(undefined),
   presenceState: vi.fn().mockReturnValue({}),
 }
@@ -364,5 +364,83 @@ describe('useWatchParty', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+
+  it('发送聊天消息通过实时频道广播并记录到本地消息列表', async () => {
+    await act(async () => {
+      root.render(createElement(TestHarness))
+    })
+    await act(async () => {
+      await currentResult.createParty('host_only')
+    })
+
+    await act(async () => {
+      await currentResult.sendChatMessage('大家好，准备开播！')
+    })
+
+    expect(currentResult.messages.length).toBe(1)
+    expect(currentResult.messages[0].text).toBe('大家好，准备开播！')
+    expect(currentResult.messages[0].isHost).toBe(true)
+    expect(mockChannel.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'broadcast',
+        event: 'party_chat',
+        payload: expect.objectContaining({
+          text: '大家好，准备开播！',
+          isHost: true,
+        }),
+      }),
+    )
+  })
+
+  it('接收远端聊天消息并更新本地消息列表', async () => {
+    await act(async () => {
+      root.render(createElement(TestHarness))
+    })
+    await act(async () => {
+      await currentResult.createParty('host_only')
+    })
+
+    const chatHandler = mockChannel.on.mock.calls.find(
+      call => call[0] === 'broadcast' && call[1]?.event === 'party_chat',
+    )?.[2]
+    expect(chatHandler).toBeDefined()
+
+    await act(async () => {
+      chatHandler({
+        payload: {
+          id: 'chat-1',
+          senderId: 'remote-user',
+          senderName: '小李',
+          text: '前排打卡！',
+          timestamp: Date.now(),
+        },
+      })
+    })
+
+    expect(currentResult.messages.length).toBe(1)
+    expect(currentResult.messages[0].text).toBe('前排打卡！')
+    expect(currentResult.messages[0].senderName).toBe('小李')
+  })
+
+  it('发送失败时保留失败结果，不将消息显示为已发送', async () => {
+    await act(async () => root.render(createElement(TestHarness)))
+    await act(async () => { await currentResult.createParty('host_only') })
+    mockChannel.send.mockResolvedValueOnce('error')
+    let sent: boolean | undefined
+    await act(async () => { sent = await currentResult.sendChatMessage('测试') })
+    expect(sent).toBe(false)
+    expect(currentResult.messages).toHaveLength(0)
+  })
+
+  it('忽略格式无效或超长的远端聊天内容', async () => {
+    await act(async () => root.render(createElement(TestHarness)))
+    await act(async () => { await currentResult.createParty('host_only') })
+    const chatHandler = mockChannel.on.mock.calls.find(call => call[0] === 'broadcast' && call[1]?.event === 'party_chat')?.[2]
+    await act(async () => {
+      chatHandler({ payload: { id: 'bad', senderId: 'other', senderName: {}, text: {}, timestamp: Date.now() } })
+      chatHandler({ payload: { id: 'long', senderId: 'other', senderName: 'x', text: 'x'.repeat(101), timestamp: Date.now() } })
+    })
+    expect(currentResult.messages).toHaveLength(0)
   })
 })

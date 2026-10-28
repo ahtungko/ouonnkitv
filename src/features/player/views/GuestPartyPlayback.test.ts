@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => {
     currentTime: 0,
     video: { paused: true },
     notice: { show: '' },
+    template: { $player: document.createElement('div') },
     on: vi.fn((event: string, callback: (...args: any[]) => void) => { callbacks[event] = callback }),
     play: vi.fn().mockResolvedValue(undefined),
     pause: vi.fn(),
@@ -20,7 +21,7 @@ const mocks = vi.hoisted(() => {
   const channel = {
     on: vi.fn().mockReturnThis(),
     subscribe: vi.fn((callback: (status: string) => void) => { callback('SUBSCRIBED'); return channel }),
-    send: vi.fn().mockResolvedValue(undefined), track: vi.fn(), unsubscribe: vi.fn(), presenceState: vi.fn().mockReturnValue({}),
+    send: vi.fn().mockResolvedValue('ok'), track: vi.fn(), unsubscribe: vi.fn(), presenceState: vi.fn().mockReturnValue({}),
   }
   const playerOptions: any[] = []
   const hlsOptions: any[] = []
@@ -56,6 +57,20 @@ describe('访客播放器进度同步', () => {
       broadcast({ payload: { type: 'state_sync', senderId: 'host', videoUrl: 'https://example.com/video.m3u8', time: 10, isPlaying: true, adFilteringEnabled: true } })
     })
     await vi.waitFor(() => expect(mocks.callbacks.ready).toBeDefined())
+    expect(mocks.player.template.$player.querySelector('[aria-label="放映室聊天"]')).not.toBeNull()
+    const chat = mocks.channel.on.mock.calls.find(call => call[0] === 'broadcast' && call[1]?.event === 'party_chat')?.[2]
+    await act(async () => chat({ payload: { id: 'invalid', senderId: 'other', senderName: {}, text: {}, timestamp: 1 } }))
+    expect(host.textContent).not.toContain('1 条吐槽')
+    const input = host.querySelector('input') as HTMLInputElement
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set?.call(input, '访客消息')
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+    mocks.channel.send.mockResolvedValueOnce('error')
+    const sendButton = Array.from(host.querySelectorAll('button')).find(button => button.textContent?.includes('发送'))!
+    await act(async () => sendButton.click())
+    expect(input.value).toBe('访客消息')
+    expect(host.querySelector('[role="alert"]')?.textContent).toContain('发送失败')
     mocks.playerOptions.at(-1).customType.m3u8({}, 'https://example.com/video.m3u8', mocks.player)
     expect(mocks.hlsOptions.at(-1).loader).toBeTypeOf('function')
     await act(async () => {

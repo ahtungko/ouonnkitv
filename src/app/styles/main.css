@@ -248,3 +248,32 @@
   display: none !important;
 }
 
+
+/* 放映室实时弹幕滚动动画 */
+@keyframes party-danmaku-slide {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(calc(-100% - 100cqi));
+  }
+}
+
+@supports not (width: 1cqi) {
+  @keyframes party-danmaku-slide {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(calc(-100% - 100vw));
+    }
+  }
+}
+
+.animate-party-danmaku {
+  animation: party-danmaku-slide 8s linear forwards;
+}
+
+.party-danmaku-container {
+  container-type: inline-size;
+}

@@ -53,6 +53,8 @@ import {
   PlayerInfoAndRecommendations,
   PlayerLoadingSkeleton,
   WatchPartyModal,
+  WatchPartyChatOverlay,
+  WatchPartyInlineBar,
 } from '@/features/player/components'
 import {
   useEpisodePagination,
@@ -1983,6 +1985,19 @@ export default function UnifiedPlayer() {
               (playerOverlayContainer
                 ? createPortal(volumeOverlay, playerOverlayContainer)
                 : volumeOverlay)}
+            {party.isPartyActive && (
+              <WatchPartyChatOverlay
+                playerOverlayContainer={playerOverlayContainer}
+                messages={party.messages}
+                onSendMessage={party.sendChatMessage}
+                danmakuEnabled={party.danmakuEnabled}
+                onToggleDanmaku={() => party.setDanmakuEnabled(prev => !prev)}
+                isHost={party.isHost}
+                currentUserName={party.inviterName || undefined}
+                isPlaying={activeArt ? !activeArt.video?.paused : true}
+                participantCount={party.participantCount}
+              />
+            )}
             {shouldShowOverlayNotices && (
               <div className="pointer-events-none absolute top-14 right-3 z-30 flex max-w-[min(92vw,420px)] flex-col items-end gap-2">
                 {shouldShowMatchingNotice && (
@@ -2070,6 +2085,16 @@ export default function UnifiedPlayer() {
               </div>
             )}
           </section>
+          {party.isPartyActive && (
+            <div className="mt-2.5">
+              <WatchPartyInlineBar
+                onSendMessage={party.sendChatMessage}
+                danmakuEnabled={party.danmakuEnabled}
+                onToggleDanmaku={() => party.setDanmakuEnabled(prev => !prev)}
+                messagesCount={party.messages.length}
+              />
+            </div>
+          )}
         </div>
 
         <aside className="min-w-0 xl:sticky xl:top-20 xl:h-[clamp(240px,56vw,74vh)] xl:min-h-[220px] xl:pr-1">
