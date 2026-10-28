@@ -271,6 +271,7 @@ export default function UnifiedPlayer() {
   const [isDetailRefreshing, setIsDetailRefreshing] = useState(false)
   const [transientNotices, setTransientNotices] = useState<PlayerTransientNotice[]>([])
   const [dismissedBetterNoticeKeys, setDismissedBetterNoticeKeys] = useState<string[]>([])
+  const [dismissedMatchingNotice, setDismissedMatchingNotice] = useState(false)
   const [betterNoticeProgress, setBetterNoticeProgress] = useState(100)
   const [activeRightPanel, setActiveRightPanel] = useState<'episode' | 'source' | 'season' | null>(
     'episode',
@@ -1627,8 +1628,15 @@ export default function UnifiedPlayer() {
     handleSourceChange(bestSourceOption.sourceCode)
   }, [bestSourceOption, betterSourceNoticeKey, handleSourceChange])
 
+  useEffect(() => {
+    setDismissedMatchingNotice(false)
+  }, [routeVodId, routeSourceCode, parsedTmdbId])
+
   const shouldShowMatchingNotice = Boolean(
-    isTmdbRoute && tmdbPlayback.playlist.loading && tmdbPlayback.playlist.searched,
+    isTmdbRoute &&
+      tmdbPlayback.playlist.loading &&
+      tmdbPlayback.playlist.searched &&
+      !dismissedMatchingNotice,
   )
 
   const matchingNoticeText = useMemo(() => {
@@ -1950,13 +1958,21 @@ export default function UnifiedPlayer() {
                 ? createPortal(volumeOverlay, playerOverlayContainer)
                 : volumeOverlay)}
             {shouldShowOverlayNotices && (
-              <div className="pointer-events-none absolute top-3 right-3 z-30 flex max-w-[min(92vw,420px)] flex-col items-end gap-2">
+              <div className="pointer-events-none absolute top-14 right-3 z-30 flex max-w-[min(92vw,420px)] flex-col items-end gap-2">
                 {shouldShowMatchingNotice && (
-                  <div className="pointer-events-auto w-[min(86vw,320px)] overflow-hidden rounded-md border border-amber-300/35 bg-black/68 shadow-lg backdrop-blur-sm">
-                    <div className="flex items-center gap-2 px-3 py-2 text-xs text-white">
-                      <span className="inline-flex size-3.5 animate-spin rounded-full border border-amber-200 border-t-transparent" />
+                  <div className="pointer-events-auto flex items-center justify-between gap-2 w-[min(86vw,320px)] overflow-hidden rounded-md border border-amber-300/35 bg-black/75 shadow-lg backdrop-blur-sm px-3 py-2 text-xs text-white">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="inline-flex size-3.5 shrink-0 animate-spin rounded-full border border-amber-200 border-t-transparent" />
                       <span className="truncate">{matchingNoticeText}</span>
                     </div>
+                    <button
+                      type="button"
+                      className="shrink-0 text-white/70 transition-colors hover:text-white ml-1 p-0.5"
+                      aria-label="关闭匹配进度提示"
+                      onClick={() => setDismissedMatchingNotice(true)}
+                    >
+                      <X className="size-3.5" />
+                    </button>
                   </div>
                 )}
 
