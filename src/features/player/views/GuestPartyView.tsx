@@ -52,6 +52,7 @@ export default function GuestPartyView() {
   const [mediaTitle, setMediaTitle] = useState<string>('')
   const [episodeTitle, setEpisodeTitle] = useState<string>('')
   const [isPlaying, setIsPlaying] = useState<boolean>(false)
+  const [needsPlaybackGesture, setNeedsPlaybackGesture] = useState(false)
   const [hostOnline, setHostOnline] = useState<boolean>(false)
   const [hostEverConnected, setHostEverConnected] = useState<boolean>(false)
   const [disconnectCountdown, setDisconnectCountdown] = useState<number | null>(null)
@@ -73,12 +74,30 @@ export default function GuestPartyView() {
 
   const containerRef = useRef<HTMLDivElement | null>(null)
   const artRef = useRef<Artplayer | null>(null)
+  const playerReadyRef = useRef(false)
   const videoUrlRef = useRef<string | null>(null)
   const pendingPlaybackRef = useRef<{ time: number; isPlaying?: boolean } | null>(null)
+  const latestHostPlaybackRef = useRef<{ time: number; isPlaying: boolean; receivedAt: number } | null>(null)
   const terminatedRef = useRef(false)
   const isRemoteRef = useRef(false)
   const countdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const myClientIdRef = useRef<string>(`guest_${Math.random().toString(36).substring(2, 8)}`)
+
+  const playGuest = useCallback((player: Artplayer) => {
+    void player.play().then(() => setNeedsPlaybackGesture(false)).catch(error => {
+      if (error?.name === 'NotAllowedError') setNeedsPlaybackGesture(true)
+    })
+  }, [])
+
+  const resumeFromGesture = () => {
+    const player = artRef.current
+    const latest = latestHostPlaybackRef.current
+    if (!player || !latest?.isPlaying) return
+    isRemoteRef.current = true
+    player.currentTime = latest.time + Math.max(0, (Date.now() - latest.receivedAt) / 1000)
+    playGuest(player)
+    setTimeout(() => { isRemoteRef.current = false }, 600)
+  }
 
   // Prevent right-click context menu and inspection shortcuts for cleaner cinema feel
   useEffect(() => {
@@ -115,8 +134,11 @@ export default function GuestPartyView() {
       artRef.current = null
     }
     setVideoUrl(null)
+    playerReadyRef.current = false
     videoUrlRef.current = null
     pendingPlaybackRef.current = null
+    latestHostPlaybackRef.current = null
+    setNeedsPlaybackGesture(false)
     setDisconnectCountdown(null)
     setTerminatedReason(reason)
   }, [])
@@ -169,22 +191,25 @@ export default function GuestPartyView() {
           if (action.episodeTitle) setEpisodeTitle(action.episodeTitle)
           if (action.posterUrl) setPosterUrl(action.posterUrl)
           const sourceChanged = Boolean(action.videoUrl && action.videoUrl !== videoUrlRef.current)
+          if (sourceChanged) playerReadyRef.current = false
           if (action.videoUrl) {
             videoUrlRef.current = action.videoUrl
             setVideoUrl(action.videoUrl)
           }
 
           setIsPlaying(Boolean(action.isPlaying))
+          latestHostPlaybackRef.current = { time: action.time || 0, isPlaying: Boolean(action.isPlaying), receivedAt: Date.now() }
+          if (!action.isPlaying) setNeedsPlaybackGesture(false)
 
-          if (sourceChanged || !player) {
+          if (sourceChanged || !player || !playerReadyRef.current) {
             pendingPlaybackRef.current = { time: action.time || 0, isPlaying: action.isPlaying }
           } else if (player) {
             isRemoteRef.current = true
-            if (action.type === 'state_sync' || Math.abs((player.currentTime || 0) - action.time) > 2.5) {
+            if (action.type === 'state_sync' || Math.abs((player.currentTime || 0) - action.time) > 0.75) {
               player.currentTime = action.time || 0
             }
             if (action.isPlaying) {
-              if (player.video.paused) void player.play().catch(() => {})
+              if (player.video.paused) playGuest(player)
             } else if (!player.video.paused) {
               player.pause()
             }
@@ -196,11 +221,12 @@ export default function GuestPartyView() {
         }
         case 'play': {
           setIsPlaying(true)
-          if (!player) pendingPlaybackRef.current = { time: action.time, isPlaying: true }
-          if (player) {
+          latestHostPlaybackRef.current = { time: action.time || 0, isPlaying: true, receivedAt: Date.now() }
+          if (!player || !playerReadyRef.current) pendingPlaybackRef.current = { time: action.time, isPlaying: true }
+          if (player && playerReadyRef.current) {
             isRemoteRef.current = true
             player.currentTime = action.time
-            void player.play().catch(() => {})
+            playGuest(player)
             setTimeout(() => {
               isRemoteRef.current = false
             }, 600)
@@ -209,8 +235,10 @@ export default function GuestPartyView() {
         }
         case 'pause': {
           setIsPlaying(false)
-          if (!player) pendingPlaybackRef.current = { time: action.time, isPlaying: false }
-          if (player) {
+          setNeedsPlaybackGesture(false)
+          latestHostPlaybackRef.current = { time: action.time || 0, isPlaying: false, receivedAt: Date.now() }
+          if (!player || !playerReadyRef.current) pendingPlaybackRef.current = { time: action.time, isPlaying: false }
+          if (player && playerReadyRef.current) {
             isRemoteRef.current = true
             player.currentTime = action.time
             player.pause()
@@ -221,8 +249,11 @@ export default function GuestPartyView() {
           break
         }
         case 'seek': {
-          if (!player) pendingPlaybackRef.current = { ...pendingPlaybackRef.current, time: action.time }
-          if (player) {
+          if (latestHostPlaybackRef.current) {
+            latestHostPlaybackRef.current = { ...latestHostPlaybackRef.current, time: action.time || 0, receivedAt: Date.now() }
+          }
+          if (!player || !playerReadyRef.current) pendingPlaybackRef.current = { ...pendingPlaybackRef.current, time: action.time }
+          if (player && playerReadyRef.current) {
             isRemoteRef.current = true
             player.currentTime = action.time
             setTimeout(() => {
@@ -236,6 +267,7 @@ export default function GuestPartyView() {
           if (action.episodeTitle) setEpisodeTitle(action.episodeTitle)
           if (action.posterUrl) setPosterUrl(action.posterUrl)
           if (action.videoUrl && action.videoUrl !== videoUrlRef.current) {
+            playerReadyRef.current = false
             videoUrlRef.current = action.videoUrl
             setVideoUrl(action.videoUrl)
             pendingPlaybackRef.current = { time: action.time || 0, isPlaying: action.isPlaying }
@@ -308,7 +340,7 @@ export default function GuestPartyView() {
         void syncClient.removeChannel(channel)
       }
     }
-  }, [roomId, terminateSession])
+  }, [roomId, terminateSession, playGuest])
 
   // Monitor host disconnect with strict 30-second countdown
   useEffect(() => {
@@ -408,12 +440,13 @@ export default function GuestPartyView() {
 
         artRef.current = art
         art.on('ready', () => {
+          playerReadyRef.current = true
           const pending = pendingPlaybackRef.current
           if (!pending) return
           pendingPlaybackRef.current = null
           isRemoteRef.current = true
           art.currentTime = pending.time
-          if (pending.isPlaying) void art.play().catch(() => {})
+          if (pending.isPlaying) playGuest(art)
           else if (pending.isPlaying === false) art.pause()
           setTimeout(() => { isRemoteRef.current = false }, 600)
         })
@@ -426,12 +459,13 @@ export default function GuestPartyView() {
 
     return () => {
       isDestroyed = true
+      playerReadyRef.current = false
       if (artRef.current) {
         artRef.current.destroy(true)
         artRef.current = null
       }
     }
-  }, [videoUrl, terminatedReason])
+  }, [videoUrl, terminatedReason, playGuest])
 
   const handleLeave = () => {
     terminateSession('你已主动退出放映厅')
@@ -627,6 +661,13 @@ export default function GuestPartyView() {
                 ref={containerRef}
                 className="h-full w-full [&_.art-video-player]:!h-full [&_.art-video-player]:!w-full [&_.artplayer-app]:!h-full [&_.artplayer-app]:!w-full [&_video]:!h-full [&_video]:!w-full"
               />
+              {needsPlaybackGesture && isPlaying && (
+                <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/70">
+                  <Button type="button" onClick={resumeFromGesture}>
+                    点击播放并同步房主进度
+                  </Button>
+                </div>
+              )}
             </div>
 
             {/* Cinema Screen Footer Bar */}

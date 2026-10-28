@@ -30,9 +30,10 @@ vi.mock('@/shared/sync/client', () => ({
   },
 }))
 
+const mockAccount = vi.hoisted(() => ({ id: 'account-1', username: 'testuser' }))
 vi.mock('@/shared/store/authStore', () => ({
   useAuthStore: vi.fn((selector: (state: any) => any) =>
-    selector({ account: { username: 'testuser' } }),
+    selector({ account: mockAccount }),
   ),
 }))
 
@@ -66,6 +67,8 @@ describe('useWatchParty', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    sessionStorage.clear()
+    mockAccount.id = 'account-1'
     mockSearchParams.delete('partyRoom')
     mockSearchParams.delete('partyMode')
     mockSearchParams.delete('inviter')
@@ -126,6 +129,34 @@ describe('useWatchParty', () => {
     expect(currentResult.isHost).toBe(true)
     expect(currentResult.mode).toBe('guest_cinema')
     expect(url).toContain('/party/')
+  })
+
+  it('房主刷新后以房主身份恢复同一房间并清除退出记录', async () => {
+    await act(async () => root.render(createElement(TestHarness)))
+    await act(async () => { currentResult.createParty('guest_cinema') })
+    const room = currentResult.roomId!
+    await act(async () => root.unmount())
+    mockSearchParams.set('partyRoom', room)
+    mockSearchParams.set('partyMode', 'guest_cinema')
+    root = createRoot(host)
+    await act(async () => root.render(createElement(TestHarness)))
+    expect(currentResult.isHost).toBe(true)
+    expect(currentResult.roomId).toBe(room)
+    expect(mockChannel.track).toHaveBeenLastCalledWith(expect.objectContaining({ isHost: true }))
+    await act(async () => currentResult.leaveParty())
+    expect(sessionStorage.getItem('xkatv-watch-party-host')).toBeNull()
+    expect(mockChannel.send).toHaveBeenCalledWith(expect.objectContaining({
+      payload: expect.objectContaining({ type: 'room_closed' }),
+    }))
+  })
+
+  it('邀请链接或不同账号不能恢复此标签页保存的房主身份', async () => {
+    sessionStorage.setItem('xkatv-watch-party-host', JSON.stringify({ roomId: 'room123', accountId: 'account-1', mode: 'host_only' }))
+    mockAccount.id = 'account-2'
+    mockSearchParams.set('partyRoom', 'room123')
+    await act(async () => root.render(createElement(TestHarness)))
+    expect(currentResult.isHost).toBe(false)
+    expect(mockChannel.track).toHaveBeenCalledWith(expect.objectContaining({ isHost: false }))
   })
 
   it('房主主控模式下房主可广播播放状态', async () => {

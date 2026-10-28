@@ -51,6 +51,19 @@ function generateRoomId(): string {
   return Math.random().toString(36).substring(2, 9)
 }
 
+const HOST_SESSION_KEY = 'xkatv-watch-party-host'
+
+function readHostSession(): { roomId: string; accountId: string; mode: WatchPartyMode } | null {
+  try {
+    const value = JSON.parse(sessionStorage.getItem(HOST_SESSION_KEY) || 'null')
+    return value && typeof value.roomId === 'string' && typeof value.accountId === 'string' &&
+      (value.mode === 'host_only' || value.mode === 'collaborative' || value.mode === 'guest_cinema')
+      ? value : null
+  } catch {
+    return null
+  }
+}
+
 function formatTimestamp(seconds: number): string {
   const m = Math.floor(seconds / 60)
   const s = Math.floor(seconds % 60)
@@ -69,6 +82,7 @@ export function useWatchParty({
 }: UseWatchPartyOptions) {
   const [searchParams, setSearchParams] = useSearchParams()
   const accountUsername = useAuthStore(state => state.account?.username)
+  const accountId = useAuthStore(state => state.account?.id)
 
   const [isPartyActive, setIsPartyActive] = useState(false)
   const [isHost, setIsHost] = useState(false)
@@ -196,6 +210,12 @@ export function useWatchParty({
     userExitedRoomIdRef.current =
       roomIdRef.current || new URLSearchParams(window.location.search).get('partyRoom')
 
+    try {
+      if (readHostSession()?.roomId === userExitedRoomIdRef.current) sessionStorage.removeItem(HOST_SESSION_KEY)
+    } catch {
+      // Session storage can be unavailable in restricted browser modes.
+    }
+
     if (channelRef.current && syncClient) {
       if (isHost) {
         void channelRef.current.send({
@@ -252,7 +272,7 @@ export function useWatchParty({
     )
 
     showNoticeRef.current('已退出同步放映室')
-  }, [setSearchParams])
+  }, [isHost, setSearchParams])
 
   // Join or setup a room
   const connectToRoom = useCallback(
@@ -477,6 +497,13 @@ export function useWatchParty({
     (selectedMode: WatchPartyMode): string => {
       userExitedRoomIdRef.current = null
       const newRoomId = generateRoomId()
+      if (syncClient && accountId) {
+        try {
+          sessionStorage.setItem(HOST_SESSION_KEY, JSON.stringify({ roomId: newRoomId, accountId, mode: selectedMode }))
+        } catch {
+          showNoticeRef.current('浏览器无法保存房主身份，刷新后可能需要重新创建放映室')
+        }
+      }
       connectToRoom(newRoomId, selectedMode, true)
 
       const inviter = accountUsername || ''
@@ -523,7 +550,7 @@ export function useWatchParty({
       setInviteUrl(fullUrl)
       return fullUrl
     },
-    [accountUsername, connectToRoom, setSearchParams],
+    [accountId, accountUsername, connectToRoom, setSearchParams],
   )
 
   // Auto-connect if URL has partyRoom
@@ -557,14 +584,15 @@ export function useWatchParty({
     }
 
     if (!isPartyActive && syncClient) {
-      // Connect as viewer
-      connectToRoom(urlRoomId, urlMode, false)
+      const hostSession = readHostSession()
+      const restoreHost = !!accountId && hostSession?.accountId === accountId && hostSession.roomId === urlRoomId
+      connectToRoom(urlRoomId, restoreHost ? hostSession.mode : urlMode, restoreHost)
       setInviteUrl(window.location.href)
-      if (urlInviter) {
+      if (urlInviter && !restoreHost) {
         showNotice(`👋「${urlInviter}」邀请你加入了放映室`)
       }
     }
-  }, [searchParams, isPartyActive, connectToRoom, showNotice])
+  }, [searchParams, isPartyActive, connectToRoom, showNotice, accountId])
 
   // Keep inviteUrl synchronized when room is active and episode or mode changes
   useEffect(() => {
@@ -615,7 +643,7 @@ export function useWatchParty({
           posterUrl: posterUrlRef.current,
         } : {}),
       })
-    }, 5000)
+    }, 2000)
 
     return () => clearInterval(interval)
   }, [isPartyActive, isHost, mode, broadcastAction])
