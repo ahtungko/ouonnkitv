@@ -37,7 +37,8 @@ import { getHistoryItemKey, isTmdbHistoryItem } from '@/shared/lib/viewingHistor
 import { ConfirmModal } from '@/shared/components/common/ConfirmModal'
 import { createPlaybackLease, type PlaybackConflict } from '@/features/player/lib/playbackLease'
 import { playbackLeaseClient } from '@/features/player/lib/playbackLeaseClient'
-import { getBackdropUrl } from '@/shared/lib/tmdb'
+import { buildPartyPlayPath, getPlayerPageTitle } from '@/features/player/lib/playerRoute'
+import { getBackdropUrl, getPosterUrl } from '@/shared/lib/tmdb'
 import { useFavoritesStore } from '@/features/favorites/store/favoritesStore'
 import type { TmdbMediaItem, TmdbMediaType } from '@/shared/types/tmdb'
 import type { ViewingHistoryItem } from '@/shared/types'
@@ -663,11 +664,12 @@ export default function UnifiedPlayer() {
       const basePath = buildCurrentPlayPath(newIndex)
       if (partyRef.current?.isPartyActive && partyRef.current?.roomId) {
         try {
-          const url = new URL(basePath, window.location.origin)
-          url.searchParams.set('partyRoom', partyRef.current.roomId)
-          url.searchParams.set('partyMode', partyRef.current.mode)
-          url.searchParams.set('partyEp', String(newIndex))
-          navigate(`${url.pathname}${url.search}`, { replace: true })
+          const current = partyRef.current
+          const path = buildPartyPlayPath(basePath, window.location.origin, window.location.search, {
+            roomId: current.roomId!, mode: current.mode, episode: newIndex,
+            isHost: current.isHost, inviterName: current.inviterName, posterUrl: current.posterUrl,
+          })
+          navigate(path, { replace: true })
           return
         } catch {
           // Fallback below
@@ -681,6 +683,15 @@ export default function UnifiedPlayer() {
   const currentVideoUrl = detail?.episodes[selectedEpisode] || ''
   const partyMediaTitle = detail?.videoInfo?.title || tmdbPlayback.tmdbDetail?.title || '未知视频'
   const partyEpisodeTitle = episodes[selectedEpisode] || `第 ${selectedEpisode + 1} 集`
+  const partyPosterUrl =
+    (tmdbPlayback.tmdbDetail?.posterPath
+      ? getPosterUrl(tmdbPlayback.tmdbDetail.posterPath, 'w500')
+      : '') ||
+    (tmdbPlayback.tmdbDetail?.backdropPath
+      ? getBackdropUrl(tmdbPlayback.tmdbDetail.backdropPath, 'w780')
+      : '') ||
+    detail?.videoInfo?.cover ||
+    ''
 
   const party = useWatchParty({
     art: activeArt,
@@ -690,6 +701,7 @@ export default function UnifiedPlayer() {
     currentVideoUrl,
     mediaTitle: partyMediaTitle,
     episodeTitle: partyEpisodeTitle,
+    posterUrl: partyPosterUrl,
   })
 
   const partyRef = useRef(party)
@@ -709,11 +721,11 @@ export default function UnifiedPlayer() {
       const basePath = buildCurrentPlayPath(episodeIndex, options)
       if (partyRef.current?.isPartyActive && partyRef.current?.roomId) {
         try {
-          const url = new URL(basePath, window.location.origin)
-          url.searchParams.set('partyRoom', partyRef.current.roomId)
-          url.searchParams.set('partyMode', partyRef.current.mode)
-          url.searchParams.set('partyEp', String(episodeIndex))
-          return `${url.pathname}${url.search}`
+          const current = partyRef.current
+          return buildPartyPlayPath(basePath, window.location.origin, window.location.search, {
+            roomId: current.roomId!, mode: current.mode, episode: episodeIndex,
+            isHost: current.isHost, inviterName: current.inviterName, posterUrl: current.posterUrl,
+          })
         } catch {
           return basePath
         }
@@ -1658,7 +1670,12 @@ export default function UnifiedPlayer() {
 
   const rawOverview = tmdbPlayback.tmdbDetail?.overview || detail?.videoInfo?.desc || ''
   const overview = isCmsRoute ? stripHtmlTags(rawOverview) : rawOverview
-  const pageTitle = title || '视频播放'
+  const pageTitle = getPlayerPageTitle(
+    title || '视频播放',
+    searchParams.get('inviter') || searchParams.get('partyInviter'),
+    party.isPartyActive,
+    party.isHost,
+  )
   useDocumentTitle(pageTitle)
 
   const recommendationItems = isTmdbRoute
@@ -1870,6 +1887,10 @@ export default function UnifiedPlayer() {
           roomId={party.roomId}
           participants={party.participants}
           inviteUrl={party.inviteUrl}
+          mediaTitle={partyMediaTitle}
+          episodeTitle={partyEpisodeTitle}
+          inviterName={party.inviterName}
+          posterUrl={partyPosterUrl}
           isSupabaseAvailable={party.isSupabaseAvailable}
           onCreateParty={party.createParty}
           onLeaveParty={party.leaveParty}

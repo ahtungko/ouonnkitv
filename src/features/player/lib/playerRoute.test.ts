@@ -1,6 +1,27 @@
 import { describe, expect, it } from 'vitest'
 import { buildTmdbPlayPath } from '@/shared/lib/routes'
-import { INVALID_PLAYER_ROUTE_MESSAGE, validatePlayerRoute } from './playerRoute'
+import { buildPartyPlayPath, getPlayerPageTitle, INVALID_PLAYER_ROUTE_MESSAGE, validatePlayerRoute } from './playerRoute'
+
+describe('放映室播放地址和标题', () => {
+  it('切集时保留原邀请人、海报及播放地址参数', () => {
+    const path = buildPartyPlayPath('/play/cms/source/video?quality=hd', 'https://example.com',
+      '?inviter=Host&poster=https%3A%2F%2Fexample.com%2Fcover.jpg', {
+        roomId: 'room', mode: 'host_only', episode: 2, isHost: false,
+        inviterName: 'Viewer', posterUrl: 'https://example.com/other.jpg',
+      })
+    const url = new URL(path, 'https://example.com')
+    expect(url.searchParams.get('inviter')).toBe('Host')
+    expect(url.searchParams.get('poster')).toBe('https://example.com/cover.jpg')
+    expect(url.searchParams.get('partyEp')).toBe('2')
+    expect(url.searchParams.get('quality')).toBe('hd')
+  })
+
+  it('仅在受邀观众的活动房间显示邀请标题', () => {
+    expect(getPlayerPageTitle('电影', 'Host', true, false)).toBe('[Host 邀请你一起看] 《电影》')
+    expect(getPlayerPageTitle('电影', 'Host', false, false)).toBe('电影')
+    expect(getPlayerPageTitle('电影', 'Host', true, true)).toBe('电影')
+  })
+})
 
 describe('validatePlayerRoute', () => {
   it('TMDB 路由参数合法时返回 tmdb 模式', () => {

@@ -22,6 +22,7 @@ export interface WatchPartyAction {
   videoUrl?: string
   mediaTitle?: string
   episodeTitle?: string
+  posterUrl?: string
   mode?: WatchPartyMode
   senderId?: string
   senderName?: string
@@ -43,6 +44,7 @@ interface UseWatchPartyOptions {
   currentVideoUrl?: string
   mediaTitle?: string
   episodeTitle?: string
+  posterUrl?: string
 }
 
 function generateRoomId(): string {
@@ -63,6 +65,7 @@ export function useWatchParty({
   currentVideoUrl,
   mediaTitle,
   episodeTitle,
+  posterUrl,
 }: UseWatchPartyOptions) {
   const [searchParams, setSearchParams] = useSearchParams()
   const accountUsername = useAuthStore(state => state.account?.username)
@@ -100,6 +103,11 @@ export function useWatchParty({
   useEffect(() => {
     episodeTitleRef.current = episodeTitle
   }, [episodeTitle])
+
+  const posterUrlRef = useRef(posterUrl)
+  useEffect(() => {
+    posterUrlRef.current = posterUrl
+  }, [posterUrl])
 
   const selectedEpisodeRef = useRef(selectedEpisode)
   useEffect(() => {
@@ -220,6 +228,9 @@ export function useWatchParty({
       currentUrl.searchParams.delete('partyRoom')
       currentUrl.searchParams.delete('partyMode')
       currentUrl.searchParams.delete('partyEp')
+      currentUrl.searchParams.delete('inviter')
+      currentUrl.searchParams.delete('partyInviter')
+      currentUrl.searchParams.delete('poster')
       window.history.replaceState(null, '', currentUrl.toString())
     } catch {
       // Ignore in non-browser env
@@ -232,6 +243,9 @@ export function useWatchParty({
         next.delete('partyRoom')
         next.delete('partyMode')
         next.delete('partyEp')
+        next.delete('inviter')
+        next.delete('partyInviter')
+        next.delete('poster')
         return next
       },
       { replace: true },
@@ -290,6 +304,7 @@ export function useWatchParty({
                 videoUrl: currentVideoUrlRef.current,
                 mediaTitle: mediaTitleRef.current,
                 episodeTitle: episodeTitleRef.current,
+                posterUrl: posterUrlRef.current,
                 mode: modeRef.current,
                 senderId: myClientIdRef.current,
                 senderName: currentUsernameRef.current,
@@ -464,14 +479,26 @@ export function useWatchParty({
       const newRoomId = generateRoomId()
       connectToRoom(newRoomId, selectedMode, true)
 
+      const inviter = accountUsername || ''
+      const poster = posterUrlRef.current || ''
       let fullUrl = ''
       if (selectedMode === 'guest_cinema') {
-        fullUrl = `${window.location.origin}/party/${newRoomId}`
+        const params = new URLSearchParams()
+        if (inviter) params.set('inviter', inviter)
+        if (poster) params.set('poster', poster)
+        const qs = params.toString() ? `?${params.toString()}` : ''
+        fullUrl = `${window.location.origin}/party/${newRoomId}${qs}`
       } else {
         const url = new URL(window.location.href)
         url.searchParams.set('partyRoom', newRoomId)
         url.searchParams.set('partyMode', selectedMode)
         url.searchParams.set('partyEp', String(selectedEpisodeRef.current))
+        if (inviter) {
+          url.searchParams.set('inviter', inviter)
+        }
+        if (poster) {
+          url.searchParams.set('poster', poster)
+        }
         fullUrl = url.toString()
       }
 
@@ -482,6 +509,12 @@ export function useWatchParty({
           next.set('partyRoom', newRoomId)
           next.set('partyMode', selectedMode)
           next.set('partyEp', String(selectedEpisodeRef.current))
+          if (inviter) {
+            next.set('inviter', inviter)
+          }
+          if (poster) {
+            next.set('poster', poster)
+          }
           return next
         },
         { replace: true },
@@ -490,7 +523,7 @@ export function useWatchParty({
       setInviteUrl(fullUrl)
       return fullUrl
     },
-    [connectToRoom, setSearchParams],
+    [accountUsername, connectToRoom, setSearchParams],
   )
 
   // Auto-connect if URL has partyRoom
@@ -498,6 +531,7 @@ export function useWatchParty({
     const urlRoomId = searchParams.get('partyRoom')
     const urlMode = (searchParams.get('partyMode') as WatchPartyMode) || 'host_only'
     const urlEp = searchParams.get('partyEp')
+    const urlInviter = searchParams.get('inviter') || searchParams.get('partyInviter')
 
     // If there is no partyRoom in URL, clear exited marker
     if (!urlRoomId) {
@@ -526,27 +560,42 @@ export function useWatchParty({
       // Connect as viewer
       connectToRoom(urlRoomId, urlMode, false)
       setInviteUrl(window.location.href)
+      if (urlInviter) {
+        showNotice(`👋「${urlInviter}」邀请你加入了放映室`)
+      }
     }
-  }, [searchParams, isPartyActive, connectToRoom])
+  }, [searchParams, isPartyActive, connectToRoom, showNotice])
 
   // Keep inviteUrl synchronized when room is active and episode or mode changes
   useEffect(() => {
     if (isPartyActive && roomId) {
       try {
+        const inviter = accountUsername || ''
+        const poster = posterUrlRef.current || ''
         if (mode === 'guest_cinema') {
-          setInviteUrl(`${window.location.origin}/party/${roomId}`)
+          const params = new URLSearchParams()
+          if (inviter) params.set('inviter', inviter)
+          if (poster) params.set('poster', poster)
+          const qs = params.toString() ? `?${params.toString()}` : ''
+          setInviteUrl(`${window.location.origin}/party/${roomId}${qs}`)
         } else {
           const url = new URL(window.location.href)
           url.searchParams.set('partyRoom', roomId)
           url.searchParams.set('partyMode', mode)
           url.searchParams.set('partyEp', String(selectedEpisode))
+          if (inviter) {
+            url.searchParams.set('inviter', inviter)
+          }
+          if (poster) {
+            url.searchParams.set('poster', poster)
+          }
           setInviteUrl(url.toString())
         }
       } catch {
         // Ignore in non-browser env
       }
     }
-  }, [isPartyActive, roomId, mode, selectedEpisode])
+  }, [isPartyActive, roomId, mode, selectedEpisode, accountUsername, posterUrl])
 
   // Host heartbeat to keep viewers aligned
   useEffect(() => {
@@ -624,6 +673,8 @@ export function useWatchParty({
     isModalOpen,
     setIsModalOpen,
     inviteUrl,
+    inviterName: accountUsername || null,
+    posterUrl: posterUrl || null,
     isSupabaseAvailable,
     createParty,
     leaveParty,

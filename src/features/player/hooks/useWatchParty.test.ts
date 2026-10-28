@@ -65,6 +65,9 @@ describe('useWatchParty', () => {
     vi.clearAllMocks()
     mockSearchParams.delete('partyRoom')
     mockSearchParams.delete('partyMode')
+    mockSearchParams.delete('inviter')
+    mockSearchParams.delete('partyInviter')
+    mockSearchParams.delete('poster')
     host = document.createElement('div')
     document.body.appendChild(host)
     root = createRoot(host)
@@ -155,6 +158,9 @@ describe('useWatchParty', () => {
     // 模拟 URL 中含有房间号加入放映室
     mockSearchParams.set('partyRoom', 'room-exit-test')
     mockSearchParams.set('partyMode', 'host_only')
+    mockSearchParams.set('inviter', 'Host')
+    mockSearchParams.set('partyInviter', 'OldHost')
+    mockSearchParams.set('poster', 'https://example.com/cover.jpg')
 
     const notices: string[] = []
     await act(async () => {
@@ -178,6 +184,12 @@ describe('useWatchParty', () => {
     expect(currentResult.roomId).toBeNull()
     expect(notices).toContain('已退出同步放映室')
     expect(notices.some(n => n.includes('已加入放映室'))).toBe(false)
+    const update = mockSetSearchParams.mock.calls.at(-1)?.[0]
+    const cleaned = update(mockSearchParams) as URLSearchParams
+    expect(cleaned.has('partyRoom')).toBe(false)
+    expect(cleaned.has('inviter')).toBe(false)
+    expect(cleaned.has('partyInviter')).toBe(false)
+    expect(cleaned.has('poster')).toBe(false)
   })
 
   it('观众加入房间时自动发送 request_state 请求进度握手', async () => {
@@ -199,5 +211,36 @@ describe('useWatchParty', () => {
         }),
       }),
     )
+  })
+
+  it('创建放映室时在链接中嵌入当前登录账号作为邀请人', async () => {
+    await act(async () => {
+      root.render(createElement(TestHarness))
+    })
+
+    let normalUrl = ''
+    let cinemaUrl = ''
+    await act(async () => {
+      normalUrl = currentResult.createParty('host_only')
+    })
+    expect(normalUrl).toContain('inviter=testuser')
+
+    await act(async () => {
+      cinemaUrl = currentResult.createParty('guest_cinema')
+    })
+    expect(cinemaUrl).toContain('inviter=testuser')
+  })
+
+  it('通过包含邀请人的链接加入时弹出专属欢迎提示', async () => {
+    mockSearchParams.set('partyRoom', 'room-invite-test')
+    mockSearchParams.set('partyMode', 'host_only')
+    mockSearchParams.set('inviter', 'Nicholas')
+
+    const notices: string[] = []
+    await act(async () => {
+      root.render(createElement(TestHarness, { onNotice: msg => notices.push(msg) }))
+    })
+
+    expect(notices.some(n => n.includes('Nicholas') && n.includes('邀请你'))).toBe(true)
   })
 })

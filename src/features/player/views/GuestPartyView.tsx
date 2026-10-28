@@ -20,10 +20,32 @@ import type {
   WatchPartyParticipant,
 } from '../hooks/useWatchParty'
 
+function getInviterName(): string {
+  if (typeof window === 'undefined') return ''
+  try {
+    const params = new URLSearchParams(window.location.search)
+    return params.get('inviter') || params.get('partyInviter') || ''
+  } catch {
+    return ''
+  }
+}
+
+function getPosterFromUrl(): string {
+  if (typeof window === 'undefined') return ''
+  try {
+    const params = new URLSearchParams(window.location.search)
+    return params.get('poster') || ''
+  } catch {
+    return ''
+  }
+}
+
 export default function GuestPartyView() {
   const { roomId } = useParams<{ roomId: string }>()
   const navigate = useNavigate()
   const account = useAuthStore(state => state.account)
+  const [inviter] = useState<string>(() => getInviterName())
+  const [posterUrl, setPosterUrl] = useState<string>(() => getPosterFromUrl())
 
   const [participants, setParticipants] = useState<WatchPartyParticipant[]>([])
   const [videoUrl, setVideoUrl] = useState<string | null>(null)
@@ -34,6 +56,20 @@ export default function GuestPartyView() {
   const [hostEverConnected, setHostEverConnected] = useState<boolean>(false)
   const [disconnectCountdown, setDisconnectCountdown] = useState<number | null>(null)
   const [terminatedReason, setTerminatedReason] = useState<string | null>(null)
+
+  // Dynamic document title with inviter and media title
+  useEffect(() => {
+    const site = 'xkaTV'
+    if (mediaTitle) {
+      document.title = inviter
+        ? `[${inviter} 邀请你一起看] 《${mediaTitle}》 - ${site}`
+        : `《${mediaTitle}》 - 私享放映厅 - ${site}`
+    } else {
+      document.title = inviter
+        ? `[${inviter} 的专属放映厅] - ${site}`
+        : `私享放映厅 - ${site}`
+    }
+  }, [mediaTitle, inviter])
 
   const containerRef = useRef<HTMLDivElement | null>(null)
   const artRef = useRef<Artplayer | null>(null)
@@ -110,6 +146,7 @@ export default function GuestPartyView() {
         case 'state_sync': {
           if (action.mediaTitle) setMediaTitle(action.mediaTitle)
           if (action.episodeTitle) setEpisodeTitle(action.episodeTitle)
+          if (action.posterUrl) setPosterUrl(action.posterUrl)
           if (action.videoUrl) setVideoUrl(action.videoUrl)
 
           setIsPlaying(Boolean(action.isPlaying))
@@ -165,6 +202,7 @@ export default function GuestPartyView() {
         case 'episode': {
           if (action.mediaTitle) setMediaTitle(action.mediaTitle)
           if (action.episodeTitle) setEpisodeTitle(action.episodeTitle)
+          if (action.posterUrl) setPosterUrl(action.posterUrl)
           if (action.videoUrl) setVideoUrl(action.videoUrl)
           if (player) {
             isRemoteRef.current = true
@@ -391,7 +429,7 @@ export default function GuestPartyView() {
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <h1 className="truncate text-sm sm:text-base font-semibold text-zinc-100">
-                {mediaTitle ? `《${mediaTitle}》` : '同步放映厅'}
+                {mediaTitle ? `《${mediaTitle}》` : inviter ? `「${inviter}」的放映厅` : '同步放映厅'}
               </h1>
               <Badge
                 variant="outline"
@@ -425,7 +463,7 @@ export default function GuestPartyView() {
               <span
                 className={`size-2 rounded-full ${isPlaying ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`}
               />
-              <span>{isPlaying ? '实时同步放映中' : '房主已暂停'}</span>
+              <span>{isPlaying ? '实时同步放映中' : `${inviter || '房主'}已暂停`}</span>
             </div>
           ) : (
             <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-zinc-400">
@@ -479,19 +517,51 @@ export default function GuestPartyView() {
           </div>
         ) : !videoUrl ? (
           /* VIP Lounge Waiting Screen */
-          <div className="flex w-full max-w-lg flex-col items-center rounded-3xl border border-white/10 bg-zinc-900/60 p-8 sm:p-12 text-center shadow-2xl backdrop-blur-xl">
+          <div className="relative flex w-full max-w-lg flex-col items-center rounded-3xl border border-white/10 bg-zinc-900/60 p-8 sm:p-10 text-center shadow-2xl backdrop-blur-xl overflow-hidden">
+            {/* Ambient poster blur glow */}
+            {posterUrl && (
+              <div
+                className="pointer-events-none absolute inset-0 -z-10 bg-cover bg-center opacity-20 blur-3xl scale-125 transition-opacity duration-1000"
+                style={{ backgroundImage: `url(${posterUrl})` }}
+              />
+            )}
+
             <div className="relative mb-6">
-              <div className="flex size-20 items-center justify-center rounded-3xl bg-gradient-to-tr from-red-600/25 via-purple-600/20 to-amber-500/20 border border-white/15 shadow-xl backdrop-blur-md">
-                <Popcorn className="size-10 text-amber-400 animate-bounce" />
-              </div>
-              <Sparkles className="absolute -top-1 -right-1 size-5 text-amber-300 animate-pulse" />
+              {posterUrl ? (
+                <div className="relative w-28 sm:w-32 aspect-[2/3] overflow-hidden rounded-2xl border border-white/20 shadow-2xl bg-zinc-900/80">
+                  <img
+                    src={posterUrl}
+                    alt={mediaTitle || '海报封面'}
+                    className="size-full object-cover shadow-inner"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
+                  <Badge
+                    variant="secondary"
+                    className="absolute bottom-2 left-1/2 -translate-x-1/2 text-[10px] bg-red-600/90 text-white border-0 shadow-sm whitespace-nowrap"
+                  >
+                    即将开播
+                  </Badge>
+                </div>
+              ) : (
+                <div className="flex size-20 items-center justify-center rounded-3xl bg-gradient-to-tr from-red-600/25 via-purple-600/20 to-amber-500/20 border border-white/15 shadow-xl backdrop-blur-md">
+                  <Popcorn className="size-10 text-amber-400 animate-bounce" />
+                </div>
+              )}
+              <Sparkles className="absolute -top-2 -right-2 size-5 text-amber-300 animate-pulse" />
             </div>
 
             <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-zinc-100">
-              欢迎来到私享放映厅
+              {inviter ? `欢迎来到「${inviter}」的专属影厅` : '欢迎来到私享放映厅'}
             </h2>
-            <p className="mt-2.5 text-sm text-zinc-400 leading-relaxed max-w-sm">
-              房主正在为你挑选片源与调试设备，入场就绪，稍后开播...
+            {mediaTitle && (
+              <p className="mt-1 text-sm font-medium text-amber-400">
+                《{mediaTitle}》{episodeTitle ? ` · ${episodeTitle}` : ''}
+              </p>
+            )}
+            <p className="mt-2 text-xs sm:text-sm text-zinc-400 leading-relaxed max-w-sm">
+              {inviter
+                ? `「${inviter}」正在为你调试放映设备，入场就绪，稍后开播...`
+                : '房主正在为你挑选片源与调试设备，入场就绪，稍后开播...'}
             </p>
 
             <div className="mt-8 flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-xs text-amber-300 shadow-inner">

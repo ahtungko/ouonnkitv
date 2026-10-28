@@ -20,8 +20,31 @@ vi.mock('@/shared/store/authStore', () => ({
   useAuthStore: vi.fn((selector: (state: any) => any) => selector(mockAuthStore)),
 }))
 
+const mockChannel = {
+  on: vi.fn().mockReturnThis(),
+  subscribe: vi.fn((callback?: (status: string) => void) => {
+    if (callback) callback('SUBSCRIBED')
+    return mockChannel
+  }),
+  unsubscribe: vi.fn(),
+  send: vi.fn().mockResolvedValue(undefined),
+  track: vi.fn().mockResolvedValue(undefined),
+  presenceState: vi.fn().mockReturnValue({}),
+}
+
+const mockSyncClientObj = {
+  channel: vi.fn().mockReturnValue(mockChannel),
+  removeChannel: vi.fn(),
+}
+
+const mockSyncState = vi.hoisted(() => ({
+  syncClient: null as any,
+}))
+
 vi.mock('@/shared/sync/client', () => ({
-  syncClient: null,
+  get syncClient() {
+    return mockSyncState.syncClient
+  },
 }))
 
 import GuestPartyView from './GuestPartyView'
@@ -107,5 +130,39 @@ describe('GuestPartyView 访客退出安全守卫', () => {
 
     expect(mockNavigate).toHaveBeenCalledWith('/')
     expect(window.location.href).not.toBe('/')
+  })
+
+  it('当 URL 携带 inviter 参数时，显示邀请人欢迎信息并更新页面标题', async () => {
+    window.location = {
+      ...originalLocation,
+      href: 'http://localhost/party/test-room-123?inviter=Nicholas',
+      pathname: '/party/test-room-123',
+      search: '?inviter=Nicholas',
+    } as any
+
+    await act(async () => {
+      root.render(createElement(GuestPartyView))
+    })
+
+    expect(document.title).toContain('Nicholas')
+    expect(document.title).toContain('xkaTV')
+  })
+
+  it('当 URL 携带 poster 参数时，候播厅展示海报封面图片', async () => {
+    mockSyncState.syncClient = mockSyncClientObj
+    window.location = {
+      ...originalLocation,
+      href: 'http://localhost/party/test-room-123?inviter=Nicholas&poster=https%3A%2F%2Fexample.com%2Fposter.jpg',
+      pathname: '/party/test-room-123',
+      search: '?inviter=Nicholas&poster=https%3A%2F%2Fexample.com%2Fposter.jpg',
+    } as any
+
+    await act(async () => {
+      root.render(createElement(GuestPartyView))
+    })
+
+    const posterImg = host.querySelector('img[src="https://example.com/poster.jpg"]')
+    expect(posterImg).toBeDefined()
+    expect(posterImg?.getAttribute('src')).toBe('https://example.com/poster.jpg')
   })
 })

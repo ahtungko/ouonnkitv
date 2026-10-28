@@ -1,5 +1,27 @@
 import type { TmdbMediaType } from '@/shared/types/tmdb'
 
+export function buildPartyPlayPath(
+  basePath: string,
+  origin: string,
+  currentSearch: string,
+  party: { roomId: string; mode: string; episode: number; isHost: boolean; inviterName: string | null; posterUrl: string | null },
+): string {
+  const url = new URL(basePath, origin)
+  const current = new URLSearchParams(currentSearch)
+  url.searchParams.set('partyRoom', party.roomId)
+  url.searchParams.set('partyMode', party.mode)
+  url.searchParams.set('partyEp', String(party.episode))
+  const inviter = current.get('inviter') || current.get('partyInviter') || (party.isHost ? party.inviterName : null)
+  const poster = current.get('poster') || party.posterUrl
+  if (inviter) url.searchParams.set('inviter', inviter)
+  if (poster) url.searchParams.set('poster', poster)
+  return `${url.pathname}${url.search}`
+}
+
+export function getPlayerPageTitle(title: string, inviter: string | null, isPartyActive: boolean, isHost: boolean): string {
+  return isPartyActive && !isHost && inviter ? `[${inviter} 邀请你一起看] 《${title}》` : title
+}
+
 interface PlayerRouteValidationParams {
   type?: string
   tmdbId?: string
