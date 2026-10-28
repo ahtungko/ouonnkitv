@@ -608,11 +608,17 @@ export function useWatchParty({
         type: 'heartbeat',
         time: player.currentTime || 0,
         isPlaying: !player.video.paused,
+        ...(mode === 'guest_cinema' ? {
+          videoUrl: currentVideoUrlRef.current,
+          mediaTitle: mediaTitleRef.current,
+          episodeTitle: episodeTitleRef.current,
+          posterUrl: posterUrlRef.current,
+        } : {}),
       })
     }, 5000)
 
     return () => clearInterval(interval)
-  }, [isPartyActive, isHost, broadcastAction])
+  }, [isPartyActive, isHost, mode, broadcastAction])
 
   // Listen to Artplayer events to broadcast
   useEffect(() => {

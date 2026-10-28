@@ -73,6 +73,9 @@ export default function GuestPartyView() {
 
   const containerRef = useRef<HTMLDivElement | null>(null)
   const artRef = useRef<Artplayer | null>(null)
+  const videoUrlRef = useRef<string | null>(null)
+  const pendingPlaybackRef = useRef<{ time: number; isPlaying?: boolean } | null>(null)
+  const terminatedRef = useRef(false)
   const isRemoteRef = useRef(false)
   const countdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const myClientIdRef = useRef<string>(`guest_${Math.random().toString(36).substring(2, 8)}`)
@@ -98,6 +101,7 @@ export default function GuestPartyView() {
 
   // Terminate function: immediately stops & destroys player
   const terminateSession = useCallback((reason: string) => {
+    terminatedRef.current = true
     if (countdownTimerRef.current) {
       clearInterval(countdownTimerRef.current)
       countdownTimerRef.current = null
@@ -111,6 +115,8 @@ export default function GuestPartyView() {
       artRef.current = null
     }
     setVideoUrl(null)
+    videoUrlRef.current = null
+    pendingPlaybackRef.current = null
     setDisconnectCountdown(null)
     setTerminatedReason(reason)
   }, [])
@@ -134,29 +140,52 @@ export default function GuestPartyView() {
         presence: { key: myClientIdRef.current },
       },
     })
+    let subscribed = false
+    const requestState = () => {
+      if (!subscribed || videoUrlRef.current || terminatedRef.current) return
+      void channel.send({
+        type: 'broadcast',
+        event: 'party_action',
+        payload: {
+          type: 'request_state',
+          senderId: myClientIdRef.current,
+          senderName: `访客_${myClientIdRef.current.substring(6)}`,
+        },
+      })
+    }
+    const retryState = window.setInterval(requestState, 5000)
 
     // Listen to broadcast actions
     channel.on('broadcast', { event: 'party_action' }, ({ payload }) => {
       const action = payload as WatchPartyAction
-      if (!action || action.senderId === myClientIdRef.current) return
+      if (!action || action.senderId === myClientIdRef.current || terminatedRef.current) return
 
       const player = artRef.current
 
       switch (action.type) {
-        case 'state_sync': {
+        case 'state_sync':
+        case 'heartbeat': {
           if (action.mediaTitle) setMediaTitle(action.mediaTitle)
           if (action.episodeTitle) setEpisodeTitle(action.episodeTitle)
           if (action.posterUrl) setPosterUrl(action.posterUrl)
-          if (action.videoUrl) setVideoUrl(action.videoUrl)
+          const sourceChanged = Boolean(action.videoUrl && action.videoUrl !== videoUrlRef.current)
+          if (action.videoUrl) {
+            videoUrlRef.current = action.videoUrl
+            setVideoUrl(action.videoUrl)
+          }
 
           setIsPlaying(Boolean(action.isPlaying))
 
-          if (player) {
+          if (sourceChanged || !player) {
+            pendingPlaybackRef.current = { time: action.time || 0, isPlaying: action.isPlaying }
+          } else if (player) {
             isRemoteRef.current = true
-            player.currentTime = action.time || 0
+            if (action.type === 'state_sync' || Math.abs((player.currentTime || 0) - action.time) > 2.5) {
+              player.currentTime = action.time || 0
+            }
             if (action.isPlaying) {
-              void player.play().catch(() => {})
-            } else {
+              if (player.video.paused) void player.play().catch(() => {})
+            } else if (!player.video.paused) {
               player.pause()
             }
             setTimeout(() => {
@@ -167,6 +196,7 @@ export default function GuestPartyView() {
         }
         case 'play': {
           setIsPlaying(true)
+          if (!player) pendingPlaybackRef.current = { time: action.time, isPlaying: true }
           if (player) {
             isRemoteRef.current = true
             player.currentTime = action.time
@@ -179,6 +209,7 @@ export default function GuestPartyView() {
         }
         case 'pause': {
           setIsPlaying(false)
+          if (!player) pendingPlaybackRef.current = { time: action.time, isPlaying: false }
           if (player) {
             isRemoteRef.current = true
             player.currentTime = action.time
@@ -190,6 +221,7 @@ export default function GuestPartyView() {
           break
         }
         case 'seek': {
+          if (!player) pendingPlaybackRef.current = { ...pendingPlaybackRef.current, time: action.time }
           if (player) {
             isRemoteRef.current = true
             player.currentTime = action.time
@@ -203,28 +235,18 @@ export default function GuestPartyView() {
           if (action.mediaTitle) setMediaTitle(action.mediaTitle)
           if (action.episodeTitle) setEpisodeTitle(action.episodeTitle)
           if (action.posterUrl) setPosterUrl(action.posterUrl)
-          if (action.videoUrl) setVideoUrl(action.videoUrl)
+          if (action.videoUrl && action.videoUrl !== videoUrlRef.current) {
+            videoUrlRef.current = action.videoUrl
+            setVideoUrl(action.videoUrl)
+            pendingPlaybackRef.current = { time: action.time || 0, isPlaying: action.isPlaying }
+            break
+          }
           if (player) {
             isRemoteRef.current = true
             player.currentTime = action.time || 0
             setTimeout(() => {
               isRemoteRef.current = false
             }, 600)
-          }
-          break
-        }
-        case 'heartbeat': {
-          if (player) {
-            const current = player.currentTime || 0
-            const diff = Math.abs(current - action.time)
-            if (diff > 2.5) {
-              player.currentTime = action.time
-            }
-            if (action.isPlaying && player.video && player.video.paused) {
-              void player.play().catch(() => {})
-            } else if (!action.isPlaying && player.video && !player.video.paused) {
-              player.pause()
-            }
           }
           break
         }
@@ -262,6 +284,7 @@ export default function GuestPartyView() {
     // Subscribe and request initial state
     channel.subscribe(status => {
       if (status === 'SUBSCRIBED') {
+        subscribed = true
         void channel.track({
           clientId: myClientIdRef.current,
           name: `访客_${myClientIdRef.current.substring(6)}`,
@@ -269,19 +292,14 @@ export default function GuestPartyView() {
         })
 
         // Ask host for stream and initial progress
-        void channel.send({
-          type: 'broadcast',
-          event: 'party_action',
-          payload: {
-            type: 'request_state',
-            senderId: myClientIdRef.current,
-            senderName: `访客_${myClientIdRef.current.substring(6)}`,
-          },
-        })
+        requestState()
+      } else {
+        subscribed = false
       }
     })
 
     return () => {
+      window.clearInterval(retryState)
       if (countdownTimerRef.current) {
         clearInterval(countdownTimerRef.current)
       }
@@ -389,6 +407,16 @@ export default function GuestPartyView() {
         })
 
         artRef.current = art
+        art.on('ready', () => {
+          const pending = pendingPlaybackRef.current
+          if (!pending) return
+          pendingPlaybackRef.current = null
+          isRemoteRef.current = true
+          art.currentTime = pending.time
+          if (pending.isPlaying) void art.play().catch(() => {})
+          else if (pending.isPlaying === false) art.pause()
+          setTimeout(() => { isRemoteRef.current = false }, 600)
+        })
       } catch (err) {
         console.error('Failed to init guest player:', err)
       }

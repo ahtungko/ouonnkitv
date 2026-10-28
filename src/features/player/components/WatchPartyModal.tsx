@@ -10,8 +10,6 @@ import {
   Sparkles,
   Share2,
   Link as LinkIcon,
-  Film,
-  Popcorn,
 } from 'lucide-react'
 import {
   Dialog,
@@ -80,7 +78,6 @@ export function WatchPartyModal({
   mediaTitle,
   episodeTitle,
   inviterName,
-  posterUrl,
   isSupabaseAvailable,
   onCreateParty,
   onLeaveParty,
@@ -341,15 +338,12 @@ export function WatchPartyModal({
               </div>
             </div>
 
-            {/* Share invite card & link */}
+            {/* Share invite link */}
             <div className="space-y-2 pt-1">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                  <Sparkles className="size-3 text-amber-500" />
-                  邀请卡片预览
-                </label>
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span className="font-medium">邀请好友加入</span>
                 {isHost && (
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-1.5">
                     <span>邀请人称呼:</span>
                     <Input
                       placeholder={inviterName || '你的称呼'}
@@ -361,118 +355,62 @@ export function WatchPartyModal({
                 )}
               </div>
 
-              {/* Visual Movie Poster Ticket Preview */}
-              <div className="relative overflow-hidden rounded-2xl border border-border/70 bg-gradient-to-br from-muted/50 via-card/60 to-muted/30 p-3 sm:p-3.5 shadow-sm">
-                <div className="flex gap-3">
-                  {posterUrl ? (
-                    <div className="relative w-16 sm:w-20 shrink-0 aspect-[2/3] overflow-hidden rounded-xl border border-border/60 shadow-md bg-muted">
-                      <img
-                        src={posterUrl}
-                        alt={mediaTitle || '海报封面'}
-                        className="size-full object-cover transition-transform duration-300 hover:scale-105"
-                        loading="lazy"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent pointer-events-none" />
-                      <span className="absolute bottom-1 left-1/2 -translate-x-1/2 text-[9px] font-medium text-white/90 whitespace-nowrap bg-black/50 px-1 rounded backdrop-blur-xs">
-                        xkaTV
-                      </span>
-                    </div>
-                  ) : (
-                    <div className="relative flex w-16 sm:w-20 shrink-0 aspect-[2/3] items-center justify-center rounded-xl border border-border/60 bg-muted/60 text-muted-foreground shadow-inner">
-                      <Film className="size-6 opacity-40" />
-                    </div>
-                  )}
-
-                  <div className="flex flex-1 flex-col justify-between min-w-0">
-                    <div>
-                      <div className="flex items-center gap-1.5 text-[11px] font-medium text-amber-500 dark:text-amber-400">
-                        <Popcorn className="size-3.5" />
-                        <span className="truncate">{currentInviter ? `「${currentInviter}」邀请你一起看` : '放映室邀请'}</span>
-                      </div>
-                      <h4 className="font-semibold text-sm sm:text-base text-foreground truncate mt-0.5">
-                        {mediaTitle ? `《${mediaTitle}》` : '精彩影片'}
-                      </h4>
-                      {episodeTitle && (
-                        <p className="text-xs text-muted-foreground truncate mt-0.5">
-                          {episodeTitle} · 实时同屏联动
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="mt-2 text-[11px] text-muted-foreground">
-                      {mode === 'guest_cinema' ? (
-                        <span className="inline-flex items-center gap-1 text-purple-400 font-medium">
-                          <Sparkles className="size-3" />
-                          免登录专属影厅 · 点开秒播
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 text-emerald-500 font-medium">
-                          <Radio className="size-3" />
-                          全员同屏同步 · 毫秒级对齐
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-2.5 pt-2 border-t border-border/40 flex items-center justify-between text-[11px] text-muted-foreground/80 font-mono">
-                  <span className="truncate max-w-[280px] sm:max-w-[360px]">{effectiveInviteUrl}</span>
-                  <Badge variant="outline" className="text-[10px] shrink-0 font-sans ml-2">
-                    {mode === 'guest_cinema' ? '免账号' : '同屏'}
-                  </Badge>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2 pt-0.5">
+              <div className="flex gap-2">
+                <Input
+                  readOnly
+                  value={effectiveInviteUrl}
+                  className="font-mono text-xs select-all bg-background/50 h-9"
+                  onClick={e => (e.target as HTMLInputElement).select()}
+                />
                 <Button
                   type="button"
                   size="sm"
-                  className="bg-red-600 hover:bg-red-700 text-white font-medium gap-1.5 h-8 px-3 shadow-xs"
+                  className="h-9 shrink-0 gap-1.5 px-3 bg-red-600 hover:bg-red-700 text-white font-medium"
                   onClick={handleCopyMessage}
+                  title="复制包含剧名与称呼的完整邀请文案"
                 >
                   {copiedText ? (
                     <>
                       <Check className="size-3.5 text-white" />
-                      已复制邀请卡片
+                      已复制
                     </>
                   ) : (
                     <>
                       <Copy className="size-3.5" />
-                      复制邀请卡片
+                      复制邀请
                     </>
                   )}
                 </Button>
-
                 <Button
                   type="button"
                   size="sm"
                   variant="outline"
-                  className="h-8 gap-1.5 px-3 text-xs"
+                  className="h-9 shrink-0 gap-1.5 px-3 text-xs"
                   onClick={handleCopyLinkOnly}
+                  title="仅复制直达链接"
                 >
                   {copiedLink ? (
                     <>
                       <Check className="size-3.5 text-emerald-500" />
-                      已复制纯链接
+                      已复制
                     </>
                   ) : (
                     <>
                       <LinkIcon className="size-3.5" />
-                      仅复制链接
+                      仅链接
                     </>
                   )}
                 </Button>
-
                 {typeof navigator !== 'undefined' && typeof navigator.share === 'function' && (
                   <Button
                     type="button"
                     size="sm"
                     variant="secondary"
-                    className="h-8 gap-1.5 px-3 text-xs"
+                    className="h-9 shrink-0 px-2.5"
                     onClick={handleNativeShare}
+                    title="系统分享"
                   >
                     <Share2 className="size-3.5" />
-                    系统分享
                   </Button>
                 )}
               </div>

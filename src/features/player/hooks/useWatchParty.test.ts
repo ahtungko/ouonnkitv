@@ -51,10 +51,13 @@ describe('useWatchParty', () => {
   function TestHarness(props: {
     onNotice?: (msg: string) => void
     onEpisode?: (ep: number) => void
+    art?: any
+    currentVideoUrl?: string
   }) {
     currentResult = useWatchParty({
-      art: null,
+      art: props.art || null,
       selectedEpisode: 0,
+      currentVideoUrl: props.currentVideoUrl,
       onSelectEpisode: props.onEpisode || vi.fn(),
       showNotice: props.onNotice || vi.fn(),
     })
@@ -242,5 +245,24 @@ describe('useWatchParty', () => {
     })
 
     expect(notices.some(n => n.includes('Nicholas') && n.includes('邀请你'))).toBe(true)
+  })
+
+  it('免登录影厅房主心跳包含当前片源，帮助候播访客恢复', async () => {
+    vi.useFakeTimers()
+    try {
+      const art = { currentTime: 42, video: { paused: false }, on: vi.fn(), off: vi.fn() }
+      await act(async () => root.render(createElement(TestHarness, {
+        art, currentVideoUrl: 'https://example.com/video.m3u8',
+      })))
+      await act(async () => { currentResult.createParty('guest_cinema') })
+      await act(async () => { await vi.advanceTimersByTimeAsync(5000) })
+      expect(mockChannel.send).toHaveBeenCalledWith(expect.objectContaining({
+        payload: expect.objectContaining({
+          type: 'heartbeat', videoUrl: 'https://example.com/video.m3u8', time: 42, isPlaying: true,
+        }),
+      }))
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

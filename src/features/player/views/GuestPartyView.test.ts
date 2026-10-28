@@ -56,6 +56,7 @@ describe('GuestPartyView 访客退出安全守卫', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    mockSyncState.syncClient = null
     mockAuthStore.account = null
     delete (window as any).location
     window.location = {
@@ -164,5 +165,27 @@ describe('GuestPartyView 访客退出安全守卫', () => {
     const posterImg = host.querySelector('img[src="https://example.com/poster.jpg"]')
     expect(posterImg).toBeDefined()
     expect(posterImg?.getAttribute('src')).toBe('https://example.com/poster.jpg')
+  })
+
+  it('候播时重复请求状态，并在收到带片源的心跳后显示播放器', async () => {
+    vi.useFakeTimers()
+    try {
+      mockSyncState.syncClient = mockSyncClientObj
+      await act(async () => root.render(createElement(GuestPartyView)))
+      expect(mockChannel.send).toHaveBeenCalledTimes(1)
+      await act(async () => { await vi.advanceTimersByTimeAsync(5000) })
+      expect(mockChannel.send).toHaveBeenCalledTimes(2)
+      const broadcast = mockChannel.on.mock.calls.find(call => call[0] === 'broadcast')?.[2]
+      expect(broadcast).toBeDefined()
+      await act(async () => {
+        broadcast({ payload: { type: 'heartbeat', senderId: 'host', time: 20, isPlaying: true, videoUrl: 'https://example.com/video.m3u8', mediaTitle: '电影' } })
+      })
+      expect(host.querySelector('#guest-player')).not.toBeNull()
+      expect(host.textContent).toContain('电影')
+      await act(async () => { await vi.advanceTimersByTimeAsync(5000) })
+      expect(mockChannel.send).toHaveBeenCalledTimes(2)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })
