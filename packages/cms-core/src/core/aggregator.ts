@@ -29,7 +29,7 @@ export type AggregatedSearchFn = (
  * @param options 聚合选项
  */
 export function createAggregatedSearch(
-  searchFn: (query: string, source: VideoSource, page: number) => Promise<SearchResult>,
+  searchFn: (query: string, source: VideoSource, page: number, signal?: AbortSignal) => Promise<SearchResult>,
   options: AggregatorOptions,
 ): AggregatedSearchFn {
   const { concurrencyLimit, onProgress, onResult } = options
@@ -65,7 +65,7 @@ export function createAggregatedSearch(
 
         let result: SearchResult
         try {
-          result = await searchFn(query, source, page)
+          result = await searchFn(query, source, page, signal)
         } catch (error) {
           if (aborted) return [] as VideoItem[]
           console.warn(`${source.name} 源搜索失败:`, error)

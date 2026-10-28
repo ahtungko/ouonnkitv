@@ -28,6 +28,7 @@ export async function listVideos(
   source: VideoSource,
   config: ListConfig,
   page: number = 1,
+  signal?: AbortSignal,
 ): Promise<SearchResult> {
   const { requestAdapter, proxyStrategy } = config
 
@@ -51,6 +52,7 @@ export async function listVideos(
       },
       timeout: source.timeout,
       retry: source.retry,
+      signal,
     })
 
     if (!response.ok) {
@@ -121,6 +123,7 @@ export async function listVideos(
       pagination,
     }
   } catch (error) {
+    if (signal?.aborted) throw error
     console.warn(`[CMS] 视频源 [${source.name}] 列表请求异常:`, error)
     return {
       success: false,

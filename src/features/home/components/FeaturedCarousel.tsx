@@ -3,7 +3,7 @@ import { MoreHorizontal, Play, Info, ChevronLeft, ChevronRight, Star } from 'luc
 import Autoplay from 'embla-carousel-autoplay'
 import { NavLink, useNavigate } from 'react-router'
 
-import { getBackdropUrl, getLogoUrl } from '@/shared/lib/tmdb'
+import { getBackdropUrl, getLogoUrl, getTmdbClient } from '@/shared/lib/tmdb'
 import { buildTmdbDetailPath, buildTmdbPlayPath } from '@/shared/lib/routes'
 import { buildHistoryPlayPath, isTmdbHistoryItem } from '@/shared/lib/viewingHistory'
 import { Button } from '@/shared/components/ui/button'
@@ -65,6 +65,26 @@ export function FeaturedCarousel({
   const navigate = useNavigate()
   const [api, setApi] = useState<CarouselApi>()
   const [activeIndex, setActiveIndex] = useState(0)
+  const [logos, setLogos] = useState<Record<string, string | null>>({})
+  const activeItem = items[activeIndex]
+  const activeKey = activeItem ? `${activeItem.mediaType}-${activeItem.id}` : null
+  useEffect(() => {
+    if (!activeItem || !activeKey || activeKey in logos) return
+    let cancelled = false
+    const client = getTmdbClient()
+    const request = activeItem.mediaType === 'movie'
+      ? client.movies.images(activeItem.id, { include_image_language: ['zh', 'en', 'null'] })
+      : client.tvShows.images(activeItem.id, { include_image_language: ['zh', 'en', 'null'] })
+    void request.then(images => {
+      if (cancelled) return
+      const choices = images.logos || []
+      const logo = choices.find(l => l.iso_639_1 === 'zh') || choices.find(l => l.iso_639_1 === 'en') || choices.find(l => !l.iso_639_1) || choices[0]
+      setLogos(current => ({ ...current, [activeKey]: logo?.file_path ?? null }))
+    }).catch(() => {
+      if (!cancelled) setLogos(current => ({ ...current, [activeKey]: null }))
+    })
+    return () => { cancelled = true }
+  }, [activeItem, activeKey, logos])
   const isMobile = useIsMobile()
   const isTablet = useIsTablet()
   const viewingHistory = useViewingHistoryStore(state => state.viewingHistory)
@@ -253,9 +273,9 @@ export function FeaturedCarousel({
 
                     {/* Logo 图片或主标题 */}
                     <div className="mb-3 flex items-end md:mb-4">
-                      {item.logoPath ? (
+                      {logos[`${item.mediaType}-${item.id}`] ? (
                         <img
-                          src={getLogoUrl(item.logoPath)}
+                          src={getLogoUrl(logos[`${item.mediaType}-${item.id}`])}
                           alt={item.title}
                           className="max-h-12 max-w-[200px] object-contain drop-shadow-[0_4px_16px_rgba(0,0,0,0.8)] sm:max-h-16 sm:max-w-[260px] md:max-h-24 md:max-w-md lg:max-h-28 lg:max-w-lg"
                         />

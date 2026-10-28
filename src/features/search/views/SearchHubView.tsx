@@ -61,7 +61,7 @@ export default function SearchHubView() {
   }, [modeParam, defaultMode, setSearchParams])
 
   // Trending Hook（仅 TMDB 模式可用时调用）
-  const { trending } = useTmdbTrending()
+  const { trending } = useTmdbTrending(tmdbEnabled && mode === 'direct' && !query)
 
   // 动态更新页面标题
   useDocumentTitle(query ? `${query} - 搜索` : '探索与搜索')

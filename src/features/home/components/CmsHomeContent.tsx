@@ -7,20 +7,39 @@ import { CmsMediaCarousel } from './CmsMediaCarousel'
 import { NavLink } from 'react-router'
 import { Settings, Plus } from 'lucide-react'
 import { Button } from '@/shared/components/ui/button'
+import { useEffect, useRef, useState } from 'react'
 
 /**
  * 单个视频源推荐列表
  * 独立组件以隔离每个源的 hook 调用
  */
 function SourceCarousel({ source }: { source: VideoSource }) {
-  const { items, loading } = useCmsVideoList(source)
+  const ref = useRef<HTMLDivElement>(null)
+  const [visible, setVisible] = useState(false)
+  useEffect(() => {
+    if (!source.isEnabled || visible) return
+    if (!('IntersectionObserver' in window)) {
+      setVisible(true)
+      return
+    }
+    const observer = new IntersectionObserver(entries => {
+      if (entries.some(entry => entry.isIntersecting)) setVisible(true)
+    }, { rootMargin: '600px' })
+    if (ref.current) observer.observe(ref.current)
+    return () => observer.disconnect()
+  }, [source.isEnabled, visible])
+  const { items, loading } = useCmsVideoList(visible ? source : null)
+
+  if (!source.isEnabled) return null
 
   return (
+    <div ref={ref}>
     <CmsMediaCarousel
       title={source.name}
       items={items}
-      loading={loading}
+      loading={!visible || loading}
     />
+    </div>
   )
 }
 

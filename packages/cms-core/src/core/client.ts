@@ -38,7 +38,7 @@ export interface CmsClient {
   ): Promise<VideoItem[]>
 
   // 列表（不带搜索关键词，获取推荐/最新内容）
-  listVideos(source: VideoSource, page?: number): Promise<SearchResult>
+  listVideos(source: VideoSource, page?: number, signal?: AbortSignal): Promise<SearchResult>
 
   // 详情
   getDetail(id: string, source: VideoSource): Promise<DetailResult>
@@ -96,14 +96,14 @@ export function createCmsClient(config?: CmsClientConfig): CmsClient {
   }
 
   // 单源搜索（带事件）
-  const searchWithEvents = async (query: string, source: VideoSource, page: number = 1): Promise<SearchResult> => {
+  const searchWithEvents = async (query: string, source: VideoSource, page: number = 1, signal?: AbortSignal): Promise<SearchResult> => {
     const sourceWithDefaults: VideoSource = {
       ...source,
       timeout: source.timeout ?? defaultTimeout,
       retry: source.retry ?? defaultRetry,
     }
 
-    return searchVideos(query, sourceWithDefaults, searchConfig, page)
+    return searchVideos(query, sourceWithDefaults, searchConfig, page, signal)
   }
 
   // 创建聚合搜索
@@ -140,13 +140,13 @@ export function createCmsClient(config?: CmsClientConfig): CmsClient {
     },
 
     // 获取视频列表（推荐/最新）
-    async listVideos(source: VideoSource, page: number = 1): Promise<SearchResult> {
+    async listVideos(source: VideoSource, page: number = 1, signal?: AbortSignal): Promise<SearchResult> {
       const sourceWithDefaults: VideoSource = {
         ...source,
         timeout: source.timeout ?? defaultTimeout,
         retry: source.retry ?? defaultRetry,
       }
-      return listVideos(sourceWithDefaults, listConfig, page)
+      return listVideos(sourceWithDefaults, listConfig, page, signal)
     },
 
     // 聚合搜索

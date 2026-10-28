@@ -311,6 +311,14 @@ export interface CmsVideoListState {
  * CMS 视频列表 Hook
  * 从指定视频源获取推荐/最新视频列表（不带搜索关键词）
  */
+let activeListRequests = 0
+const listQueue: Array<() => void> = []
+
+function pumpListQueue() {
+  const limit = Math.max(1, useSettingStore.getState().network.concurrencyLimit || 1)
+  while (activeListRequests < limit && listQueue.length) listQueue.shift()?.()
+}
+
 export function useCmsVideoList(source: VideoSource | null, config?: CmsClientConfig): CmsVideoListState {
   const networkKey = useSettingStore(
     state =>
@@ -334,12 +342,12 @@ export function useCmsVideoList(source: VideoSource | null, config?: CmsClientCo
     }
 
     let cancelled = false
+    const controller = new AbortController()
+    setState(prev => ({ ...prev, loading: true, error: null }))
 
     const fetchList = async () => {
-      setState(prev => ({ ...prev, loading: true, error: null }))
-
       try {
-        const result: SearchResult = await client.listVideos(source)
+        const result: SearchResult = await client.listVideos(source, 1, controller.signal)
 
         if (cancelled) return
 
@@ -358,10 +366,22 @@ export function useCmsVideoList(source: VideoSource | null, config?: CmsClientCo
       }
     }
 
-    fetchList()
+    const start = () => {
+      if (cancelled) return
+      activeListRequests++
+      void fetchList().finally(() => {
+        activeListRequests--
+        pumpListQueue()
+      })
+    }
+    listQueue.push(start)
+    pumpListQueue()
 
     return () => {
       cancelled = true
+      controller.abort()
+      const index = listQueue.indexOf(start)
+      if (index !== -1) listQueue.splice(index, 1)
     }
   }, [client, source])
 

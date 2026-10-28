@@ -98,15 +98,15 @@ export function useTmdbDiscover() {
 /**
  * 趋势 Hook：搜索页与首页头图只加载实际使用的趋势数据。
  */
-export function useTmdbTrending() {
+export function useTmdbTrending(enabled = true) {
   const trending = useTmdbStore(s => s.trending)
   const loading = useTmdbStore(s => s.loading.trending)
 
   const fetchTrending = useTmdbStore(s => s.fetchTrending)
 
   useEffect(() => {
-    if (trending.length === 0) fetchTrending()
-  }, [fetchTrending, trending.length])
+    if (enabled && trending.length === 0) fetchTrending()
+  }, [enabled, fetchTrending, trending.length])
 
   return {
     trending,

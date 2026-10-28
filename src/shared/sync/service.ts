@@ -98,14 +98,15 @@ function apply() {
   }
 }
 
-function capture() {
+function capture(kind: 'favorite' | 'history' | 'preference') {
   if (!owner || applying) return
   try {
-    const next = snapshot()
+    const next = snapshot(kind)
+    const previousKind = Object.fromEntries(Object.entries(previous).filter(([, row]) => row.kind === kind))
     let changed = false
-    for (const key of new Set([...Object.keys(previous), ...Object.keys(next)])) {
-      if (JSON.stringify(previous[key]) === JSON.stringify(next[key])) continue
-      const row = next[key] ?? previous[key]
+    for (const key of new Set([...Object.keys(previousKind), ...Object.keys(next)])) {
+      if (previousKind[key] && next[key] && (previousKind[key].value === next[key].value || JSON.stringify(previousKind[key]) === JSON.stringify(next[key]))) continue
+      const row = next[key] ?? previousKind[key]
       journal[key] = {
         ...row,
         value: next[key]?.value ?? null,
@@ -116,7 +117,8 @@ function capture() {
       }
       changed = true
     }
-    previous = next
+    for (const key of Object.keys(previousKind)) delete previous[key]
+    Object.assign(previous, next)
     if (changed) {
       save()
       useSyncStatus.setState({ status: '有待同步的更改' })
@@ -322,9 +324,9 @@ export function startSync(): () => void {
     if (state.session !== previousState.session) updateSession(state.session)
   })
   const unsubscribers = [
-    useFavoritesStore.subscribe(capture),
-    useViewingHistoryStore.subscribe(capture),
-    useSettingStore.subscribe(capture),
+    useFavoritesStore.subscribe(() => capture('favorite')),
+    useViewingHistoryStore.subscribe(() => capture('history')),
+    useSettingStore.subscribe(() => capture('preference')),
   ]
   const flush = () => {
     void syncNow()

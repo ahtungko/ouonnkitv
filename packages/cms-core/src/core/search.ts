@@ -31,6 +31,7 @@ export async function searchVideos(
   source: VideoSource,
   config: SearchConfig,
   page: number = 1,
+  signal?: AbortSignal,
 ): Promise<SearchResult> {
   const { requestAdapter, proxyStrategy, apiConfig } = config
 
@@ -58,6 +59,7 @@ export async function searchVideos(
       headers: apiConfig.search.headers,
       timeout: source.timeout,
       retry: source.retry,
+      signal,
     })
 
     if (!response.ok) {
@@ -128,6 +130,7 @@ export async function searchVideos(
       pagination,
     }
   } catch (error) {
+    if (signal?.aborted) throw error
     console.warn(`[CMS] 视频源 [${source.name}] 搜索异常:`, error)
     return {
       success: false,

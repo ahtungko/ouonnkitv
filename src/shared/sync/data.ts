@@ -154,22 +154,28 @@ export function payloadErrorDetails(row: SyncRecord): string {
   return '记录字段或标识不符合当前格式'
 }
 
-export function snapshot(): Snapshot {
+export function snapshot(kind?: SyncRecord['kind']): Snapshot {
   const result: Snapshot = {}
   const add = (kind: SyncRecord['kind'], item_key: string, value: unknown) => {
     result[recordKey({ kind, item_key })] = { kind, item_key, value }
   }
-  useFavoritesStore.getState().favorites.forEach(item =>
-    add('favorite', item.id, normalizedFavorite(item, item.id) ?? item),
-  )
-  useViewingHistoryStore
-    .getState()
-    .viewingHistory.forEach(item => add('history', getHistoryItemKey(item), item))
-  const settings = useSettingStore.getState()
-  for (const key of Object.keys(preferenceSchemas)) {
-    const [group, field] = key.split('.')
-    const values = settings[group as 'search' | 'playback'] as unknown as Record<string, unknown>
-    add('preference', key, values[field])
+  if (!kind || kind === 'favorite') {
+    useFavoritesStore.getState().favorites.forEach(item =>
+      add('favorite', item.id, normalizedFavorite(item, item.id) ?? item),
+    )
+  }
+  if (!kind || kind === 'history') {
+    useViewingHistoryStore.getState().viewingHistory.forEach(item =>
+      add('history', getHistoryItemKey(item), item),
+    )
+  }
+  if (!kind || kind === 'preference') {
+    const settings = useSettingStore.getState()
+    for (const key of Object.keys(preferenceSchemas)) {
+      const [group, field] = key.split('.')
+      const values = settings[group as 'search' | 'playback'] as unknown as Record<string, unknown>
+      add('preference', key, values[field])
+    }
   }
   return result
 }

@@ -29,15 +29,16 @@ async function fetchWithTimeout(
 
   // 合并外部signal和超时signal
   const originalSignal = options.signal
+  const onAbort = () => {
+    clearTimeout(timeoutId)
+    controller.abort(originalSignal?.reason)
+  }
   if (originalSignal) {
     if (originalSignal.aborted) {
       clearTimeout(timeoutId)
       throw (originalSignal as any).reason || new DOMException('Aborted', 'AbortError')
     }
-    originalSignal.addEventListener('abort', () => {
-      clearTimeout(timeoutId)
-      controller.abort((originalSignal as any).reason)
-    })
+    originalSignal.addEventListener('abort', onAbort, { once: true })
   }
 
   try {
@@ -68,5 +69,7 @@ async function fetchWithTimeout(
     }
 
     throw error
+  } finally {
+    originalSignal?.removeEventListener('abort', onAbort)
   }
 }
