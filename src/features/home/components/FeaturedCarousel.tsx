@@ -54,6 +54,8 @@ interface FeaturedCarouselProps {
 
 /**
  * FeaturedCarousel - 院线级巨幕全景轮播图 (Cinema Obsidian Hero Banner)
+ * 采用专业电影暗场遮罩，无论在深色模式（Dark）还是浅色模式（Day）下，
+ * 均始终保持 OLED 级高对比度与清晰度，彻底杜绝浅色模式下的白雾遮挡。
  */
 export function FeaturedCarousel({
   items,
@@ -122,22 +124,21 @@ export function FeaturedCarousel({
   // 骨架屏
   if (loading) {
     return (
-      <div className="-mx-3 -mt-3 sm:-mx-6 sm:-mt-5 lg:-mx-8">
-        <AspectRatio ratio={getAspectRatio()} className="relative overflow-hidden bg-card/60">
-          <Skeleton className="size-full rounded-none" />
-          {/* 骨架屏遮罩 */}
-          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent" />
-          <div className="absolute inset-x-0 bottom-0 px-6 pb-8 md:px-12 md:pb-12 lg:px-16 lg:pb-16">
+      <div className="-mx-3 -mt-3 sm:mx-0 sm:mt-0 select-none overflow-hidden rounded-none sm:rounded-2xl lg:rounded-3xl bg-zinc-950 shadow-xl ring-1 ring-black/10 dark:ring-white/10">
+        <AspectRatio ratio={getAspectRatio()} className="relative overflow-hidden bg-zinc-900">
+          <Skeleton className="size-full rounded-none bg-zinc-800" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
+          <div className="absolute inset-x-0 bottom-0 px-6 pb-8 md:px-12 md:pb-12 lg:px-16 lg:pb-14">
             <div className="flex gap-2 mb-3">
-              <Skeleton className="h-5 w-16 rounded-full" />
-              <Skeleton className="h-5 w-12 rounded-full" />
+              <Skeleton className="h-5 w-16 rounded-full bg-zinc-700" />
+              <Skeleton className="h-5 w-12 rounded-full bg-zinc-700" />
             </div>
-            <Skeleton className="mb-4 h-10 w-64 md:h-14 md:w-96" />
-            <Skeleton className="mb-2 h-4 w-2/3 max-w-xl" />
-            <Skeleton className="mb-6 h-4 w-1/2 max-w-md" />
+            <Skeleton className="mb-4 h-10 w-64 md:h-14 md:w-96 bg-zinc-700" />
+            <Skeleton className="mb-2 h-4 w-2/3 max-w-xl bg-zinc-700" />
+            <Skeleton className="mb-6 h-4 w-1/2 max-w-md bg-zinc-700" />
             <div className="flex gap-3">
-              <Skeleton className="h-10 w-28 rounded-full" />
-              <Skeleton className="h-10 w-28 rounded-full" />
+              <Skeleton className="h-10 w-28 rounded-full bg-zinc-700" />
+              <Skeleton className="h-10 w-28 rounded-full bg-zinc-700" />
             </div>
           </div>
         </AspectRatio>
@@ -150,7 +151,7 @@ export function FeaturedCarousel({
   }
 
   return (
-    <div className="group/hero relative -mx-3 -mt-3 select-none sm:-mx-6 sm:-mt-5 lg:-mx-8">
+    <div className="group/hero relative select-none -mx-3 -mt-3 sm:mx-0 sm:mt-0 rounded-none sm:rounded-2xl lg:rounded-3xl overflow-hidden bg-zinc-950 shadow-xl ring-1 ring-black/10 dark:ring-white/10 dark:shadow-[0_20px_50px_rgba(0,0,0,0.6)]">
       <Carousel
         className="relative w-full overflow-hidden"
         opts={{
@@ -209,7 +210,7 @@ export function FeaturedCarousel({
                 key={`${item.mediaType}-${item.id}`}
                 className="relative pl-0 w-full shrink-0"
               >
-                <AspectRatio ratio={getAspectRatio()} className="relative overflow-hidden bg-muted">
+                <AspectRatio ratio={getAspectRatio()} className="relative overflow-hidden bg-zinc-950">
                   {/* 背景海报大图 */}
                   <img
                     className="size-full object-cover object-center md:object-top transition-transform duration-1000 ease-out"
@@ -218,32 +219,32 @@ export function FeaturedCarousel({
                     loading={index === 0 ? 'eager' : 'lazy'}
                   />
 
-                  {/* 电影级多重渐变遮罩 (Cinema Obsidian Masks) */}
-                  {/* 1. 顶部微弱压暗 */}
-                  <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-background/60 to-transparent" />
+                  {/* 电影级暗场渐变遮罩 (Cinema Obsidian Dark Masks) - 无论日间还是夜间均保持高对比度与画质，杜绝白雾 */}
+                  {/* 1. 顶部微弱暗角 (增强状态栏/顶栏可读性) */}
+                  <div className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-black/60 via-black/20 to-transparent" />
 
-                  {/* 2. 左侧深层渐变 (确保标题与介绍文字极致清晰) */}
-                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-background via-background/85 via-40% to-transparent lg:via-background/70 lg:via-45%" />
+                  {/* 2. 左侧深层电影暗场渐变 (保证标题、梗概与按钮对比度 100% 锐利清晰) */}
+                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-black/95 via-black/75 via-45% to-transparent lg:via-black/70 lg:via-50%" />
 
-                  {/* 3. 底部平滑溶解渐变 (无缝融入页面背景) */}
-                  <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-background via-background/70 via-40% to-transparent" />
+                  {/* 3. 底部平滑溶解渐变 */}
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 h-36 bg-gradient-to-t from-black/90 via-black/45 via-35% to-transparent dark:from-background dark:via-background/75" />
 
-                  {/* 内容展示区 */}
+                  {/* 内容展示区 - 纯白高对比文字与磨砂徽标 */}
                   <div
-                    className={`absolute inset-0 flex flex-col justify-end px-5 pb-6 transition-all duration-700 ease-out sm:px-8 sm:pb-8 md:px-12 md:pb-10 lg:px-16 lg:pb-14 ${
+                    className={`absolute inset-0 flex flex-col justify-end px-5 pb-6 transition-all duration-700 ease-out sm:px-8 sm:pb-8 md:px-12 md:pb-10 lg:px-16 lg:pb-12 ${
                       isActive ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
                     }`}
                   >
                     {/* 元数据标签徽章 */}
                     <div className="mb-2.5 flex flex-wrap items-center gap-2 md:mb-3.5">
-                      <span className="rounded-full border border-white/20 bg-white/10 px-2.5 py-0.5 text-[11px] font-medium tracking-wide text-white/90 backdrop-blur-md">
+                      <span className="rounded-full border border-white/20 bg-white/10 px-2.5 py-0.5 text-[11px] font-medium tracking-wide text-white/95 backdrop-blur-md">
                         {typeLabel}
                       </span>
                       {releaseYear && (
-                        <span className="text-xs font-medium text-white/75">{releaseYear}</span>
+                        <span className="text-xs font-medium text-white/80">{releaseYear}</span>
                       )}
                       {ratingScore && (
-                        <span className="inline-flex items-center gap-1 rounded-full border border-amber-400/30 bg-amber-400/10 px-2 py-0.5 text-[11px] font-bold text-amber-400 backdrop-blur-md">
+                        <span className="inline-flex items-center gap-1 rounded-full border border-amber-400/35 bg-black/40 px-2.5 py-0.5 text-[11px] font-bold text-amber-400 backdrop-blur-md">
                           <Star className="size-3 fill-amber-400 text-amber-400" />
                           {ratingScore}
                         </span>
@@ -256,17 +257,17 @@ export function FeaturedCarousel({
                         <img
                           src={getLogoUrl(item.logoPath)}
                           alt={item.title}
-                          className="max-h-12 max-w-[200px] object-contain drop-shadow-[0_4px_16px_rgba(0,0,0,0.6)] sm:max-h-16 sm:max-w-[260px] md:max-h-24 md:max-w-md lg:max-h-28 lg:max-w-lg"
+                          className="max-h-12 max-w-[200px] object-contain drop-shadow-[0_4px_16px_rgba(0,0,0,0.8)] sm:max-h-16 sm:max-w-[260px] md:max-h-24 md:max-w-md lg:max-h-28 lg:max-w-lg"
                         />
                       ) : (
-                        <h1 className="text-2xl font-black tracking-tight text-white drop-shadow-[0_2px_12px_rgba(0,0,0,0.8)] sm:text-3xl md:text-5xl lg:text-6xl">
+                        <h1 className="text-2xl font-black tracking-tight text-white drop-shadow-[0_2px_12px_rgba(0,0,0,0.9)] sm:text-3xl md:text-5xl lg:text-6xl">
                           {item.title}
                         </h1>
                       )}
                     </div>
 
                     {/* 故事梗概 */}
-                    <p className="mb-5 line-clamp-2 max-w-md text-xs leading-relaxed text-white/80 drop-shadow-sm sm:text-sm md:line-clamp-3 md:max-w-xl md:text-base lg:max-w-2xl">
+                    <p className="mb-5 line-clamp-2 max-w-md text-xs leading-relaxed text-white/85 drop-shadow-sm sm:text-sm md:line-clamp-3 md:max-w-xl md:text-base lg:max-w-2xl">
                       {item.overview}
                     </p>
 
@@ -276,7 +277,7 @@ export function FeaturedCarousel({
                         <>
                           <Button
                             size="sm"
-                            className="h-9 flex-1 gap-1.5 rounded-full bg-white font-semibold text-black shadow-lg shadow-black/25 transition-all hover:bg-white/90 active:scale-95"
+                            className="h-9 flex-1 gap-1.5 rounded-full bg-white font-semibold text-black shadow-lg shadow-black/40 transition-all hover:bg-white/90 active:scale-95"
                             onClick={() => navigate(continueWatchingPath || playPath)}
                           >
                             <Play className="size-4 fill-current" />
@@ -333,7 +334,7 @@ export function FeaturedCarousel({
                                   <span className="opacity-90">· {continueWatchingLabel}</span>
                                 ) : null}
                                 {continueWatchingProgressLabel ? (
-                                  <span className="ml-1.5 rounded bg-black/30 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                                  <span className="ml-1.5 rounded bg-black/40 px-1.5 py-0.5 text-[10px] font-bold text-white">
                                     {continueWatchingProgressLabel}
                                   </span>
                                 ) : null}
@@ -344,7 +345,7 @@ export function FeaturedCarousel({
                           <Button
                             asChild
                             size="lg"
-                            className="h-11 gap-2 rounded-full bg-white px-6 font-semibold text-black shadow-xl shadow-black/30 transition-all hover:bg-white/90 hover:scale-[1.02] active:scale-98"
+                            className="h-11 gap-2 rounded-full bg-white px-6 font-semibold text-black shadow-xl shadow-black/40 transition-all hover:bg-white/90 hover:scale-[1.02] active:scale-98"
                           >
                             <NavLink to={playPath}>
                               <Play className="size-4.5 fill-current" />
@@ -377,7 +378,7 @@ export function FeaturedCarousel({
         <button
           type="button"
           aria-label="上一页"
-          className="absolute left-4 top-1/2 -translate-y-1/2 z-20 hidden size-11 items-center justify-center rounded-full border border-white/15 bg-black/40 text-white backdrop-blur-md opacity-0 shadow-lg transition-all duration-300 hover:bg-black/75 hover:scale-105 active:scale-95 lg:flex lg:group-hover/hero:opacity-100"
+          className="absolute left-4 top-1/2 -translate-y-1/2 z-20 hidden size-11 items-center justify-center rounded-full border border-white/15 bg-black/50 text-white backdrop-blur-md opacity-0 shadow-lg transition-all duration-300 hover:bg-black/80 hover:scale-105 active:scale-95 lg:flex lg:group-hover/hero:opacity-100"
           onClick={() => api?.scrollPrev()}
         >
           <ChevronLeft className="size-5" />
@@ -386,14 +387,14 @@ export function FeaturedCarousel({
         <button
           type="button"
           aria-label="下一页"
-          className="absolute right-4 top-1/2 -translate-y-1/2 z-20 hidden size-11 items-center justify-center rounded-full border border-white/15 bg-black/40 text-white backdrop-blur-md opacity-0 shadow-lg transition-all duration-300 hover:bg-black/75 hover:scale-105 active:scale-95 lg:flex lg:group-hover/hero:opacity-100"
+          className="absolute right-4 top-1/2 -translate-y-1/2 z-20 hidden size-11 items-center justify-center rounded-full border border-white/15 bg-black/50 text-white backdrop-blur-md opacity-0 shadow-lg transition-all duration-300 hover:bg-black/80 hover:scale-105 active:scale-95 lg:flex lg:group-hover/hero:opacity-100"
           onClick={() => api?.scrollNext()}
         >
           <ChevronRight className="size-5" />
         </button>
 
         {/* 底部轮播进度指示条 (Apple TV+ 指示器风格) */}
-        <div className="absolute bottom-3 right-5 z-20 flex items-center gap-1.5 sm:bottom-4 sm:right-8 md:bottom-5 md:right-12 lg:bottom-6 lg:right-16">
+        <div className="absolute bottom-3 right-5 z-20 flex items-center gap-1.5 sm:bottom-4 sm:right-8 md:bottom-5 md:right-12 lg:bottom-5 lg:right-16">
           {items.map((_, dotIndex) => (
             <button
               key={dotIndex}
@@ -402,7 +403,7 @@ export function FeaturedCarousel({
               onClick={() => api?.scrollTo(dotIndex)}
               className={`h-1.5 rounded-full transition-all duration-300 ${
                 dotIndex === activeIndex
-                  ? 'w-7 bg-white shadow-[0_0_8px_rgba(255,255,255,0.7)]'
+                  ? 'w-7 bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)]'
                   : 'w-2 bg-white/35 hover:bg-white/60'
               }`}
             />
