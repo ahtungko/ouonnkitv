@@ -35,6 +35,7 @@ const mockChannel = {
 const mockSyncClientObj = {
   channel: vi.fn().mockReturnValue(mockChannel),
   removeChannel: vi.fn(),
+  rpc: vi.fn().mockResolvedValue({ data: 'open', error: null }),
 }
 
 const mockSyncState = vi.hoisted(() => ({
@@ -57,6 +58,7 @@ describe('GuestPartyView 访客退出安全守卫', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockSyncState.syncClient = null
+    mockSyncClientObj.rpc.mockReset().mockResolvedValue({ data: 'open', error: null })
     mockAuthStore.account = null
     delete (window as any).location
     window.location = {
@@ -208,6 +210,22 @@ describe('GuestPartyView 访客退出安全守卫', () => {
       broadcast({ payload: { type: 'state_sync', senderId: 'host', time: 0, posterUrl: 'https://example.com/poster.jpg' } })
     })
     expect(host.querySelector('img[src="https://example.com/poster.jpg"]')).not.toBeNull()
+  })
+
+  it('服务端房间已关闭时立即显示结束，不连接实时频道', async () => {
+    mockSyncState.syncClient = mockSyncClientObj
+    mockSyncClientObj.rpc.mockResolvedValue({ data: 'closed', error: null })
+    await act(async () => root.render(createElement(GuestPartyView)))
+    expect(host.textContent).toContain('放映已结束')
+    expect(mockSyncClientObj.channel).not.toHaveBeenCalled()
+  })
+
+  it('无法检查房间状态时显示错误，不误连到实时频道', async () => {
+    mockSyncState.syncClient = mockSyncClientObj
+    mockSyncClientObj.rpc.mockResolvedValue({ data: null, error: { message: 'offline' } })
+    await act(async () => root.render(createElement(GuestPartyView)))
+    expect(host.textContent).toContain('无法检查放映厅状态')
+    expect(mockSyncClientObj.channel).not.toHaveBeenCalled()
   })
 
   it('打开房主已离开的旧链接，等待重连期后显示放映厅已结束', async () => {

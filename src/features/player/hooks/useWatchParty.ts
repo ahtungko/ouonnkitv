@@ -214,7 +214,17 @@ export function useWatchParty({
   )
 
   // Leave room logic
-  const leaveParty = useCallback(() => {
+  const leaveParty = useCallback(async () => {
+    const leavingRoom = roomIdRef.current || new URLSearchParams(window.location.search).get('partyRoom')
+    if (isHost && leavingRoom && syncClient) {
+      try {
+        const { error } = await syncClient.rpc('close_watch_party_room', { p_room_id: leavingRoom })
+        if (error) throw new Error(error.message)
+      } catch (error) {
+        showNoticeRef.current(`无法关闭放映厅，请重试：${error instanceof Error ? error.message : String(error)}`)
+        return false
+      }
+    }
     if (hostMissingTimerRef.current) clearTimeout(hostMissingTimerRef.current)
     hostMissingTimerRef.current = null
     // Record the room id we are leaving so the auto-connect effect doesn't immediately rejoin it
@@ -287,6 +297,7 @@ export function useWatchParty({
     )
 
     showNoticeRef.current('已退出同步放映室')
+    return true
   }, [isHost, setSearchParams])
 
   const leavePartyRef = useRef(leaveParty)
@@ -331,7 +342,7 @@ export function useWatchParty({
         const player = artRef.current
 
         if (action.type === 'room_closed' && !asHost) {
-          leavePartyRef.current()
+          void leavePartyRef.current()
           showNoticeRef.current(action.message || '房主已解散放映厅')
           return
         }
@@ -484,7 +495,7 @@ export function useWatchParty({
           } else if (!hostMissingTimerRef.current) {
             hostMissingTimerRef.current = setTimeout(() => {
               hostMissingTimerRef.current = null
-              leavePartyRef.current()
+              void leavePartyRef.current()
               showNoticeRef.current('房主已离线超时，放映厅已关闭')
             }, 30_000)
           }
@@ -533,9 +544,23 @@ export function useWatchParty({
 
   // Create room
   const createParty = useCallback(
-    (selectedMode: WatchPartyMode): string => {
+    async (selectedMode: WatchPartyMode): Promise<string> => {
       userExitedRoomIdRef.current = null
       const newRoomId = generateRoomId()
+      if (!syncClient || !accountId) {
+        showNoticeRef.current('请登录并配置 Supabase 后创建放映室')
+        return ''
+      }
+      try {
+        const { error } = await syncClient.rpc('create_watch_party_room', {
+          p_room_id: newRoomId,
+          p_mode: selectedMode,
+        })
+        if (error) throw new Error(error.message)
+      } catch (error) {
+        showNoticeRef.current(`无法创建放映厅，请重试：${error instanceof Error ? error.message : String(error)}`)
+        return ''
+      }
       if (syncClient && accountId) {
         try {
           sessionStorage.setItem(HOST_SESSION_KEY, JSON.stringify({ roomId: newRoomId, accountId, mode: selectedMode }))
@@ -622,11 +647,25 @@ export function useWatchParty({
     if (!isPartyActive && syncClient) {
       const hostSession = readHostSession()
       const restoreHost = !!accountId && hostSession?.accountId === accountId && hostSession.roomId === urlRoomId
-      connectToRoom(urlRoomId, restoreHost ? hostSession.mode : urlMode, restoreHost)
-      setInviteUrl(window.location.href)
-      if (urlInviter && !restoreHost) {
-        showNotice(`👋「${urlInviter}」邀请你加入了放映室`)
-      }
+      let cancelled = false
+      void (async () => {
+        try {
+          const { data, error } = await syncClient.rpc('watch_party_room_status', { p_room_id: urlRoomId })
+          if (error) throw new Error(error.message)
+          if (cancelled) return
+          if (data !== 'open') {
+            userExitedRoomIdRef.current = urlRoomId
+            showNoticeRef.current('放映厅已结束或链接无效')
+            return
+          }
+          connectToRoom(urlRoomId, restoreHost ? hostSession.mode : urlMode, restoreHost)
+          setInviteUrl(window.location.href)
+          if (urlInviter && !restoreHost) showNotice(`👋「${urlInviter}」邀请你加入了放映室`)
+        } catch (error) {
+          if (!cancelled) showNoticeRef.current(`无法检查放映厅状态，请刷新重试：${error instanceof Error ? error.message : String(error)}`)
+        }
+      })()
+      return () => { cancelled = true }
     }
   }, [searchParams, isPartyActive, connectToRoom, showNotice, accountId])
 

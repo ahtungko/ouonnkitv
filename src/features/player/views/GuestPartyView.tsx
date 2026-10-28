@@ -63,6 +63,7 @@ export default function GuestPartyView() {
   const [presenceKnown, setPresenceKnown] = useState<boolean>(false)
   const [disconnectCountdown, setDisconnectCountdown] = useState<number | null>(null)
   const [terminatedReason, setTerminatedReason] = useState<string | null>(null)
+  const [verifiedRoom, setVerifiedRoom] = useState<string | null>(null)
 
   // Dynamic document title with inviter and media title
   useEffect(() => {
@@ -150,6 +151,23 @@ export default function GuestPartyView() {
     setTerminatedReason(reason)
   }, [])
 
+  useEffect(() => {
+    if (!roomId || !syncClient) return
+    let cancelled = false
+    void (async () => {
+      try {
+        const { data, error } = await syncClient.rpc('watch_party_room_status', { p_room_id: roomId })
+        if (error) throw new Error(error.message)
+        if (cancelled) return
+        if (data !== 'open') terminateSession('放映厅已结束或链接无效。')
+        else setVerifiedRoom(roomId)
+      } catch {
+        if (!cancelled) terminateSession('无法检查放映厅状态，请检查网络后刷新重试。')
+      }
+    })()
+    return () => { cancelled = true }
+  }, [roomId, terminateSession])
+
   // Connect to Supabase Realtime channel
   useEffect(() => {
     if (!roomId) {
@@ -161,6 +179,8 @@ export default function GuestPartyView() {
       setTerminatedReason('站点未配置 Supabase 实时通道，无法连接放映厅')
       return
     }
+
+    if (verifiedRoom !== roomId || terminatedReason) return
 
     const channelName = `watch_party_${roomId}`
     const channel = syncClient.channel(channelName, {
@@ -352,7 +372,7 @@ export default function GuestPartyView() {
         void syncClient.removeChannel(channel)
       }
     }
-  }, [roomId, terminateSession, playGuest])
+  }, [roomId, verifiedRoom, terminatedReason, terminateSession, playGuest])
 
   // Monitor host disconnect with strict 30-second countdown
   useEffect(() => {

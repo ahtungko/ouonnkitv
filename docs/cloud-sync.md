@@ -19,6 +19,7 @@ An administrator creates usernames and passwords. Users sign in once and their f
    - [Optional announcement body](../supabase/migrations/202610220001_optional_announcement_content.sql)
    - [Public maintenance status before login](../supabase/migrations/202610250001_public_maintenance_status.sql)
    - [Cleanup obsolete danmaku sync records](../supabase/migrations/202610270001_cleanup_danmaku_preferences.sql)
+   - [Watch party room lifecycle](../supabase/migrations/202610290001_watch_party_rooms.sql)
 3. Under Supabase Authentication, keep the email/password provider enabled but **disable Allow new users to sign up**. Keep multiple simultaneous sessions allowed. The application uses internal, automatically confirmed email-shaped identifiers for Supabase Auth; users only enter usernames, and no mailbox or SMTP is needed. The database trigger also rejects accounts not provisioned by the server admin API.
 4. Configure the Vercel project variables:
 

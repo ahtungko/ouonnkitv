@@ -24,6 +24,9 @@ import { Badge } from '@/shared/components/ui/badge'
 import { Input } from '@/shared/components/ui/input'
 import type { WatchPartyMode, WatchPartyParticipant } from '../hooks/useWatchParty'
 
+// Other modes remain supported for existing rooms and can be enabled later.
+const SHOW_OTHER_PARTY_MODES = false
+
 export function buildInviteMessage({
   inviter,
   mediaTitle,
@@ -62,8 +65,8 @@ interface WatchPartyModalProps {
   inviterName?: string | null
   posterUrl?: string
   isSupabaseAvailable: boolean
-  onCreateParty: (mode: WatchPartyMode) => string
-  onLeaveParty: () => void
+  onCreateParty: (mode: WatchPartyMode) => Promise<string>
+  onLeaveParty: () => Promise<boolean>
 }
 
 export function WatchPartyModal({
@@ -82,10 +85,11 @@ export function WatchPartyModal({
   onCreateParty,
   onLeaveParty,
 }: WatchPartyModalProps) {
-  const [selectedMode, setSelectedMode] = useState<WatchPartyMode>('host_only')
+  const [selectedMode, setSelectedMode] = useState<WatchPartyMode>('guest_cinema')
   const [copiedText, setCopiedText] = useState(false)
   const [copiedLink, setCopiedLink] = useState(false)
   const [customName, setCustomName] = useState('')
+  const [partyBusy, setPartyBusy] = useState(false)
 
   const activeInviteUrl =
     propInviteUrl || (typeof window !== 'undefined' ? window.location.href : '')
@@ -122,8 +126,9 @@ export function WatchPartyModal({
     })
   }, [currentInviter, mediaTitle, episodeTitle, effectiveInviteUrl, mode])
 
-  const handleCreate = () => {
-    onCreateParty(selectedMode)
+  const handleCreate = async () => {
+    setPartyBusy(true)
+    try { await onCreateParty(selectedMode) } finally { setPartyBusy(false) }
   }
 
   const handleCopyMessage = async () => {
@@ -160,9 +165,9 @@ export function WatchPartyModal({
     }
   }
 
-  const handleLeave = () => {
-    onLeaveParty()
-    onClose()
+  const handleLeave = async () => {
+    setPartyBusy(true)
+    try { if (await onLeaveParty()) onClose() } finally { setPartyBusy(false) }
   }
 
   return (
@@ -197,7 +202,8 @@ export function WatchPartyModal({
           <div className="space-y-4 py-2">
             <div className="space-y-2">
               <label className="text-xs font-medium text-muted-foreground">选择控制权限模式</label>
-              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+              <div className={`grid grid-cols-1 gap-2.5 ${SHOW_OTHER_PARTY_MODES ? 'sm:grid-cols-2' : ''}`}>
+                {SHOW_OTHER_PARTY_MODES && <>
                 <button
                   type="button"
                   onClick={() => setSelectedMode('host_only')}
@@ -244,6 +250,8 @@ export function WatchPartyModal({
                   </p>
                 </button>
 
+                </>}
+
                 <button
                   type="button"
                   onClick={() => setSelectedMode('guest_cinema')}
@@ -268,7 +276,7 @@ export function WatchPartyModal({
                     </div>
                   </div>
                   <p className="mt-1.5 text-xs leading-relaxed opacity-80">
-                    生成专属影厅短链，好友免账号秒进极简沉浸大屏。房主绝对主控，离开 30 秒自动掐断。
+                    生成专属影厅短链，好友无需账号即可加入。房主控制播放进度，退出后放映结束。
                   </p>
                 </button>
               </div>
@@ -440,6 +448,7 @@ export function WatchPartyModal({
               size="sm"
               className="gap-1.5"
               onClick={handleLeave}
+              disabled={partyBusy}
             >
               <LogOut className="size-3.5" />
               退出放映室
@@ -455,6 +464,7 @@ export function WatchPartyModal({
                 className="bg-red-600 hover:bg-red-700 text-white gap-1.5"
                 size="sm"
                 onClick={handleCreate}
+                disabled={partyBusy}
               >
                 <Users className="size-3.5" />
                 创建放映室

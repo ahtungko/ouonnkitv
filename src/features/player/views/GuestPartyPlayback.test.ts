@@ -38,7 +38,7 @@ vi.mock('hls.js/dist/hls.light.mjs', () => ({ default: class {
 } }))
 vi.mock('react-router', () => ({ useParams: () => ({ roomId: 'room' }), useNavigate: () => vi.fn() }))
 vi.mock('@/shared/store/authStore', () => ({ useAuthStore: (selector: (state: unknown) => unknown) => selector({ account: null }) }))
-vi.mock('@/shared/sync/client', () => ({ syncClient: { channel: () => mocks.channel, removeChannel: vi.fn() } }))
+vi.mock('@/shared/sync/client', () => ({ syncClient: { channel: () => mocks.channel, removeChannel: vi.fn(), rpc: vi.fn().mockResolvedValue({ data: 'open', error: null }) } }))
 
 import GuestPartyView from './GuestPartyView'
 

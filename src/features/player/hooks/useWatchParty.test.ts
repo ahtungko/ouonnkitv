@@ -22,6 +22,7 @@ const mockChannel = {
 const mockSyncClient = {
   channel: vi.fn().mockReturnValue(mockChannel),
   removeChannel: vi.fn(),
+  rpc: vi.fn().mockResolvedValue({ data: 'open', error: null }),
 }
 
 vi.mock('@/shared/sync/client', () => ({
@@ -71,6 +72,7 @@ describe('useWatchParty', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    mockSyncClient.rpc.mockReset().mockResolvedValue({ data: 'open', error: null })
     sessionStorage.clear()
     mockAccount.id = 'account-1'
     mockSearchParams.delete('partyRoom')
@@ -106,7 +108,7 @@ describe('useWatchParty', () => {
 
     let url = ''
     await act(async () => {
-      url = currentResult.createParty('host_only')
+      url = await currentResult.createParty('host_only')
     })
 
     expect(currentResult.isPartyActive).toBe(true)
@@ -117,6 +119,7 @@ describe('useWatchParty', () => {
     expect(url).toContain('partyMode=host_only')
     expect(mockSyncClient.channel).toHaveBeenCalled()
     expect(mockChannel.track).toHaveBeenCalled()
+    expect(mockSyncClient.rpc).toHaveBeenCalledWith('create_watch_party_room', expect.objectContaining({ p_room_id: currentResult.roomId }))
   })
 
   it('创建免登录影厅生成专属 /p/ 独立短链', async () => {
@@ -126,7 +129,7 @@ describe('useWatchParty', () => {
 
     let url = ''
     await act(async () => {
-      url = currentResult.createParty('guest_cinema')
+      url = await currentResult.createParty('guest_cinema')
     })
 
     expect(currentResult.isPartyActive).toBe(true)
@@ -140,14 +143,14 @@ describe('useWatchParty', () => {
   it('普通放映室分享地址也不包含海报地址', async () => {
     await act(async () => root.render(createElement(TestHarness, { posterUrl: 'https://example.com/long-poster.jpg' })))
     let url = ''
-    await act(async () => { url = currentResult.createParty('host_only') })
+    await act(async () => { url = await currentResult.createParty('host_only') })
     expect(new URL(url).searchParams.has('poster')).toBe(false)
     expect(new URL(currentResult.inviteUrl).searchParams.has('poster')).toBe(false)
   })
 
   it('房主刷新后以房主身份恢复同一房间并清除退出记录', async () => {
     await act(async () => root.render(createElement(TestHarness)))
-    await act(async () => { currentResult.createParty('guest_cinema') })
+    await act(async () => { await currentResult.createParty('guest_cinema') })
     const room = currentResult.roomId!
     await act(async () => root.unmount())
     mockSearchParams.set('partyRoom', room)
@@ -157,11 +160,24 @@ describe('useWatchParty', () => {
     expect(currentResult.isHost).toBe(true)
     expect(currentResult.roomId).toBe(room)
     expect(mockChannel.track).toHaveBeenLastCalledWith(expect.objectContaining({ isHost: true }))
-    await act(async () => currentResult.leaveParty())
+    await act(async () => { await currentResult.leaveParty() })
+    expect(mockSyncClient.rpc).toHaveBeenCalledWith('close_watch_party_room', { p_room_id: room })
     expect(sessionStorage.getItem('xkatv-watch-party-host')).toBeNull()
     expect(mockChannel.send).toHaveBeenCalledWith(expect.objectContaining({
       payload: expect.objectContaining({ type: 'room_closed' }),
     }))
+  })
+
+  it('服务端关闭失败时保留房主房间并提示重试', async () => {
+    const notices: string[] = []
+    await act(async () => root.render(createElement(TestHarness, { onNotice: msg => notices.push(msg) })))
+    await act(async () => { await currentResult.createParty('guest_cinema') })
+    mockSyncClient.rpc.mockResolvedValueOnce({ data: null, error: { message: 'offline' } })
+    await act(async () => { await currentResult.leaveParty() })
+    expect(currentResult.isHost).toBe(true)
+    expect(currentResult.isPartyActive).toBe(true)
+    expect(notices.some(notice => notice.includes('无法关闭放映厅'))).toBe(true)
+    expect(mockChannel.send).not.toHaveBeenCalledWith(expect.objectContaining({ payload: expect.objectContaining({ type: 'room_closed' }) }))
   })
 
   it('邀请链接或不同账号不能恢复此标签页保存的房主身份', async () => {
@@ -179,7 +195,7 @@ describe('useWatchParty', () => {
     })
 
     await act(async () => {
-      currentResult.createParty('host_only')
+      await currentResult.createParty('host_only')
     })
 
     await act(async () => {
@@ -225,7 +241,7 @@ describe('useWatchParty', () => {
     // 此时调用 leaveParty，即便 mockSearchParams 仍保留 room-exit-test，也不会再次触发已加入
     notices.length = 0
     await act(async () => {
-      currentResult.leaveParty()
+      await currentResult.leaveParty()
     })
 
     expect(currentResult.isPartyActive).toBe(false)
@@ -308,12 +324,12 @@ describe('useWatchParty', () => {
     let normalUrl = ''
     let cinemaUrl = ''
     await act(async () => {
-      normalUrl = currentResult.createParty('host_only')
+      normalUrl = await currentResult.createParty('host_only')
     })
     expect(normalUrl).toContain('inviter=testuser')
 
     await act(async () => {
-      cinemaUrl = currentResult.createParty('guest_cinema')
+      cinemaUrl = await currentResult.createParty('guest_cinema')
     })
     expect(cinemaUrl).toContain('i=testuser')
   })
@@ -338,7 +354,7 @@ describe('useWatchParty', () => {
       await act(async () => root.render(createElement(TestHarness, {
         art, currentVideoUrl: 'https://example.com/video.m3u8', adFilteringEnabled: true,
       })))
-      await act(async () => { currentResult.createParty('guest_cinema') })
+      await act(async () => { await currentResult.createParty('guest_cinema') })
       await act(async () => { await vi.advanceTimersByTimeAsync(5000) })
       expect(mockChannel.send).toHaveBeenCalledWith(expect.objectContaining({
         payload: expect.objectContaining({
