@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import Artplayer from 'artplayer'
 import { syncClient } from '@/shared/sync/client'
+import { useAuthStore } from '@/shared/store/authStore'
 import { Button } from '@/shared/components/ui/button'
 import { Badge } from '@/shared/components/ui/badge'
 import type {
@@ -22,6 +23,7 @@ import type {
 export default function GuestPartyView() {
   const { roomId } = useParams<{ roomId: string }>()
   const navigate = useNavigate()
+  const account = useAuthStore(state => state.account)
 
   const [participants, setParticipants] = useState<WatchPartyParticipant[]>([])
   const [videoUrl, setVideoUrl] = useState<string | null>(null)
@@ -367,7 +369,11 @@ export default function GuestPartyView() {
 
   const handleLeave = () => {
     terminateSession('你已主动退出放映厅')
-    navigate('/')
+    if (account) {
+      navigate('/')
+    } else {
+      window.location.href = '/'
+    }
   }
 
   return (
@@ -466,9 +472,9 @@ export default function GuestPartyView() {
             <Button
               type="button"
               className="mt-6 w-full rounded-xl bg-red-600 hover:bg-red-700 text-white font-medium shadow-md shadow-red-600/20"
-              onClick={() => navigate('/')}
+              onClick={handleLeave}
             >
-              离开放映厅
+              {account ? '返回主站' : '返回登录页'}
             </Button>
           </div>
         ) : !videoUrl ? (

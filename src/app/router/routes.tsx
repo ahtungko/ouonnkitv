@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import { createBrowserRouter, RouterProvider, Navigate } from 'react-router'
 import { LoadingFallback } from './LoadingFallback'
 import { RootErrorBoundary } from './RootErrorBoundary'
@@ -43,6 +43,21 @@ const AdminOnly = ({ children }: { children: React.ReactNode }) => {
   return isAdmin ? <>{children}</> : <Navigate to="/" replace />
 }
 
+const RequireAuth = ({ children }: { children: React.ReactNode }) => {
+  const account = useAuthStore(state => state.account)
+  useEffect(() => {
+    if (!account) {
+      window.location.replace('/')
+    }
+  }, [account])
+
+  if (!account) {
+    return <LoadingFallback />
+  }
+
+  return <>{children}</>
+}
+
 const router = createBrowserRouter([
   // A. 专属免登录极简影院 (脱离主站核心布局，无顶部导航与搜索)
   {
@@ -57,7 +72,11 @@ const router = createBrowserRouter([
   // B. 核心布局路由 (带顶部导航)
   {
     path: '/',
-    element: <MainLayout />,
+    element: (
+      <RequireAuth>
+        <MainLayout />
+      </RequireAuth>
+    ),
     ErrorBoundary: RootErrorBoundary,
     children: [
       {
