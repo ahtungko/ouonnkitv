@@ -259,6 +259,173 @@ describe('cloud sync lifecycle', () => {
     ])
   })
 
+  it('播放中高频定时同步或暂停时仅推送增量更改，不重复下载云端全量数据', async () => {
+    mocks.authCallback!('SIGNED_IN', session('alice'))
+    // 初始全量同步已完成
+    await syncNow({ mode: 'full' })
+    expect(mocks.range).toHaveBeenCalledTimes(1)
+    mocks.range.mockClear()
+    mocks.rpc.mockClear()
+
+    // 播放中更新历史记录
+    useViewingHistoryStore
+      .getState()
+      .addViewingHistory({ ...item('watching-ep-1'), playbackPosition: 45 })
+
+    // 执行仅上传增量同步（如播放器 30s 定时或暂停保存）
+    await syncNow({ mode: 'upload' })
+
+    // 验证：待同步的播放进度已上传
+    const uploads = mocks.rpc.mock.calls.filter(([name]) => name === 'sync_user_records')
+    expect(uploads).toHaveLength(1)
+    expect(uploads[0][1].changes[0]).toMatchObject({
+      kind: 'history',
+      value: expect.objectContaining({ vodId: 'watching-ep-1', playbackPosition: 45 }),
+    })
+
+    // 验证：绝对不触发全量远端下载（mocks.range 零调用）
+    expect(mocks.range).not.toHaveBeenCalled()
+    expect(useSyncStatus.getState()).toMatchObject({ status: '已上传', error: null })
+  })
+
+  it('仅上传不会更新完整同步时间，页面恢复时按完整同步时间检查冷却期', async () => {
+    mocks.authCallback!('SIGNED_IN', session('alice'))
+    await vi.runAllTimersAsync()
+    const fullSyncTime = useSyncStatus.getState().lastSynced
+    expect(fullSyncTime).not.toBeNull()
+
+    vi.setSystemTime(Date.now() + 5 * 60 * 1000 + 1)
+    useViewingHistoryStore.getState().addViewingHistory(item('recent-upload'))
+    await syncNow({ mode: 'upload' })
+    expect(useSyncStatus.getState().lastSynced).toBe(fullSyncTime)
+
+    mocks.range.mockClear()
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible')
+    document.dispatchEvent(new Event('visibilitychange'))
+    await vi.waitFor(() => expect(mocks.range).toHaveBeenCalledTimes(1))
+    await vi.waitFor(() => expect(useSyncStatus.getState().lastSynced).toBeGreaterThan(fullSyncTime!))
+  })
+
+  it.each(['pause', 'pagehide'])('%s 存储失败时仍尝试上传内存中的更改', async eventName => {
+    mocks.authCallback!('SIGNED_IN', session('alice'))
+    await vi.runAllTimersAsync()
+    useViewingHistoryStore.getState().addViewingHistory(item('storage-failure'))
+    mocks.rpc.mockClear()
+    const originalSetItem = Storage.prototype.setItem
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, key, value) {
+      if (key === 'ouonnki-cloud-v1:alice') throw new Error('storage unavailable')
+      return originalSetItem.call(this, key, value)
+    })
+
+    if (eventName === 'pause') {
+      document.dispatchEvent(new Event('pause'))
+      vi.runAllTicks()
+    } else {
+      window.dispatchEvent(new Event('pagehide'))
+    }
+
+    await vi.waitFor(() => expect(mocks.rpc).toHaveBeenCalled())
+    await vi.waitFor(() => expect(useSyncStatus.getState().error).toBe('storage unavailable'))
+  })
+
+  it('并发同步请求在 busy 期间入队，并在当前同步完成后自动补跑，且 full 优先级高于 upload', async () => {
+    mocks.authCallback!('SIGNED_IN', session('alice'))
+    await syncNow({ mode: 'full' })
+    mocks.range.mockClear()
+    mocks.rpc.mockClear()
+
+    let resolveRpc1!: (value: { error: null }) => void
+    mocks.rpc.mockReturnValueOnce(
+      new Promise(res => {
+        resolveRpc1 = res
+      }),
+    )
+
+    useViewingHistoryStore.getState().addViewingHistory({ ...item('first'), playbackPosition: 10 })
+    const sync1 = syncNow({ mode: 'upload' })
+
+    // 在 sync 1 运行期间（busy === true），新的请求入队
+    useViewingHistoryStore.getState().addViewingHistory({ ...item('second'), playbackPosition: 20 })
+    const sync2 = syncNow({ mode: 'upload' })
+    const sync3 = syncNow({ mode: 'full' })
+
+    resolveRpc1({ error: null })
+    await sync1
+
+    // sync2 和 sync3 在排队执行中被升级为 full 并在其执行完成后 resolve
+    await Promise.all([sync2, sync3])
+
+    expect(mocks.range).toHaveBeenCalledTimes(1)
+    const uploads = mocks.rpc.mock.calls.filter(([name]) => name === 'sync_user_records')
+    expect(uploads.length).toBeGreaterThanOrEqual(2)
+    expect(useSyncStatus.getState()).toMatchObject({ status: '已同步', error: null })
+  })
+
+  it('播放中 30 秒定时器在 5 分钟内仅执行上传，超过 5 分钟执行完整拉取对齐', async () => {
+    mocks.authCallback!('SIGNED_IN', session('alice'))
+    // 等待登录后的初始同步定时器完成
+    await vi.runAllTimersAsync()
+    mocks.range.mockClear()
+    mocks.rpc.mockClear()
+
+    // 产生播放记录（触发 30s 节流定时器）
+    useViewingHistoryStore.getState().addViewingHistory({ ...item('ep1'), playbackPosition: 30 })
+
+    // 前进 30 秒，触发定时器
+    await vi.advanceTimersByTimeAsync(30_000)
+
+    // 此时距离上次全量对齐未满 5 分钟，应仅上传，不触发全量远端拉取
+    expect(mocks.rpc).toHaveBeenCalledTimes(1)
+    expect(mocks.range).not.toHaveBeenCalled()
+    expect(useSyncStatus.getState().status).toBe('已上传')
+
+    mocks.rpc.mockClear()
+
+    // 播放持续进行，5 分钟后再产生新播放记录
+    await vi.advanceTimersByTimeAsync(5 * 60 * 1000)
+    useViewingHistoryStore.getState().addViewingHistory({ ...item('ep2'), playbackPosition: 60 })
+    // 前进 30 秒触发定时同步
+    await vi.advanceTimersByTimeAsync(30_000)
+
+    // 此时已超过 5 分钟，应触发全量对齐（range 被调用）
+    expect(mocks.range).toHaveBeenCalledTimes(1)
+    expect(useSyncStatus.getState().status).toBe('已同步')
+  })
+
+  it('暂停与页面隐藏时优先保存至本地存储，并触发仅上传', async () => {
+    mocks.authCallback!('SIGNED_IN', session('alice'))
+    await vi.runAllTimersAsync()
+    mocks.rpc.mockClear()
+    mocks.range.mockClear()
+
+    useViewingHistoryStore.getState().addViewingHistory({ ...item('paused-ep'), playbackPosition: 99 })
+
+    // 模拟 pause 事件
+    document.dispatchEvent(new Event('pause'))
+    // 允许 pause 的 microtask 执行完成
+    await vi.waitFor(() => expect(mocks.rpc).toHaveBeenCalled())
+
+    const cache = JSON.parse(localStorage.getItem('ouonnki-cloud-v1:alice')!)
+    const historyKey = recordKey({ kind: 'history', item_key: 'cms::source::paused-ep::0' })
+    expect(cache[historyKey]).toBeDefined()
+    expect(cache[historyKey].value.playbackPosition).toBe(99)
+
+    // 验证仅上传，不触发全量远端拉取
+    expect(mocks.range).not.toHaveBeenCalled()
+    expect(useSyncStatus.getState().status).toBe('已上传')
+  })
+
+  it('切换账号时重置全量对齐时间与排队请求，避免状态泄露', async () => {
+    mocks.authCallback!('SIGNED_IN', session('alice'))
+    await syncNow({ mode: 'full' })
+    mocks.range.mockClear()
+
+    mocks.authCallback!('SIGNED_IN', session('bob'))
+    await vi.runAllTimersAsync()
+    expect(mocks.range).toHaveBeenCalledTimes(1)
+    expect(useSyncStatus.getState().username).toBe('bob')
+  })
+
   it('never uploads API credentials or proxy settings', async () => {
     useSettingStore.getState().setSystemSettings({ tmdbApiToken: 'private-token' })
     useSettingStore.getState().setNetworkSettings({ proxyUrl: 'https://private-proxy.example' })

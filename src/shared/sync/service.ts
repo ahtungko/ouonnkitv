@@ -36,8 +36,12 @@ let applying = false
 let generation = 0
 let busy = false
 let timer: ReturnType<typeof setTimeout> | undefined
-let lastSyncAt = 0
+let queuedMode: SyncMode | null = null
+let queuedResolvers: Array<() => void> = []
+let queuedRejecters: Array<(err: unknown) => void> = []
+let lastFullSyncAt = 0
 const SYNC_COOLDOWN_MS = 5 * 60 * 1000
+const FULL_RECONCILIATION_INTERVAL_MS = 5 * 60 * 1000
 
 function report(error: unknown) {
   useSyncStatus.setState({
@@ -120,7 +124,8 @@ function capture() {
       if (!timer)
         timer = setTimeout(() => {
           timer = undefined
-          void syncNow()
+          const needsFull = Date.now() - lastFullSyncAt >= FULL_RECONCILIATION_INTERVAL_MS
+          void syncNow({ mode: needsFull ? 'full' : 'upload' })
         }, 30_000)
     }
   } catch (error) {
@@ -128,12 +133,36 @@ function capture() {
   }
 }
 
-export async function syncNow() {
+export type SyncMode = 'upload' | 'full'
+
+export interface SyncOptions {
+  mode?: SyncMode
+  /** @deprecated Use `mode: 'upload'` instead */
+  uploadOnly?: boolean
+  /** @deprecated Use `mode: 'full'` instead */
+  forcePull?: boolean
+}
+
+export async function syncNow(options?: SyncOptions): Promise<void> {
+  const mode: SyncMode =
+    options?.mode ??
+    (options?.uploadOnly && !options?.forcePull ? 'upload' : 'full')
   const client = syncClient
-  if (!client || !owner || !accessToken || busy) return
+  if (!client || !owner || !accessToken) return
   if (!navigator.onLine) {
     useSyncStatus.setState({ status: '离线 · 更改已保存在本机' })
     return
+  }
+  if (busy) {
+    if (mode === 'full' || queuedMode === 'full') {
+      queuedMode = 'full'
+    } else {
+      queuedMode = 'upload'
+    }
+    return new Promise<void>((resolve, reject) => {
+      queuedResolvers.push(resolve)
+      queuedRejecters.push(reject)
+    })
   }
   const run = generation
   const userId = owner
@@ -154,39 +183,67 @@ export async function syncNow() {
       journal = acknowledge(journal, batch)
       save()
     }
-    // Paginate explicitly; Supabase normally limits a response to 1,000 rows.
-    for (let offset = 0; ; offset += 500) {
-      const { data, error } = await client
-        .from('user_sync_records')
-        .select('*')
-        .eq('user_id', userId)
-        .order('kind')
-        .order('item_key')
-        .range(offset, offset + 499)
-        .setHeader('Authorization', authorization)
-      if (run !== generation) return
-      if (error) throw new Error(error.message)
-      const rows = (data ?? []).map(row => normalizeFavoriteRecord(recordSchema.parse(row))).filter(row => !(row.kind === 'preference' && isDeprecatedPreference(row.item_key)))
-      const invalid = rows.find(row => !validPayload(row))
-      if (invalid)
-        throw new Error(
-          `云端数据格式不兼容：${invalid.kind}/${invalid.item_key}（${payloadErrorDetails(invalid)}）`,
-        )
-      journal = mergeRemote(journal, rows)
-      save()
-      if (rows.length < 500) break
+    if (mode === 'full') {
+      // Paginate explicitly; Supabase normally limits a response to 1,000 rows.
+      for (let offset = 0; ; offset += 500) {
+        const { data, error } = await client
+          .from('user_sync_records')
+          .select('*')
+          .eq('user_id', userId)
+          .order('kind')
+          .order('item_key')
+          .range(offset, offset + 499)
+          .setHeader('Authorization', authorization)
+        if (run !== generation) return
+        if (error) throw new Error(error.message)
+        const rows = (data ?? [])
+          .map(row => normalizeFavoriteRecord(recordSchema.parse(row)))
+          .filter(row => !(row.kind === 'preference' && isDeprecatedPreference(row.item_key)))
+        const invalid = rows.find(row => !validPayload(row))
+        if (invalid)
+          throw new Error(
+            `云端数据格式不兼容：${invalid.kind}/${invalid.item_key}（${payloadErrorDetails(invalid)}）`,
+          )
+        journal = mergeRemote(journal, rows)
+        save()
+        if (rows.length < 500) break
+      }
+      apply()
+      lastFullSyncAt = Date.now()
     }
-    apply()
-    lastSyncAt = Date.now()
+    const hasPending = Object.values(journal).some(row => row.pending)
     useSyncStatus.setState({
-      status: Object.values(journal).some(row => row.pending) ? '有待同步的更改' : '已同步',
+      status: hasPending ? '有待同步的更改' : mode === 'full' ? '已同步' : '已上传',
       error: null,
-      lastSynced: Date.now(),
+      ...(mode === 'full' ? { lastSynced: lastFullSyncAt } : {}),
     })
   } catch (error) {
     if (run === generation) report(error)
   } finally {
-    if (run === generation) busy = false
+    if (run === generation) {
+      busy = false
+      if (queuedMode !== null && owner && accessToken && navigator.onLine) {
+        const nextMode = queuedMode
+        const resolvers = queuedResolvers
+        const rejecters = queuedRejecters
+        queuedMode = null
+        queuedResolvers = []
+        queuedRejecters = []
+        void syncNow({ mode: nextMode })
+          .then(() => {
+            resolvers.forEach(resolve => resolve())
+          })
+          .catch(error => {
+            rejecters.forEach(reject => reject(error))
+          })
+      } else {
+        queuedMode = null
+        const resolvers = queuedResolvers
+        queuedResolvers = []
+        queuedRejecters = []
+        resolvers.forEach(resolve => resolve())
+      }
+    }
   }
 }
 
@@ -197,6 +254,12 @@ function changeSession(session: Session | null) {
   if (nextOwner === owner) return
   generation++
   busy = false
+  queuedMode = null
+  const resolvers = queuedResolvers
+  queuedResolvers = []
+  queuedRejecters = []
+  resolvers.forEach(resolve => resolve())
+  lastFullSyncAt = 0
   if (timer) clearTimeout(timer)
   timer = undefined
   try {
@@ -224,6 +287,7 @@ function changeSession(session: Session | null) {
     } else {
       owner = null
       journal = {}
+      lastFullSyncAt = 0
       localStorage.removeItem(ownerKey)
     }
     useSyncStatus.setState({
@@ -236,7 +300,7 @@ function changeSession(session: Session | null) {
     if (nextOwner)
       timer = setTimeout(() => {
         timer = undefined
-        void syncNow()
+        void syncNow({ mode: 'full' })
       }, 0)
   } catch (error) {
     owner = null
@@ -266,8 +330,8 @@ export function startSync(): () => void {
     void syncNow()
   }
   const flushIfCooldownExpired = () => {
-    if (Date.now() - lastSyncAt >= SYNC_COOLDOWN_MS) {
-      void syncNow()
+    if (Date.now() - lastFullSyncAt >= SYNC_COOLDOWN_MS) {
+      void syncNow({ mode: 'full' })
     }
   }
   const visible = () => {
@@ -278,12 +342,21 @@ export function startSync(): () => void {
   const onFocus = () => {
     flushIfCooldownExpired()
   }
+  const uploadOnExit = () => {
+    try {
+      save()
+    } catch (error) {
+      report(error)
+    }
+    // Attempt to upload in-memory changes even when local persistence failed.
+    void syncNow({ mode: 'upload' })
+  }
   // Let the player's pause handler save its final position before uploading.
   const paused = () => {
-    queueMicrotask(flush)
+    queueMicrotask(uploadOnExit)
   }
   const onPageHide = () => {
-    flush()
+    uploadOnExit()
   }
   const storage = (event: StorageEvent) => {
     if (!owner || event.key !== prefix + owner) return
@@ -312,6 +385,11 @@ export function startSync(): () => void {
     stopNotifications()
     generation++
     busy = false
+    queuedMode = null
+    const resolvers = queuedResolvers
+    queuedResolvers = []
+    queuedRejecters = []
+    resolvers.forEach(resolve => resolve())
     unsubscribeAuth()
     unsubscribers.forEach(unsubscribe => unsubscribe())
     if (timer) clearTimeout(timer)
@@ -333,5 +411,5 @@ export function importDeviceCollection() {
   }
   save()
   apply()
-  void syncNow()
+  void syncNow({ mode: 'full' })
 }
