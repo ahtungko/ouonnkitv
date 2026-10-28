@@ -153,6 +153,7 @@ export function useWatchParty({
   const pendingSyncRef = useRef<{ time: number; isPlaying?: boolean } | null>(null)
   const roomIdRef = useRef<string | null>(null)
   const userExitedRoomIdRef = useRef<string | null>(null)
+  const hostMissingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     roomIdRef.current = roomId
@@ -214,6 +215,8 @@ export function useWatchParty({
 
   // Leave room logic
   const leaveParty = useCallback(() => {
+    if (hostMissingTimerRef.current) clearTimeout(hostMissingTimerRef.current)
+    hostMissingTimerRef.current = null
     // Record the room id we are leaving so the auto-connect effect doesn't immediately rejoin it
     userExitedRoomIdRef.current =
       roomIdRef.current || new URLSearchParams(window.location.search).get('partyRoom')
@@ -225,8 +228,15 @@ export function useWatchParty({
     }
 
     if (channelRef.current && syncClient) {
+      const channel = channelRef.current
+      const client = syncClient
+      channelRef.current = null
+      const disconnect = () => {
+        void channel.unsubscribe()
+        void client.removeChannel(channel)
+      }
       if (isHost) {
-        void channelRef.current.send({
+        void channel.send({
           type: 'broadcast',
           event: 'party_action',
           payload: {
@@ -236,11 +246,8 @@ export function useWatchParty({
             senderId: myClientIdRef.current,
             senderName: currentUsernameRef.current,
           },
-        })
-      }
-      void channelRef.current.unsubscribe()
-      void syncClient.removeChannel(channelRef.current)
-      channelRef.current = null
+        }).catch(() => {}).finally(disconnect)
+      } else disconnect()
     }
 
     setIsPartyActive(false)
@@ -282,6 +289,9 @@ export function useWatchParty({
     showNoticeRef.current('已退出同步放映室')
   }, [isHost, setSearchParams])
 
+  const leavePartyRef = useRef(leaveParty)
+  leavePartyRef.current = leaveParty
+
   // Join or setup a room
   const connectToRoom = useCallback(
     (targetRoomId: string, roomMode: WatchPartyMode, asHost: boolean) => {
@@ -293,6 +303,8 @@ export function useWatchParty({
 
       // Cleanup any existing channel
       if (channelRef.current) {
+        if (hostMissingTimerRef.current) clearTimeout(hostMissingTimerRef.current)
+        hostMissingTimerRef.current = null
         void channelRef.current.unsubscribe()
         void syncClient.removeChannel(channelRef.current)
         channelRef.current = null
@@ -317,6 +329,12 @@ export function useWatchParty({
         if (!action || action.senderId === myClientIdRef.current) return
 
         const player = artRef.current
+
+        if (action.type === 'room_closed' && !asHost) {
+          leavePartyRef.current()
+          showNoticeRef.current(action.message || '房主已解散放映厅')
+          return
+        }
 
         // Handle newcomer asking for the current state (Host answers)
         if (action.type === 'request_state') {
@@ -459,6 +477,18 @@ export function useWatchParty({
           })
         })
         setParticipants(userList)
+        if (!asHost) {
+          if (userList.some(user => user.isHost)) {
+            if (hostMissingTimerRef.current) clearTimeout(hostMissingTimerRef.current)
+            hostMissingTimerRef.current = null
+          } else if (!hostMissingTimerRef.current) {
+            hostMissingTimerRef.current = setTimeout(() => {
+              hostMissingTimerRef.current = null
+              leavePartyRef.current()
+              showNoticeRef.current('房主已离线超时，放映厅已关闭')
+            }, 30_000)
+          }
+        }
       })
 
       // Subscribe and track presence
@@ -693,6 +723,8 @@ export function useWatchParty({
   // Cleanup on unmount
   useEffect(() => {
     return () => {
+      if (hostMissingTimerRef.current) clearTimeout(hostMissingTimerRef.current)
+      hostMissingTimerRef.current = null
       if (channelRef.current && syncClient) {
         void channelRef.current.unsubscribe()
         void syncClient.removeChannel(channelRef.current)

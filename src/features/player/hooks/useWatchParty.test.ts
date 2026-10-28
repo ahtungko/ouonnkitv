@@ -261,6 +261,45 @@ describe('useWatchParty', () => {
     )
   })
 
+  it('普通房间收到房主结束消息后退出，旧地址不能让观众立刻重新加入', async () => {
+    mockSearchParams.set('partyRoom', 'expired-room')
+    const notices: string[] = []
+    await act(async () => root.render(createElement(TestHarness, { onNotice: msg => notices.push(msg) })))
+    const broadcast = mockChannel.on.mock.calls.find(call => call[0] === 'broadcast')?.[2]
+    await act(async () => broadcast({ payload: { type: 'room_closed', senderId: 'host', message: '房主已解散放映厅' } }))
+    expect(currentResult.isPartyActive).toBe(false)
+    expect(notices).toContain('房主已解散放映厅')
+  })
+
+  it('普通房间打开旧邀请链接后没有房主，等待重连期后退出', async () => {
+    vi.useFakeTimers()
+    try {
+      mockSearchParams.set('partyRoom', 'expired-room')
+      mockChannel.presenceState.mockReturnValue({})
+      await act(async () => root.render(createElement(TestHarness)))
+      const presence = mockChannel.on.mock.calls.find(call => call[0] === 'presence')?.[2]
+      await act(async () => presence())
+      await act(async () => { await vi.advanceTimersByTimeAsync(30_000) })
+      expect(currentResult.isPartyActive).toBe(false)
+    } finally { vi.useRealTimers() }
+  })
+
+  it('普通房间房主在重连期内回来时保留房间', async () => {
+    vi.useFakeTimers()
+    try {
+      mockSearchParams.set('partyRoom', 'room-reconnecting')
+      mockChannel.presenceState.mockReturnValue({})
+      await act(async () => root.render(createElement(TestHarness)))
+      const presence = mockChannel.on.mock.calls.find(call => call[0] === 'presence')?.[2]
+      await act(async () => presence())
+      await act(async () => { await vi.advanceTimersByTimeAsync(10_000) })
+      mockChannel.presenceState.mockReturnValue({ host: [{ clientId: 'host', isHost: true }] })
+      await act(async () => presence())
+      await act(async () => { await vi.advanceTimersByTimeAsync(30_000) })
+      expect(currentResult.isPartyActive).toBe(true)
+    } finally { vi.useRealTimers() }
+  })
+
   it('创建放映室时在链接中嵌入当前登录账号作为邀请人', async () => {
     await act(async () => {
       root.render(createElement(TestHarness))

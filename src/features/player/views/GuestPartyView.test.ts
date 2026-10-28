@@ -209,4 +209,33 @@ describe('GuestPartyView 访客退出安全守卫', () => {
     })
     expect(host.querySelector('img[src="https://example.com/poster.jpg"]')).not.toBeNull()
   })
+
+  it('打开房主已离开的旧链接，等待重连期后显示放映厅已结束', async () => {
+    vi.useFakeTimers()
+    try {
+      mockSyncState.syncClient = mockSyncClientObj
+      mockChannel.presenceState.mockReturnValue({})
+      await act(async () => root.render(createElement(GuestPartyView)))
+      const presence = mockChannel.on.mock.calls.find(call => call[0] === 'presence')?.[2]
+      await act(async () => presence())
+      await act(async () => { await vi.advanceTimersByTimeAsync(30_000) })
+      expect(host.textContent).toContain('房主已离线超时')
+    } finally { vi.useRealTimers() }
+  })
+
+  it('重连期内房主重新上线时，旧链接仍可继续进入', async () => {
+    vi.useFakeTimers()
+    try {
+      mockSyncState.syncClient = mockSyncClientObj
+      mockChannel.presenceState.mockReturnValue({})
+      await act(async () => root.render(createElement(GuestPartyView)))
+      const presence = mockChannel.on.mock.calls.find(call => call[0] === 'presence')?.[2]
+      await act(async () => presence())
+      await act(async () => { await vi.advanceTimersByTimeAsync(10_000) })
+      mockChannel.presenceState.mockReturnValue({ host: [{ clientId: 'host', isHost: true }] })
+      await act(async () => presence())
+      await act(async () => { await vi.advanceTimersByTimeAsync(30_000) })
+      expect(host.textContent).not.toContain('房主已离线超时')
+    } finally { vi.useRealTimers() }
+  })
 })

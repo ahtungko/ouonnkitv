@@ -60,7 +60,7 @@ export default function GuestPartyView() {
   const [isPlaying, setIsPlaying] = useState<boolean>(false)
   const [needsPlaybackGesture, setNeedsPlaybackGesture] = useState(false)
   const [hostOnline, setHostOnline] = useState<boolean>(false)
-  const [hostEverConnected, setHostEverConnected] = useState<boolean>(false)
+  const [presenceKnown, setPresenceKnown] = useState<boolean>(false)
   const [disconnectCountdown, setDisconnectCountdown] = useState<number | null>(null)
   const [terminatedReason, setTerminatedReason] = useState<string | null>(null)
 
@@ -315,11 +315,11 @@ export default function GuestPartyView() {
         })
       })
       setParticipants(userList)
+      setPresenceKnown(true)
 
       const isHostPresent = userList.some(u => u.isHost)
       if (isHostPresent) {
         setHostOnline(true)
-        setHostEverConnected(true)
       } else {
         setHostOnline(false)
       }
@@ -356,8 +356,8 @@ export default function GuestPartyView() {
 
   // Monitor host disconnect with strict 30-second countdown
   useEffect(() => {
-    // If host has ever been connected, but is now offline, start 30s countdown
-    if (hostEverConnected && !hostOnline && !terminatedReason) {
+    // Wait for presence to synchronize before starting the host reconnection window.
+    if (presenceKnown && !hostOnline && !terminatedReason) {
       if (artRef.current) {
         artRef.current.pause()
         setIsPlaying(false)
@@ -393,7 +393,7 @@ export default function GuestPartyView() {
         countdownTimerRef.current = null
       }
     }
-  }, [hostEverConnected, hostOnline, terminatedReason, terminateSession])
+  }, [presenceKnown, hostOnline, terminatedReason, terminateSession])
 
   // Initialize or update Artplayer instance
   useEffect(() => {
@@ -629,7 +629,9 @@ export default function GuestPartyView() {
             </div>
 
             <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-zinc-100">
-              {inviter ? `欢迎来到「${inviter}」的专属影厅` : '欢迎来到私享放映厅'}
+              {disconnectCountdown !== null
+                ? '房主暂时不在线'
+                : inviter ? `欢迎来到「${inviter}」的专属影厅` : '欢迎来到私享放映厅'}
             </h2>
             {mediaTitle && (
               <p className="mt-1 text-sm font-medium text-amber-400">
@@ -637,14 +639,16 @@ export default function GuestPartyView() {
               </p>
             )}
             <p className="mt-2 text-xs sm:text-sm text-zinc-400 leading-relaxed max-w-sm">
-              {inviter
+              {disconnectCountdown !== null
+                ? `等待房主重新连接，${disconnectCountdown} 秒后放映厅将关闭。`
+                : inviter
                 ? `「${inviter}」正在为你调试放映设备，入场就绪，稍后开播...`
                 : '房主正在为你挑选片源与调试设备，入场就绪，稍后开播...'}
             </p>
 
             <div className="mt-8 flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-xs text-amber-300 shadow-inner">
               <span className="size-2 rounded-full bg-amber-400 animate-ping" />
-              <span>喝杯可乐稍等片刻，放映即将开始 🍿</span>
+              <span>{disconnectCountdown !== null ? '正在等待房主重新连接' : '喝杯可乐稍等片刻，放映即将开始 🍿'}</span>
             </div>
 
             <div className="mt-8 flex items-center justify-center gap-2 text-xs text-zinc-500">
