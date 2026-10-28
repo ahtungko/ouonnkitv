@@ -106,6 +106,22 @@ describe('useWatchParty', () => {
     expect(mockChannel.track).toHaveBeenCalled()
   })
 
+  it('创建免登录影厅生成专属 /party/ 独立短链', async () => {
+    await act(async () => {
+      root.render(createElement(TestHarness))
+    })
+
+    let url = ''
+    await act(async () => {
+      url = currentResult.createParty('guest_cinema')
+    })
+
+    expect(currentResult.isPartyActive).toBe(true)
+    expect(currentResult.isHost).toBe(true)
+    expect(currentResult.mode).toBe('guest_cinema')
+    expect(url).toContain('/party/')
+  })
+
   it('房主主控模式下房主可广播播放状态', async () => {
     await act(async () => {
       root.render(createElement(TestHarness))

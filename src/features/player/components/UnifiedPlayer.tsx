@@ -677,11 +677,18 @@ export default function UnifiedPlayer() {
     [buildCurrentPlayPath, navigate],
   )
 
+  const currentVideoUrl = detail?.episodes[selectedEpisode] || ''
+  const partyMediaTitle = detail?.videoInfo?.title || tmdbPlayback.tmdbDetail?.title || '未知视频'
+  const partyEpisodeTitle = episodes[selectedEpisode] || `第 ${selectedEpisode + 1} 集`
+
   const party = useWatchParty({
     art: activeArt,
     selectedEpisode,
     onSelectEpisode: handlePartySelectEpisode,
     showNotice: showPlayerNotice,
+    currentVideoUrl,
+    mediaTitle: partyMediaTitle,
+    episodeTitle: partyEpisodeTitle,
   })
 
   const partyRef = useRef(party)
@@ -846,11 +853,18 @@ export default function UnifiedPlayer() {
       if (selectedEpisode < episodes.length - 1) {
         const nextIndex = selectedEpisode + 1
         if (partyRef.current.isPartyActive) {
-          if (partyRef.current.mode === 'host_only' && !partyRef.current.isHost) return
+          if (
+            (partyRef.current.mode === 'host_only' || partyRef.current.mode === 'guest_cinema') &&
+            !partyRef.current.isHost
+          )
+            return
           partyRef.current.broadcastAction({
             type: 'episode',
             time: 0,
             episodeIndex: nextIndex,
+            videoUrl: detail.episodes[nextIndex] || '',
+            episodeTitle: episodes[nextIndex] || `第 ${nextIndex + 1} 集`,
+            mediaTitle: partyMediaTitle,
           })
         }
         navigate(buildCurrentPlayPathWithParty(nextIndex), { replace: true })
@@ -1321,7 +1335,7 @@ export default function UnifiedPlayer() {
     if (actualIndex === selectedEpisode) return
 
     if (party.isPartyActive) {
-      if (party.mode === 'host_only' && !party.isHost) {
+      if ((party.mode === 'host_only' || party.mode === 'guest_cinema') && !party.isHost) {
         showPlayerNotice('当前为房主主控模式，仅房主可切换集数')
         return
       }
@@ -1329,6 +1343,9 @@ export default function UnifiedPlayer() {
         type: 'episode',
         time: 0,
         episodeIndex: actualIndex,
+        videoUrl: detail?.episodes[actualIndex] || '',
+        episodeTitle: episodes[actualIndex] || `第 ${actualIndex + 1} 集`,
+        mediaTitle: partyMediaTitle,
       })
     }
 
@@ -1652,7 +1669,6 @@ export default function UnifiedPlayer() {
       ? tmdbPlayback.tmdbRichDetail?.number_of_episodes || detail?.episodes.length
       : undefined
   const hasSeasonPanel = !isCmsRoute && tmdbPlayback.seasonOptions.length > 0
-  const currentVideoUrl = detail?.episodes[selectedEpisode] || ''
 
   const handleCopyCurrentVideoUrl = useCallback(async () => {
     if (!isAdmin) return

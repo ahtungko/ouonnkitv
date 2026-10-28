@@ -6,8 +6,8 @@ import {
   Check,
   LogOut,
   Radio,
-  ShieldCheck,
   AlertCircle,
+  Sparkles,
 } from 'lucide-react'
 import {
   Dialog,
@@ -152,6 +152,34 @@ export function WatchPartyModal({
                     房间内所有人均可自由暂停和调整进度，适合情侣两人、密友双人观影。
                   </p>
                 </button>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedMode('guest_cinema')}
+                  className={`flex flex-col items-start rounded-lg border p-3 text-left transition-all ${
+                    selectedMode === 'guest_cinema'
+                      ? 'border-red-500/80 bg-red-500/10 text-foreground ring-1 ring-red-500/50'
+                      : 'border-border/60 hover:border-border hover:bg-accent/40 text-muted-foreground'
+                  }`}
+                >
+                  <div className="flex w-full items-center justify-between">
+                    <span className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+                      <Sparkles className="size-4 text-purple-400" />
+                      免登录专属影厅
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <Badge variant="secondary" className="text-[10px] bg-purple-500/15 text-purple-400 border-purple-500/30">
+                        免账号
+                      </Badge>
+                      {selectedMode === 'guest_cinema' && (
+                        <span className="size-2 rounded-full bg-red-500" />
+                      )}
+                    </div>
+                  </div>
+                  <p className="mt-1.5 text-xs leading-relaxed opacity-80">
+                    生成专属影厅短链，好友免账号秒进极简沉浸大屏。房主绝对主控，离开 30 秒自动掐断。
+                  </p>
+                </button>
               </div>
             </div>
           </div>
@@ -179,10 +207,15 @@ export function WatchPartyModal({
                       <Crown className="size-3 text-amber-500" />
                       房主主控
                     </>
+                  ) : mode === 'collaborative' ? (
+                    <>
+                      <Radio className="size-3 text-emerald-500" />
+                      全员自由
+                    </>
                   ) : (
                     <>
-                      <ShieldCheck className="size-3 text-emerald-500" />
-                      全员自由
+                      <Sparkles className="size-3 text-purple-400" />
+                      免登录影厅
                     </>
                   )}
                 </Badge>
@@ -252,7 +285,9 @@ export function WatchPartyModal({
                 </Button>
               </div>
               <p className="text-[11px] text-muted-foreground">
-                将链接发送给好友，对方在浏览器打开即可自动同步观看当前剧集。
+                {mode === 'guest_cinema'
+                  ? '将专属短链发送给好友，对方无需账号点开即可直接进入沉浸影厅同步观影。'
+                  : '将链接发送给好友，对方在浏览器打开即可自动同步观看当前剧集。'}
               </p>
             </div>
           </div>

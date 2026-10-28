@@ -4,7 +4,7 @@ import type Artplayer from 'artplayer'
 import { syncClient } from '@/shared/sync/client'
 import { useAuthStore } from '@/shared/store/authStore'
 
-export type WatchPartyMode = 'host_only' | 'collaborative'
+export type WatchPartyMode = 'host_only' | 'collaborative' | 'guest_cinema'
 export type WatchPartyActionType =
   | 'play'
   | 'pause'
@@ -13,14 +13,20 @@ export type WatchPartyActionType =
   | 'heartbeat'
   | 'request_state'
   | 'state_sync'
+  | 'room_closed'
 
 export interface WatchPartyAction {
   type: WatchPartyActionType
   time: number
   episodeIndex?: number
+  videoUrl?: string
+  mediaTitle?: string
+  episodeTitle?: string
+  mode?: WatchPartyMode
   senderId?: string
   senderName?: string
   isPlaying?: boolean
+  message?: string
 }
 
 export interface WatchPartyParticipant {
@@ -34,6 +40,9 @@ interface UseWatchPartyOptions {
   selectedEpisode: number
   onSelectEpisode: (index: number) => void
   showNotice: (msg: string) => void
+  currentVideoUrl?: string
+  mediaTitle?: string
+  episodeTitle?: string
 }
 
 function generateRoomId(): string {
@@ -51,6 +60,9 @@ export function useWatchParty({
   selectedEpisode,
   onSelectEpisode,
   showNotice,
+  currentVideoUrl,
+  mediaTitle,
+  episodeTitle,
 }: UseWatchPartyOptions) {
   const [searchParams, setSearchParams] = useSearchParams()
   const accountUsername = useAuthStore(state => state.account?.username)
@@ -63,11 +75,31 @@ export function useWatchParty({
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [inviteUrl, setInviteUrl] = useState('')
 
+  const modeRef = useRef(mode)
+  useEffect(() => {
+    modeRef.current = mode
+  }, [mode])
+
   // Keep references to avoid stale closures in callbacks
   const artRef = useRef<Artplayer | null>(art)
   useEffect(() => {
     artRef.current = art
   }, [art])
+
+  const currentVideoUrlRef = useRef(currentVideoUrl)
+  useEffect(() => {
+    currentVideoUrlRef.current = currentVideoUrl
+  }, [currentVideoUrl])
+
+  const mediaTitleRef = useRef(mediaTitle)
+  useEffect(() => {
+    mediaTitleRef.current = mediaTitle
+  }, [mediaTitle])
+
+  const episodeTitleRef = useRef(episodeTitle)
+  useEffect(() => {
+    episodeTitleRef.current = episodeTitle
+  }, [episodeTitle])
 
   const selectedEpisodeRef = useRef(selectedEpisode)
   useEffect(() => {
@@ -124,9 +156,9 @@ export function useWatchParty({
     (action: Omit<WatchPartyAction, 'senderId' | 'senderName'>) => {
       if (!channelRef.current || !isPartyActive || isRemoteEventRef.current) return
 
-      // Non-host in host_only mode cannot broadcast control actions (except state requests)
+      // Non-host in host_only or guest_cinema mode cannot broadcast control actions (except state requests)
       if (
-        mode === 'host_only' &&
+        (mode === 'host_only' || mode === 'guest_cinema') &&
         !isHost &&
         action.type !== 'heartbeat' &&
         action.type !== 'request_state'
@@ -157,6 +189,19 @@ export function useWatchParty({
       roomIdRef.current || new URLSearchParams(window.location.search).get('partyRoom')
 
     if (channelRef.current && syncClient) {
+      if (isHost) {
+        void channelRef.current.send({
+          type: 'broadcast',
+          event: 'party_action',
+          payload: {
+            type: 'room_closed',
+            time: 0,
+            message: '房主已解散放映厅',
+            senderId: myClientIdRef.current,
+            senderName: currentUsernameRef.current,
+          },
+        })
+      }
       void channelRef.current.unsubscribe()
       void syncClient.removeChannel(channelRef.current)
       channelRef.current = null
@@ -242,6 +287,10 @@ export function useWatchParty({
                 time: player?.currentTime || 0,
                 isPlaying: Boolean(player && !player.video.paused),
                 episodeIndex: selectedEpisodeRef.current,
+                videoUrl: currentVideoUrlRef.current,
+                mediaTitle: mediaTitleRef.current,
+                episodeTitle: episodeTitleRef.current,
+                mode: modeRef.current,
                 senderId: myClientIdRef.current,
                 senderName: currentUsernameRef.current,
               },
@@ -377,10 +426,15 @@ export function useWatchParty({
             isHost: asHost,
           })
 
+          const modeLabel =
+            roomMode === 'host_only'
+              ? '房主主控'
+              : roomMode === 'collaborative'
+                ? '全员自由'
+                : '免登录专属影厅'
+
           showNoticeRef.current(
-            asHost
-              ? `放映室已建立 (${roomMode === 'host_only' ? '房主主控' : '全员自由'})`
-              : `已加入放映室 (${roomMode === 'host_only' ? '房主主控' : '全员自由'})`,
+            asHost ? `放映室已建立 (${modeLabel})` : `已加入放映室 (${modeLabel})`,
           )
 
           // If joined as viewer, ask host for current progress
@@ -410,12 +464,18 @@ export function useWatchParty({
       const newRoomId = generateRoomId()
       connectToRoom(newRoomId, selectedMode, true)
 
-      const url = new URL(window.location.href)
-      url.searchParams.set('partyRoom', newRoomId)
-      url.searchParams.set('partyMode', selectedMode)
-      url.searchParams.set('partyEp', String(selectedEpisodeRef.current))
+      let fullUrl = ''
+      if (selectedMode === 'guest_cinema') {
+        fullUrl = `${window.location.origin}/party/${newRoomId}`
+      } else {
+        const url = new URL(window.location.href)
+        url.searchParams.set('partyRoom', newRoomId)
+        url.searchParams.set('partyMode', selectedMode)
+        url.searchParams.set('partyEp', String(selectedEpisodeRef.current))
+        fullUrl = url.toString()
+      }
 
-      // Update current URL without reload
+      // Update current URL without reload (host keeps party params in URL)
       setSearchParams(
         prev => {
           const next = new URLSearchParams(prev)
@@ -427,7 +487,6 @@ export function useWatchParty({
         { replace: true },
       )
 
-      const fullUrl = url.toString()
       setInviteUrl(fullUrl)
       return fullUrl
     },
@@ -474,11 +533,15 @@ export function useWatchParty({
   useEffect(() => {
     if (isPartyActive && roomId) {
       try {
-        const url = new URL(window.location.href)
-        url.searchParams.set('partyRoom', roomId)
-        url.searchParams.set('partyMode', mode)
-        url.searchParams.set('partyEp', String(selectedEpisode))
-        setInviteUrl(url.toString())
+        if (mode === 'guest_cinema') {
+          setInviteUrl(`${window.location.origin}/party/${roomId}`)
+        } else {
+          const url = new URL(window.location.href)
+          url.searchParams.set('partyRoom', roomId)
+          url.searchParams.set('partyMode', mode)
+          url.searchParams.set('partyEp', String(selectedEpisode))
+          setInviteUrl(url.toString())
+        }
       } catch {
         // Ignore in non-browser env
       }

@@ -31,6 +31,7 @@ const AboutSettings = lazy(() => import('@/features/settings/views/AboutSettings
 
 // Player views
 const UnifiedPlayer = lazy(() => import('@/features/player/components/UnifiedPlayer'))
+const GuestPartyView = lazy(() => import('@/features/player/views/GuestPartyView'))
 
 // Suspense wrapper for lazy components
 const SuspenseWrapper = ({ children }: { children: React.ReactNode }) => (
@@ -43,7 +44,17 @@ const AdminOnly = ({ children }: { children: React.ReactNode }) => {
 }
 
 const router = createBrowserRouter([
-  // A. 核心布局路由 (带顶部导航)
+  // A. 专属免登录极简影院 (脱离主站核心布局，无顶部导航与搜索)
+  {
+    path: 'party/:roomId',
+    element: (
+      <SuspenseWrapper>
+        <GuestPartyView />
+      </SuspenseWrapper>
+    ),
+    ErrorBoundary: RootErrorBoundary,
+  },
+  // B. 核心布局路由 (带顶部导航)
   {
     path: '/',
     element: <MainLayout />,

@@ -29,6 +29,9 @@ export default function AuthGuard({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (initialized && !account) clearRestrictedSources()
   }, [account, clearRestrictedSources, initialized])
+  const isPartyGuestRoute =
+    typeof window !== 'undefined' && window.location.pathname.startsWith('/party/')
+  if (isPartyGuestRoute) return <>{children}</>
   if (account && (!adminLogin || account.role === 'admin'))
     return <MaintenanceGuard>{children}</MaintenanceGuard>
   const loginPage = (
