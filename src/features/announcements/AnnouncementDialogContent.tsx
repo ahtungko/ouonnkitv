@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import { Button } from '@/shared/components/ui/button'
 import {
   DialogContent,
@@ -17,10 +18,18 @@ export function AnnouncementDialogContent({
   announcement: Announcement
   preview?: boolean
 }) {
+  const titleRef = useRef<HTMLHeadingElement>(null)
+
   return (
-    <DialogContent className="top-1/2 right-auto bottom-auto left-1/2 max-h-[85dvh] w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-xl border-b sm:bottom-auto sm:w-full">
+    <DialogContent
+      onOpenAutoFocus={event => {
+        event.preventDefault()
+        titleRef.current?.focus()
+      }}
+      className="top-1/2 right-auto bottom-auto left-1/2 max-h-[85dvh] w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-xl border-b sm:bottom-auto sm:w-full"
+    >
       <DialogHeader>
-        <DialogTitle className="pr-6 leading-snug break-words">
+        <DialogTitle ref={titleRef} tabIndex={-1} className="pr-6 leading-snug break-words outline-none">
           {announcement.kind === 'maintenance' ? '系统维护' : announcement.title}
         </DialogTitle>
         <DialogDescription>

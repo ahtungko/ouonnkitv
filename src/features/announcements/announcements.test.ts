@@ -77,6 +77,16 @@ afterEach(async () => {
 const dialog = () => document.body.querySelector('[role="dialog"]')
 
 describe('公告弹窗', () => {
+  it('打开时聚焦标题，正文仍可通过键盘聚焦', async () => {
+    await mount()
+    const title = dialog()?.querySelector('[data-slot="dialog-title"]')
+    const body = dialog()?.querySelector<HTMLElement>('[role="region"][aria-label="公告内容"]')
+    expect(document.activeElement).toBe(title)
+    expect(body?.tabIndex).toBe(0)
+    await act(async () => body?.focus())
+    expect(document.activeElement).toBe(body)
+  })
+
   it('关闭后保留查看入口，刷新仍关闭；发布新版重新展示', async () => {
     await mount()
     expect(dialog()?.textContent).toContain('维护通知')
