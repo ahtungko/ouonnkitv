@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { NavLink } from 'react-router'
-import { Cloud, KeyRound, LogOut, UserRound, Users } from 'lucide-react'
+import { Cloud, KeyRound, LogOut, Settings, UserRound, Users } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from './ui/button'
 import {
@@ -25,11 +25,11 @@ export default function AccountMenu() {
         <Button
           size="icon"
           variant="ghost"
-          className="size-7"
+          className="size-8 rounded-full"
           aria-label="我的账号"
           title="我的账号"
         >
-          <UserRound />
+          <UserRound className="size-4" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
@@ -38,20 +38,26 @@ export default function AccountMenu() {
         </DropdownMenuLabel>
         <DropdownMenuItem asChild>
           <NavLink to="/account">
-            <Cloud />
+            <Cloud className="size-4" />
             我的账号 · {status}
           </NavLink>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
           <NavLink to="/account">
-            <KeyRound />
+            <KeyRound className="size-4" />
             修改密码
+          </NavLink>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <NavLink to="/settings">
+            <Settings className="size-4" />
+            系统设置
           </NavLink>
         </DropdownMenuItem>
         {account.role === 'admin' && (
           <DropdownMenuItem asChild>
             <NavLink to="/admin">
-              <Users />
+              <Users className="size-4" />
               管理员中心
             </NavLink>
           </DropdownMenuItem>
@@ -69,7 +75,7 @@ export default function AccountMenu() {
               .finally(() => setBusy(false))
           }}
         >
-          <LogOut />
+          <LogOut className="size-4" />
           {busy ? '正在退出…' : '退出账号'}
         </DropdownMenuItem>
       </DropdownMenuContent>

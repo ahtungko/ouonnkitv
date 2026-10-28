@@ -5,10 +5,10 @@ type NavbarProps = React.HTMLAttributes<HTMLElement>
 
 function Navbar({ className, children, ...props }: NavbarProps) {
   return (
-    <div className="h-16 w-full px-2 pt-2">
+    <div className="h-16 w-full border-b border-border/40 bg-background/80 backdrop-blur-xl transition-all">
       <nav
         className={cn(
-          'border-border bg-sidebar flex h-full items-center justify-between rounded-lg border px-3 shadow-sm backdrop-blur-md',
+          'mx-auto flex h-full max-w-[1920px] items-center justify-between px-3 sm:px-6 lg:px-8',
           className,
         )}
         {...props}

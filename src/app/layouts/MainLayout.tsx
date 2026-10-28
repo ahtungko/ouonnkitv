@@ -2,6 +2,7 @@ import { mainLayoutRouteKey } from '@/shared/lib/routes'
 import Navigation from '@/shared/components/Navigation'
 import { SidebarProvider, SidebarInset } from '@/shared/components/ui/sidebar'
 import SideBar from '@/shared/components/SideBar'
+import MobileTabBar from '@/shared/components/MobileTabBar'
 import { ScrollArea } from '@/shared/components/ui/scroll-area'
 import { CustomAnimatedOutlet } from '@/shared/components/AnimatedOutlet'
 import BackToTopButton from '@/shared/components/BackToTopButton'
@@ -71,7 +72,7 @@ export default function MainLayout() {
           '--sidebar-top': isChromeVisible ? '4rem' : '0rem',
         } as React.CSSProperties
       }
-      className="flex h-dvh flex-col overflow-hidden"
+      className="flex h-dvh flex-col overflow-hidden bg-background text-foreground"
     >
       <Navigation
         hidden={!isChromeVisible}
@@ -79,21 +80,21 @@ export default function MainLayout() {
       />
       <div className="flex flex-1 overflow-hidden">
         <SideBar
+          collapsibleMode="offcanvas"
           hidden={!isChromeVisible}
           enableScrollAnimation={isScrollChromeAnimationEnabled}
         />
-        <SidebarInset className="h-full overflow-hidden">
-          <div className="h-full p-2 md:pl-1">
-            <div className="border-border bg-sidebar relative h-full rounded-lg border py-2 shadow-sm">
-              <ScrollArea data-main-scroll-area className="h-full rounded-lg px-2">
-                <CustomAnimatedOutlet routeKey={mainLayoutRouteKey} />
-                <UpdateModalHost />
-              </ScrollArea>
-              <BackToTopButton scrollRootSelector="[data-main-scroll-area]" />
+        <SidebarInset className="relative flex h-full flex-1 flex-col overflow-hidden bg-background">
+          <ScrollArea data-main-scroll-area className="h-full w-full">
+            <div className="mx-auto min-h-full max-w-[1920px] px-3 py-3 sm:px-6 sm:py-5 lg:px-8 pb-24 md:pb-8">
+              <CustomAnimatedOutlet routeKey={mainLayoutRouteKey} />
+              <UpdateModalHost />
             </div>
-          </div>
+          </ScrollArea>
+          <BackToTopButton scrollRootSelector="[data-main-scroll-area]" />
         </SidebarInset>
       </div>
+      <MobileTabBar />
     </SidebarProvider>
   )
 }

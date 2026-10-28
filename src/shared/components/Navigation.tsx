@@ -20,6 +20,13 @@ interface NavigationProps {
   enableScrollAnimation?: boolean
 }
 
+const navLinks = [
+  { title: '首页', path: '/' },
+  { title: '探索', path: '/search' },
+  { title: '追剧', path: '/favorites' },
+  { title: '历史', path: '/history' },
+]
+
 export default function Navigation({
   hidden = false,
   enableScrollAnimation = false,
@@ -57,10 +64,10 @@ export default function Navigation({
             enableScrollAnimation && hidden && 'shadow-none backdrop-blur-none',
           )}
         >
-          {/* Logo 和侧边栏触发器 - 移动端搜索模式下隐藏 */}
+          {/* Logo 和主导航 - 移动端搜索模式下隐藏 */}
           <NavbarBrand
             className={cn(
-              '!flex-none',
+              '!flex-none items-center gap-2 sm:gap-4',
               enableScrollAnimation
                 ? 'transition-[opacity,transform] duration-220 ease-out'
                 : 'transition-none',
@@ -69,15 +76,43 @@ export default function Navigation({
                 : '',
             )}
           >
-            <SidebarTrigger />
-            <NavLink to="/" className="flex items-center">
-              <div className="flex items-end">
-                <div>
-                  <OkiLogo />
-                </div>
-                <p className="text-accent-foreground text-lg font-bold">{PROJECT.name}</p>
-              </div>
+            <SidebarTrigger className="md:hidden" />
+            <NavLink to="/" className="flex items-center gap-2">
+              <OkiLogo />
+              <p className="text-foreground text-lg font-bold tracking-tight">{PROJECT.name}</p>
             </NavLink>
+
+            {/* Desktop Apple-style floating nav pills */}
+            <nav className="hidden md:flex items-center gap-1 ml-3 lg:ml-6">
+              {navLinks.map(link => {
+                const isActive =
+                  link.path === '/'
+                    ? location.pathname === '/'
+                    : location.pathname.startsWith(link.path)
+
+                return (
+                  <NavLink
+                    key={link.path}
+                    to={link.path}
+                    className={cn(
+                      'relative px-3.5 py-1.5 text-sm font-medium transition-colors rounded-full',
+                      isActive
+                        ? 'text-foreground font-semibold'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-accent/40',
+                    )}
+                  >
+                    {isActive && (
+                      <motion.span
+                        layoutId="nav-active-pill"
+                        className="absolute inset-0 rounded-full bg-accent/80 border border-border/50 shadow-xs"
+                        transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+                      />
+                    )}
+                    <span className="relative z-10">{link.title}</span>
+                  </NavLink>
+                )
+              })}
+            </nav>
           </NavbarBrand>
 
           <NavbarContent justify="center" className="gap-2">
@@ -102,7 +137,7 @@ export default function Navigation({
 
             <div
               className={cn(
-                'flex flex-1 justify-end gap-2 sm:gap-0',
+                'flex flex-1 justify-end gap-2 sm:gap-1 items-center',
                 enableScrollAnimation
                   ? 'transition-[opacity,transform] duration-220 ease-out'
                   : 'transition-none',
@@ -115,10 +150,10 @@ export default function Navigation({
                 deferred={location.pathname.startsWith('/play/') || showUpdateModal}
               />
               <ThemeToggle>
-                <Button size="icon" variant="ghost" className="size-7">
-                  {mode === 'dark' && <Moon />}
-                  {mode === 'light' && <Sun />}
-                  {mode === 'system' && <Laptop />}
+                <Button size="icon" variant="ghost" className="size-8 rounded-full">
+                  {mode === 'dark' && <Moon className="size-4" />}
+                  {mode === 'light' && <Sun className="size-4" />}
+                  {mode === 'system' && <Laptop className="size-4" />}
                 </Button>
               </ThemeToggle>
               <AccountMenu />
