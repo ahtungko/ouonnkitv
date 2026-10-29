@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
+import { EyeOff } from 'lucide-react'
+import { usePrivateModeStore } from '@/shared/store'
 import { useViewingHistoryStore } from '@/shared/store'
 import { useTmdbEnabled } from '@/shared/hooks/useTmdbMode'
 import type { ViewingHistoryItem } from '@/shared/types'
@@ -13,6 +15,8 @@ import { getHistoryItemKey, groupHistoryBySection } from '../utils/history'
 export default function HistoryView() {
   const { viewingHistory, removeViewingHistoryItem, clearViewingHistory } = useViewingHistoryStore()
   const tmdbEnabled = useTmdbEnabled()
+  const isPrivateMode = usePrivateModeStore(state => state.isPrivateMode)
+  const togglePrivateMode = usePrivateModeStore(state => state.togglePrivateMode)
 
   const [selectionMode, setSelectionMode] = useState(false)
   const [actionDirection, setActionDirection] = useState(1)
@@ -140,6 +144,23 @@ export default function HistoryView() {
         onOpenBatchDelete={() => setBatchDeleteOpen(true)}
         onOpenClearAll={() => setClearAllOpen(true)}
       />
+
+      
+      {isPrivateMode && (
+        <div className="mx-auto mb-4 flex max-w-7xl items-center justify-between rounded-xl border border-purple-500/30 bg-purple-500/10 px-4 py-2.5 text-xs text-purple-200 shadow-xs">
+          <div className="flex items-center gap-2">
+            <EyeOff className="size-4 shrink-0 text-purple-400" />
+            <span>当前处于无痕模式：新的观影记录将不会保存在此处。</span>
+          </div>
+          <button
+            type="button"
+            onClick={togglePrivateMode}
+            className="shrink-0 rounded-full bg-purple-500/20 px-2.5 py-1 text-xs font-medium text-purple-300 hover:bg-purple-500/30 transition-colors"
+          >
+            退出无痕
+          </button>
+        </div>
+      )}
 
       <HistoryTimeline
         hasHistory={hasHistory}

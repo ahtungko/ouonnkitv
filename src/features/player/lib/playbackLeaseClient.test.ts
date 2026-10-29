@@ -16,6 +16,9 @@ vi.mock('@/shared/store/authStore', () => ({
 
 beforeEach(() => {
   mocks.state = { account: { id: 'account-a' }, session: { access_token: 'token-a' } }
+  mocks.rpc.mockReset()
+  mocks.setHeader.mockReset()
+  mocks.abortSignal.mockReset()
   mocks.rpc.mockReturnValue({ setHeader: mocks.setHeader })
   mocks.setHeader.mockReturnValue({ abortSignal: mocks.abortSignal })
   mocks.abortSignal.mockResolvedValue({ data: { status: 'lost' }, error: null })
@@ -59,6 +62,7 @@ describe('playback lease RPC contract', () => {
     await expect(request({ operation: 'renew', position: 1, duration: 120 })).rejects.toThrow()
     expect(mocks.rpc).not.toHaveBeenCalled()
   })
+
   it('reuses the same player across reloads in the same tab', async () => {
     const request1 = playbackLeaseClient('episode-1', 'Example')
     await request1({ operation: 'acquire', position: 0, duration: 120 })
@@ -70,5 +74,57 @@ describe('playback lease RPC contract', () => {
     const player2 = mocks.rpc.mock.calls[1][1].p_player
 
     expect(player1).toBe(player2)
+  })
+})
+
+describe('private playback lease', () => {
+  it('never sends the media identity or progress in private mode (boolean or function)', async () => {
+    const request = playbackLeaseClient('secret-media', 'secret-title', true)
+    for (const operation of ['acquire', 'renew', 'release'] as const) {
+      await request({ operation, position: 123, duration: 456 })
+      const payload = mocks.rpc.mock.lastCall?.[1]
+      expect(payload.p_media_key).toMatch(/^private:/)
+      expect(payload.p_media_key).not.toContain('secret-media')
+      expect(payload.p_title).toBe('无痕播放')
+      expect(payload.p_position).toBe(0)
+      expect(payload.p_duration).toBe(0)
+    }
+
+    // Dynamic getter function test
+    let dynamicPrivate = false
+    const dynamicRequest = playbackLeaseClient('secret-media', 'secret-title', () => dynamicPrivate)
+
+    await dynamicRequest({ operation: 'renew', position: 50, duration: 100 })
+    expect(mocks.rpc.mock.lastCall?.[1].p_media_key).toBe('secret-media')
+    expect(mocks.rpc.mock.lastCall?.[1].p_title).toBe('secret-title')
+    expect(mocks.rpc.mock.lastCall?.[1].p_position).toBe(50)
+
+    dynamicPrivate = true
+    await dynamicRequest({ operation: 'renew', position: 60, duration: 100 })
+    expect(mocks.rpc.mock.lastCall?.[1].p_media_key).toMatch(/^private:/)
+    expect(mocks.rpc.mock.lastCall?.[1].p_title).toBe('无痕播放')
+    expect(mocks.rpc.mock.lastCall?.[1].p_position).toBe(0)
+  })
+})
+
+
+describe('lease identity confirmation', () => {
+  it('waits for the server to confirm each mode transition', async () => {
+    let privateMode = false
+    const request = playbackLeaseClient('episode', 'Title', () => privateMode)
+    mocks.abortSignal.mockResolvedValueOnce({ data: { status: 'held', lease_id: '20000000-0000-4000-8000-000000000001', ttl_ms: 30000, media_key: 'episode' }, error: null })
+    await request({ operation: 'acquire', position: 1, duration: 10 })
+    expect(request.isIdentityConfirmed()).toBe(true)
+    privateMode = true
+    request.invalidateIdentity()
+    expect(request.isIdentityConfirmed()).toBe(false)
+    mocks.abortSignal.mockImplementationOnce(async () => ({ data: { status: 'held', lease_id: '20000000-0000-4000-8000-000000000001', ttl_ms: 30000, media_key: mocks.rpc.mock.lastCall![1].p_media_key }, error: null }))
+    await request({ operation: 'renew', position: 2, duration: 10 })
+    expect(request.isIdentityConfirmed()).toBe(true)
+    privateMode = false
+    request.invalidateIdentity()
+    mocks.abortSignal.mockResolvedValueOnce({ data: { status: 'held', lease_id: '20000000-0000-4000-8000-000000000001', ttl_ms: 30000 }, error: null })
+    await request({ operation: 'renew', position: 3, duration: 10 })
+    expect(request.isIdentityConfirmed()).toBe(false)
   })
 })

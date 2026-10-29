@@ -12,6 +12,7 @@ An administrator creates usernames and passwords. Users sign in once and their f
    - [Admin dashboard](../supabase/migrations/202610020001_admin_dashboard.sql)
    - [NSFW source access](../supabase/migrations/202610020002_nsfw_access.sql)
    - [Single active player](../supabase/migrations/202610030001_playback_lease.sql)
+   - [Private playback lease transitions](../supabase/migrations/202610290002_private_playback_lease.sql)
    - [Cross-device series reminders](../supabase/migrations/202610190001_series_notifications.sql)
    - [Site announcement](../supabase/migrations/202610200001_site_announcement.sql)
    - [Announcement types](../supabase/migrations/202610200002_announcement_types.sql)
@@ -78,6 +79,8 @@ There is no automatic import of old device data when signing in. If desired, the
 ## Sync behavior and limits
 
 If the playback migration previously failed at `position double precision default null`, run the entire corrected `supabase/migrations/202610030001_playback_lease.sql` again in the Supabase SQL Editor. It preserves existing table data and can be rerun after a partial attempt. Then redeploy the frontend and refresh open tabs: the corrected RPC uses `p_` parameter names, which must match the frontend.
+
+- Apply `202610290002_private_playback_lease.sql` before deploying private mode so live mode changes update the server lease.
 
 - Multiple devices stay signed in, but one player per account holds a server-issued playback lease. Starting playback on another device displays the current device and video and asks for confirmation. Cancelling leaves the existing player alone. Confirmation transfers ownership; the previous player pauses on its next heartbeat (normally within 5 seconds).
 - For the same episode, takeover resumes at the last position reported by the previous player (normally within 5 seconds of its current position). Different videos/episodes keep their own history. Separate browser tabs also count as separate players.

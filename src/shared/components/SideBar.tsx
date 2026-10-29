@@ -14,9 +14,10 @@ import {
 } from '@/shared/components/ui/sidebar'
 import { NavLink } from 'react-router'
 import { motion } from 'framer-motion'
-import { Home, Search, Star, History, Settings, UserRound, Users } from 'lucide-react'
+import { Home, Search, Star, History, Settings, UserRound, Users, EyeOff } from 'lucide-react'
+import { toast } from 'sonner'
 import { OkiLogo } from '@/shared/components/icons'
-import { useVersionStore } from '../store'
+import { useVersionStore, usePrivateModeStore } from '../store'
 import { useAuthStore } from '@/shared/store/authStore'
 import { cn } from '@/shared/lib'
 import { PROJECT } from '@/shared/config/project'
@@ -37,6 +38,8 @@ export default function SideBar({
   const location = useLocation()
   const { isMobile, setOpenMobile } = useSidebar()
   const isAdmin = useAuthStore(state => state.account?.role === 'admin')
+  const isPrivateMode = usePrivateModeStore(state => state.isPrivateMode)
+  const togglePrivateMode = usePrivateModeStore(state => state.togglePrivateMode)
 
   const handleNavLinkClick = () => {
     if (isMobile) {
@@ -88,34 +91,32 @@ export default function SideBar({
           ? '[&_[data-slot=sidebar-gap]]:transition-[width] [&_[data-slot=sidebar-gap]]:duration-220 [&_[data-slot=sidebar-gap]]:ease-out'
           : '[&_[data-slot=sidebar-gap]]:transition-none',
         '[&_[data-slot=sidebar-container]]:translate-x-0 [&_[data-slot=sidebar-container]]:transform-gpu [&_[data-slot=sidebar-container]]:opacity-100 [&_[data-slot=sidebar-container]]:will-change-[transform,opacity,top]',
-        enableScrollAnimation
-          ? '[&_[data-slot=sidebar-container]]:transition-[transform,opacity,top] [&_[data-slot=sidebar-container]]:duration-220 [&_[data-slot=sidebar-container]]:ease-out'
-          : '[&_[data-slot=sidebar-container]]:transition-none',
-        enableScrollAnimation
-          ? '[&_[data-slot=sidebar-inner]]:transition-opacity [&_[data-slot=sidebar-inner]]:duration-200'
-          : '[&_[data-slot=sidebar-inner]]:transition-none',
-        hidden &&
-          '[&_[data-slot=sidebar-container]]:pointer-events-none [&_[data-slot=sidebar-container]]:-translate-x-full [&_[data-slot=sidebar-container]]:opacity-0 [&_[data-slot=sidebar-gap]]:w-0 [&_[data-slot=sidebar-inner]]:opacity-0',
+        hidden && 'pointer-events-none [&_[data-slot=sidebar-container]]:-translate-x-full [&_[data-slot=sidebar-container]]:opacity-0 [&_[data-slot=sidebar-gap]]:w-0 [&_[data-slot=sidebar-inner]]:opacity-0',
         className,
       )}
-      variant="floating"
+      inert={hidden ? true : undefined}
       collapsible={collapsibleMode}
     >
-      <SidebarHeader className="sm:hidden">
-        <NavLink to="/" className="flex items-center" onClick={handleNavLinkClick}>
-          <div className="flex items-end">
-            <div>
-              <OkiLogo />
-            </div>
-            <p className="text-accent-foreground text-lg font-bold">{PROJECT.name}</p>
-          </div>
-        </NavLink>
+      <SidebarHeader>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton size="lg" asChild>
+              <NavLink to="/" onClick={handleNavLinkClick}>
+                <OkiLogo />
+                <div className="flex flex-col gap-0.5 leading-none">
+                  <span className="font-semibold">{PROJECT.name}</span>
+                  <span className="text-muted-foreground text-xs">v{currentVersion}</span>
+                </div>
+              </NavLink>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>主菜单</SidebarGroupLabel>
+          <SidebarGroupLabel>导航</SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu className="gap-2">
+            <SidebarMenu>
               {items.content.map(item => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
@@ -174,6 +175,35 @@ export default function SideBar({
               </SidebarMenuButton>
             </SidebarMenuItem>
           )}
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              onClick={() => {
+                const next = togglePrivateMode()
+                if (next) {
+                  toast.info('已开启无痕模式：不保存站内记录；浏览器和视频源仍可能记录访问')
+                } else {
+                  toast.info('已退出无痕模式，恢复正常记录')
+                }
+              }}
+              tooltip={isPrivateMode ? '退出无痕模式' : '开启无痕模式'}
+              className={cn(
+                isPrivateMode && 'text-purple-400 font-medium hover:text-purple-300',
+              )}
+            >
+              <EyeOff className={cn(isPrivateMode && 'text-purple-400')} />
+              <span className="flex w-full items-center justify-between">
+                <span>无痕模式</span>
+                <span
+                  className={cn(
+                    'text-xs',
+                    isPrivateMode ? 'text-purple-400 font-semibold' : 'text-muted-foreground',
+                  )}
+                >
+                  {isPrivateMode ? '已开启' : '已关闭'}
+                </span>
+              </span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
           {items.footer.map(item => (
             <SidebarMenuItem key={item.title}>
               <SidebarMenuButton asChild>

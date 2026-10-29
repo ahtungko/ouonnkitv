@@ -5,6 +5,7 @@ import { X } from 'lucide-react'
 import { useDocumentTitle, useSearchHistory } from '@/shared/hooks'
 import { useTmdbEnabled } from '@/shared/hooks/useTmdbMode'
 import { useTmdbTrending } from '@/shared/hooks/useTmdb'
+import { usePrivateModeStore } from '@/shared/store/privateModeStore'
 import { useSearchStore } from '@/shared/store/searchStore'
 import { OkiLogo } from '@/shared/components/icons'
 import { normalizeSearchMode } from '../lib/searchMode'
@@ -24,7 +25,27 @@ import {
  */
 export default function SearchHubView() {
   const [searchParams, setSearchParams] = useSearchParams()
-  const query = searchParams.get('q') || ''
+  const isPrivateMode = usePrivateModeStore(state => state.isPrivateMode)
+  const privateQuery = usePrivateModeStore(state => state.privateQuery)
+  const setPrivateQuery = usePrivateModeStore(state => state.setPrivateQuery)
+  const query = isPrivateMode ? privateQuery : searchParams.get('q') || ''
+
+  useEffect(() => {
+    if (isPrivateMode && searchParams.has('q')) {
+      const q = searchParams.get('q')
+      if (q && !privateQuery) {
+        setPrivateQuery(q)
+      }
+      setSearchParams(
+        prev => {
+          const params = new URLSearchParams(prev)
+          params.delete('q')
+          return params
+        },
+        { replace: true },
+      )
+    }
+  }, [isPrivateMode, privateQuery, searchParams, setPrivateQuery, setSearchParams])
   const modeParam = searchParams.get('mode')
   const tmdbEnabled = useTmdbEnabled()
 
@@ -86,6 +107,11 @@ export default function SearchHubView() {
 
       addSearchHistoryItem(normalizedQuery)
 
+      if (isPrivateMode) {
+        setPrivateQuery(normalizedQuery)
+        return
+      }
+
       // 更新 URL
       setSearchParams(prev => {
         const params = new URLSearchParams(prev)
@@ -94,17 +120,21 @@ export default function SearchHubView() {
         return params
       })
     },
-    [addSearchHistoryItem, mode, setSearchParams],
+    [addSearchHistoryItem, isPrivateMode, mode, setPrivateQuery, setSearchParams],
   )
 
   // 处理清除搜索
   const handleClear = useCallback(() => {
+    if (isPrivateMode) {
+      setPrivateQuery('')
+      return
+    }
     setSearchParams(prev => {
       const params = new URLSearchParams(prev)
       params.delete('q')
       return params
     })
-  }, [setSearchParams])
+  }, [isPrivateMode, setPrivateQuery, setSearchParams])
 
   return (
     <div

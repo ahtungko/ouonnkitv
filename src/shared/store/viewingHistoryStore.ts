@@ -4,6 +4,7 @@ import { immer } from 'zustand/middleware/immer'
 import { getHistoryItemKey, getHistorySeriesKey } from '@/shared/lib/viewingHistory'
 import type { ViewingHistoryItem } from '@/shared/types'
 import { useSettingStore } from './settingStore'
+import { usePrivateModeStore } from './privateModeStore'
 
 interface ViewingHistoryState {
   // 观看历史列表
@@ -32,6 +33,7 @@ export const useViewingHistoryStore = create<ViewingHistoryStore>()(
 
         // Actions
         addViewingHistory: (item: ViewingHistoryItem) => {
+          if (usePrivateModeStore.getState().isPrivateMode) return
           // 检查是否开启了观看历史记录
           if (!useSettingStore.getState().playback.isViewingHistoryEnabled) {
             return

@@ -69,6 +69,7 @@ beforeAll(async () => {
   await db.exec(maintenanceMigration)
   await db.exec(optionalContentMigration)
   await db.exec(publicStatusMigration)
+  await db.exec(migration('202610290002_private_playback_lease'))
 }, 45000)
 beforeEach(async () => {
   await db.exec(`reset role;
@@ -85,6 +86,26 @@ afterAll(async () => {
 })
 
 describe('定时维护的真实数据库权限', () => {
+  it('updates a live lease when private playback is enabled and disabled', async () => {
+    const player = '20000000-0000-4000-8000-000000000001'
+    const acquire = await db.query<{ value: { lease_id: string } }>(
+      "select public.playback_lease('acquire', $1::uuid, p_media_key => 'episode', p_title => 'Title', p_position => 12) as value",
+      [player],
+    )
+    const lease = acquire.rows[0].value.lease_id
+    const renew = async (key: string, title: string, position: number) => db.query<{ value: { media_key: string } }>(
+      "select public.playback_lease('renew', $1::uuid, p_lease => $2::uuid, p_media_key => $3, p_title => $4, p_position => $5) as value",
+      [player, lease, key, title, position],
+    )
+    expect((await renew('private:random', '无痕播放', 0)).rows[0].value.media_key).toBe('private:random')
+    await db.exec('reset role')
+    expect((await db.query('select media_key, title, position from public.account_playback')).rows[0]).toMatchObject({ media_key: 'private:random', title: '无痕播放', position: 0 })
+    await asUser(user)
+    expect((await renew('episode', 'Title', 50)).rows[0].value.media_key).toBe('episode')
+    const changes = [{ kind: 'history', item_key: 'episode', value: { playbackLeaseId: lease }, modified_at: 100, mutation_id: 'private-transition', deleted: false }]
+    await expect(db.query('select public.sync_user_records($1::jsonb)', [JSON.stringify(changes)])).resolves.toBeDefined()
+  })
+
   it('匿名访客只能获取公开维护投影，不能读取账号、公告表或已登录接口', async () => {
     await window()
     await db.exec('reset role; set role anon')
@@ -138,6 +159,7 @@ describe('定时维护的真实数据库权限', () => {
     await window("now() + interval '1 hour'", "now() + interval '2 hours'")
     await db.exec('reset role')
     await db.exec(publicStatusMigration)
+  await db.exec(migration('202610290002_private_playback_lease'))
     await db.exec('set role anon')
     const result = (
       await db.query<{ value: { server_time: string; maintenance: { starts_at: string } } }>(

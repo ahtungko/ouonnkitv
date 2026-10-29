@@ -5,7 +5,7 @@ import Artplayer from 'artplayer'
 
 import type Hls from 'hls.js'
 import type { HlsConfig } from 'hls.js'
-import { Check, ChevronDown, Clipboard, Users, X } from 'lucide-react'
+import { Check, ChevronDown, Clipboard, EyeOff, Users, X } from 'lucide-react'
 import { type DetailResult } from '@ouonnki/cms-core'
 import { createM3u8Processor, createHlsLoaderClass } from '@ouonnki/cms-core/m3u8'
 import { Button } from '@/shared/components/ui/button'
@@ -29,6 +29,7 @@ import { useApiStore } from '@/shared/store/apiStore'
 import { useViewingHistoryStore } from '@/shared/store/viewingHistoryStore'
 import { useSettingStore } from '@/shared/store/settingStore'
 import { useAuthStore } from '@/shared/store/authStore'
+import { usePrivateModeStore } from '@/shared/store'
 import { useDocumentTitle, useCmsClient } from '@/shared/hooks'
 import { useTmdbEnabled } from '@/shared/hooks/useTmdbMode'
 import { cn } from '@/shared/lib/utils'
@@ -217,6 +218,7 @@ export default function UnifiedPlayer() {
   const { addViewingHistory, viewingHistory } = useViewingHistoryStore()
   const { playback } = useSettingStore()
   const isAdmin = useAuthStore(state => state.account?.role === 'admin')
+  const isPrivateMode = usePrivateModeStore(state => state.isPrivateMode)
 
   const viewingHistoryRef = useRef(viewingHistory)
   const playbackRef = useRef(playback)
@@ -1059,6 +1061,8 @@ export default function UnifiedPlayer() {
       } else if (existingHistory && existingHistory.playbackPosition > 0) {
         art.seek = existingHistory.playbackPosition
         showPlayerNotice('已自动跳转到上次观看位置')
+      } else if (usePrivateModeStore.getState().isPrivateMode) {
+        showPlayerNotice('🕶️ 当前处于无痕模式：观影不记录历史与进度')
       }
     })
 
@@ -1081,11 +1085,13 @@ export default function UnifiedPlayer() {
     setPlaybackNotice('')
     setPlaybackDisplaced(false)
     setTakeoverPrompt(null)
+    const leaseRequest = playbackLeaseClient(
+      getHistoryItemKey(historyIdentity),
+      `${historyIdentity.title} · ${episodes[selectedEpisode] || ''}`,
+      () => usePrivateModeStore.getState().isPrivateMode,
+    )
     const leaseController = createPlaybackLease({
-      request: playbackLeaseClient(
-        getHistoryItemKey(historyIdentity),
-        `${historyIdentity.title} · ${episodes[selectedEpisode] || ''}`,
-      ),
+      request: leaseRequest,
       progress: () => ({
         position: Number.isFinite(art.currentTime) ? Math.max(0, art.currentTime) : 0,
         duration: Number.isFinite(art.duration) ? Math.max(0, art.duration) : 0,
@@ -1133,7 +1139,16 @@ export default function UnifiedPlayer() {
     }
     art.video.addEventListener('play', authorizePlay, true)
     art.video.addEventListener('timeupdate', checkOwnership, true)
-    const leaseHeartbeat = window.setInterval(() => void leaseController.renew(), 5000)
+    const leaseHeartbeat = window.setInterval(
+      () => void leaseController.renew(!leaseRequest.isIdentityConfirmed()),
+      5000,
+    )
+    const unsubscribePrivateLease = usePrivateModeStore.subscribe((state, previous) => {
+      if (state.isPrivateMode !== previous.isPrivateMode) {
+        leaseRequest.invalidateIdentity()
+        void leaseController.renew(true)
+      }
+    })
     const refreshLease = () => {
       checkOwnership()
       void leaseController.renew()
@@ -1143,6 +1158,7 @@ export default function UnifiedPlayer() {
     document.addEventListener('visibilitychange', refreshLease)
 
     const addHistorySnapshot = () => {
+      if (usePrivateModeStore.getState().isPrivateMode || !leaseRequest.isIdentityConfirmed()) return
       const playbackLeaseId = leaseController.currentLease()
       if (!playbackLeaseId) return
       if (!resolvedSourceCode || !resolvedVodId || !detail.videoInfo) return
@@ -1188,6 +1204,7 @@ export default function UnifiedPlayer() {
     const TIME_UPDATE_INTERVAL = 3000
 
     const timeUpdateHandler = () => {
+      if (usePrivateModeStore.getState().isPrivateMode || !leaseRequest.isIdentityConfirmed()) return
       const playbackLeaseId = leaseController.currentLease()
       if (!playbackLeaseId) return
       if (!resolvedSourceCode || !resolvedVodId || !detail.videoInfo) return
@@ -1310,6 +1327,7 @@ export default function UnifiedPlayer() {
     }
 
     return () => {
+      unsubscribePrivateLease()
       window.clearInterval(leaseHeartbeat)
       window.removeEventListener('focus', refreshLease)
       window.removeEventListener('online', refreshLease)
@@ -1348,6 +1366,19 @@ export default function UnifiedPlayer() {
     tmdbMediaType,
     tmdbSeasonNumberForHistory,
   ])
+
+
+  useEffect(() => {
+    return usePrivateModeStore.subscribe(state => {
+      if (activeArt) {
+        if (state.isPrivateMode) {
+          showPlayerNotice('🕶️ 已切换至无痕模式：不再记录观影历史与进度')
+        } else {
+          showPlayerNotice('已退出无痕模式，恢复正常记录')
+        }
+      }
+    })
+  }, [activeArt, showPlayerNotice])
 
   const handleEpisodeChange = (displayIndex: number) => {
     pendingSeekRef.current = null
@@ -1924,6 +1955,12 @@ export default function UnifiedPlayer() {
                 <p className="text-muted-foreground truncate text-xs">{sourceName}</p>
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
+                {isPrivateMode && (
+                  <span className="flex items-center gap-1 rounded-full border border-purple-500/40 bg-purple-500/15 px-2.5 py-1 text-xs font-medium text-purple-300 shadow-xs">
+                    <EyeOff className="size-3 text-purple-400" />
+                    <span className="hidden sm:inline">无痕播放</span>
+                  </span>
+                )}
                 <Button
                   type="button"
                   size="sm"

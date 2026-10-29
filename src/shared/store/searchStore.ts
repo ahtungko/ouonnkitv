@@ -6,6 +6,7 @@ import type { SearchHistory, SearchHistoryItem } from '@/shared/types'
 import { v4 as uuidv4 } from 'uuid'
 
 import { useSettingStore } from './settingStore'
+import { usePrivateModeStore } from './privateModeStore'
 
 const normalizeSearchContent = (content: string) => content.trim().replace(/\s+/g, ' ')
 
@@ -53,6 +54,11 @@ export const useSearchStore = create<SearchStore>()(
         },
 
         addSearchHistoryItem: (content: string) => {
+          // 检查是否开启了无痕模式
+          if (usePrivateModeStore.getState().isPrivateMode) {
+            return
+          }
+
           const normalizedContent = normalizeSearchContent(content)
           if (!normalizedContent) return
 

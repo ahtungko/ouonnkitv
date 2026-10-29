@@ -7,6 +7,7 @@ import { Button } from '@/shared/components/ui/button'
 import { Popover, PopoverContent, PopoverAnchor } from '@/shared/components/ui/popover'
 import { useSearch, useSearchHistory, useSearchSuggestions } from '@/shared/hooks'
 import { ScrollArea } from '@/shared/components/ui/scroll-area'
+import { usePrivateModeStore } from '@/shared/store'
 
 // 创建支持 motion 的 Button 组件
 const MotionButton = motion.create(Button)
@@ -20,6 +21,7 @@ export default function SearchBox({ onMobileSearchChange }: SearchBoxProps) {
   const { search: searchQuery, searchMovie } = useSearch()
   const { searchHistory, removeSearchHistoryItem } = useSearchHistory()
   const { suggestions, isLoading, fetchSuggestions, clearSuggestions } = useSearchSuggestions()
+  const isPrivateMode = usePrivateModeStore(state => state.isPrivateMode)
 
   const [inputContent, setInputContent] = useState('')
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false)
@@ -227,7 +229,7 @@ export default function SearchBox({ onMobileSearchChange }: SearchBoxProps) {
               />
               <Input
                 ref={desktopInputRef}
-                placeholder="搜索"
+                placeholder={isPrivateMode ? "搜索 (无痕模式)" : "搜索"}
                 className="h-9 rounded-full rounded-r-none pr-8 pl-10 overflow-ellipsis focus-visible:ring-1"
                 value={inputContent}
                 onChange={e => handleInputChange(e.target.value)}
@@ -283,7 +285,7 @@ export default function SearchBox({ onMobileSearchChange }: SearchBoxProps) {
                 />
                 <Input
                   ref={mobileInputRef}
-                  placeholder="搜索"
+                  placeholder={isPrivateMode ? "搜索 (无痕模式)" : "搜索"}
                   className="h-9 rounded-full rounded-r-none pr-8 pl-10 overflow-ellipsis focus-visible:ring-1"
                   value={inputContent}
                   onChange={e => handleInputChange(e.target.value)}

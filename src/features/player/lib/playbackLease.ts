@@ -5,6 +5,7 @@ export const playbackReplySchema = z.discriminatedUnion('status', [
     status: z.literal('held'),
     lease_id: z.string().uuid(),
     ttl_ms: z.number().positive(),
+    media_key: z.string().optional(),
     resume_position: z.number().nonnegative().nullable().optional(),
   }),
   z.object({

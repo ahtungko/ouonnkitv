@@ -3,6 +3,7 @@ import { Search, X, History, Trash2, ArrowRight } from 'lucide-react'
 import { Popover, PopoverContent, PopoverAnchor } from '@/shared/components/ui/popover'
 import { ScrollArea } from '@/shared/components/ui/scroll-area'
 import { useSearchHistory, useSearchSuggestions } from '@/shared/hooks'
+import { usePrivateModeStore } from '@/shared/store'
 
 interface SearchHubInputProps {
   /** Initial query from URL */
@@ -24,6 +25,7 @@ export function SearchHubInput({
   className = '',
 }: SearchHubInputProps) {
   const [inputValue, setInputValue] = useState(initialQuery)
+  const isPrivateMode = usePrivateModeStore(state => state.isPrivateMode)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
 
   const inputRef = useRef<HTMLInputElement>(null)
@@ -132,7 +134,7 @@ export function SearchHubInput({
             <input
               ref={inputRef}
               type="text"
-              placeholder="搜索电影、剧集、演员..."
+              placeholder={isPrivateMode ? "搜索电影、剧集、演员... (无痕模式)" : "搜索电影、剧集、演员..."}
               className="h-full flex-1 bg-transparent border-0 px-3 text-sm md:text-base text-foreground placeholder:text-muted-foreground/60 focus:outline-none"
               value={inputValue}
               onChange={e => handleInputChange(e.target.value)}

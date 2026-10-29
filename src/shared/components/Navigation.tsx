@@ -11,6 +11,7 @@ import { Button } from '@/shared/components/ui/button'
 import { ThemeToggle, useThemeState } from './theme'
 import SearchBox from './SearchBox'
 import AccountMenu from './AccountMenu'
+import { PrivateModeToggle } from './PrivateModeToggle'
 import { cn } from '@/shared/lib'
 import { AnnouncementCenter } from '@/features/announcements/AnnouncementCenter'
 import { useVersionStore } from '@/shared/store/versionStore'
@@ -137,7 +138,7 @@ export default function Navigation({
 
             <div
               className={cn(
-                'flex flex-1 justify-end gap-2 sm:gap-1 items-center',
+                'flex flex-1 justify-end gap-2 sm:gap-1.5 items-center',
                 enableScrollAnimation
                   ? 'transition-[opacity,transform] duration-220 ease-out'
                   : 'transition-none',
@@ -149,6 +150,7 @@ export default function Navigation({
               <AnnouncementCenter
                 deferred={location.pathname.startsWith('/play/') || showUpdateModal}
               />
+              <PrivateModeToggle />
               <ThemeToggle>
                 <Button size="icon" variant="ghost" className="size-8 rounded-full">
                   {mode === 'dark' && <Moon className="size-4" />}
