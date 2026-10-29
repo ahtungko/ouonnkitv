@@ -10,6 +10,7 @@ import type { TmdbMediaType } from '@/shared/types/tmdb'
 import { useCmsClient } from '@/shared/hooks'
 import { useApiStore } from '@/shared/store/apiStore'
 import { useSettingStore } from '@/shared/store/settingStore'
+import { usePrivateModeStore } from '@/shared/store/privateModeStore'
 import { useTmdbMatchCacheStore } from '@/shared/store/tmdbMatchCacheStore'
 import {
   buildPlaylistMatches,
@@ -188,6 +189,7 @@ export function usePlaylistMatches({
 
   const runSearch = useCallback(
     async (force = false) => {
+      const startedPrivate = usePrivateModeStore.getState().isPrivateMode
       const keyword = title.trim()
       const releaseYear = releaseDate ? releaseDate.slice(0, 4) : undefined
       const normalizedKeyword = normalizeCacheText(keyword)
@@ -448,7 +450,7 @@ export function usePlaylistMatches({
           seasonSourceMatches,
         }))
 
-        setTmdbMatchCacheEntry(currentKey, {
+        if (!startedPrivate && !usePrivateModeStore.getState().isPrivateMode) setTmdbMatchCacheEntry(currentKey, {
           searchedKeyword: keyword,
           candidates,
           movieSourceMatches,

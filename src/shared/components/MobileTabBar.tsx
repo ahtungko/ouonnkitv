@@ -2,6 +2,7 @@ import { NavLink, useLocation } from 'react-router'
 import { Home, Compass, Bookmark, History } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { cn } from '@/shared/lib'
+import { usePrivateModeStore } from '@/shared/store'
 
 const tabs = [
   { title: '首页', path: '/', icon: Home },
@@ -12,16 +13,19 @@ const tabs = [
 
 export default function MobileTabBar() {
   const location = useLocation()
+  const isPrivateMode = usePrivateModeStore(state => state.isPrivateMode)
 
   // Hide mobile tab bar on player page to maximize screen space
   if (location.pathname.startsWith('/play/')) {
     return null
   }
 
+  const visibleTabs = isPrivateMode ? tabs.filter(tab => tab.path !== '/history' && tab.path !== '/favorites') : tabs
+
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 h-16 border-t border-border/40 bg-background/85 backdrop-blur-2xl md:hidden">
-      <div className="grid h-full grid-cols-4 items-center">
-        {tabs.map(tab => {
+      <div className={cn("grid h-full items-center", visibleTabs.length === 2 ? "grid-cols-2" : "grid-cols-4")}>
+        {visibleTabs.map(tab => {
           const isActive =
             tab.path === '/'
               ? location.pathname === '/'

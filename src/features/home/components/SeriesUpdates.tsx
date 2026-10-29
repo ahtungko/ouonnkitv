@@ -23,6 +23,7 @@ import { TrackingProgressControl } from '@/features/favorites/components/Trackin
 import { TrackingSourceControl } from '@/features/favorites/components/TrackingSourceControl'
 import { TrackingRefreshControl } from '@/features/favorites/components/TrackingRefreshControl'
 import { NextTrackingSeason } from '@/features/favorites/components/NextTrackingSeason'
+import { usePrivateModeStore } from '@/shared/store'
 
 const FILTERS = [
   { value: 'all', label: '全部', empty: '暂无追更剧集。' },
@@ -42,6 +43,11 @@ const formatCheckedAt = (time: number) =>
   })
 
 export function SeriesUpdates() {
+  const isPrivateMode = usePrivateModeStore(state => state.isPrivateMode)
+  return isPrivateMode ? null : <SeriesUpdatesContent />
+}
+
+function SeriesUpdatesContent() {
   const favorites = useFavoritesStore(state => state.favorites)
   const history = useViewingHistoryStore(state => state.viewingHistory)
   const ownerId = useAuthStore(state => state.account?.id)

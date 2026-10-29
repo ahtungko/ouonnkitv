@@ -100,6 +100,7 @@ export const useSearchStore = create<SearchStore>()(
         },
 
         removeSearchHistoryItem: (id: string) => {
+          if (usePrivateModeStore.getState().isPrivateMode) return
           set(state => {
             state.searchHistory = state.searchHistory.filter(
               (item: SearchHistoryItem) => item.id !== id,
@@ -108,6 +109,7 @@ export const useSearchStore = create<SearchStore>()(
         },
 
         clearSearchHistory: () => {
+          if (usePrivateModeStore.getState().isPrivateMode) return
           set(state => {
             state.searchHistory = []
           })

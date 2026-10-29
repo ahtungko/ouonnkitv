@@ -201,6 +201,8 @@ const matchesTmdbHistory = (
   return true
 }
 
+const emptyPrivateHistory: ViewingHistoryItem[] = []
+
 export default function UnifiedPlayer() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -215,10 +217,11 @@ export default function UnifiedPlayer() {
   const cmsClient = useCmsClient()
   const tmdbEnabled = useTmdbEnabled()
   const { videoAPIs, adFilteringEnabled } = useApiStore()
-  const { addViewingHistory, viewingHistory } = useViewingHistoryStore()
+  const isPrivateMode = usePrivateModeStore(state => state.isPrivateMode)
+  const addViewingHistory = useViewingHistoryStore(state => state.addViewingHistory)
+  const viewingHistory = useViewingHistoryStore(state => isPrivateMode ? emptyPrivateHistory : state.viewingHistory)
   const { playback } = useSettingStore()
   const isAdmin = useAuthStore(state => state.account?.role === 'admin')
-  const isPrivateMode = usePrivateModeStore(state => state.isPrivateMode)
 
   const viewingHistoryRef = useRef(viewingHistory)
   const playbackRef = useRef(playback)
@@ -406,12 +409,12 @@ export default function UnifiedPlayer() {
   const tmdbSeasonNumberForHistory =
     tmdbMediaType === 'tv' ? (tmdbPlayback.selectedSeasonNumber ?? querySeasonNumber ?? null) : null
   const cmsFavoriteActive = useFavoritesStore(state =>
-    isCmsRoute && resolvedVodId && resolvedSourceCode
+    !isPrivateMode && isCmsRoute && resolvedVodId && resolvedSourceCode
       ? state.isCmsFavorited(resolvedVodId, resolvedSourceCode)
       : false,
   )
   const tmdbFavoriteActive = useFavoritesStore(state =>
-    isTmdbRoute && tmdbMediaType && parsedTmdbId > 0
+    !isPrivateMode && isTmdbRoute && tmdbMediaType && parsedTmdbId > 0
       ? state.isTmdbFavorited(parsedTmdbId, tmdbMediaType)
       : false,
   )
@@ -763,7 +766,7 @@ export default function UnifiedPlayer() {
       const tmdbMap = new Map<number, { progress: number; timestamp: number }>()
       const cmsFallbackMap = new Map<number, { progress: number; timestamp: number }>()
 
-      for (const item of viewingHistory) {
+      for (const item of isPrivateMode ? [] : viewingHistory) {
         if (matchesTmdbHistory(item, tmdbMediaType, parsedTmdbId, tmdbSeasonNumberForHistory)) {
           appendProgress(tmdbMap, item)
           continue
@@ -792,7 +795,7 @@ export default function UnifiedPlayer() {
     }
 
     const map = new Map<number, { progress: number; timestamp: number }>()
-    for (const item of viewingHistory) {
+    for (const item of isPrivateMode ? [] : viewingHistory) {
       if (item.sourceCode === resolvedSourceCode && item.vodId === resolvedVodId) {
         appendProgress(map, item)
       }
@@ -812,6 +815,7 @@ export default function UnifiedPlayer() {
     tmdbMediaType,
     tmdbSeasonNumberForHistory,
     viewingHistory,
+    isPrivateMode,
   ])
 
   const playerRef = useRef<Artplayer | null>(null)
@@ -1029,7 +1033,7 @@ export default function UnifiedPlayer() {
 
       let existingHistory: ViewingHistoryItem | undefined
 
-      if (canUseTmdbHistory && tmdbMediaType) {
+      if (!usePrivateModeStore.getState().isPrivateMode && canUseTmdbHistory && tmdbMediaType) {
         existingHistory = viewingHistoryRef.current.find(
           item =>
             item.episodeIndex === selectedEpisode &&
@@ -1045,7 +1049,7 @@ export default function UnifiedPlayer() {
               item.episodeIndex === selectedEpisode,
           )
         }
-      } else {
+      } else if (!usePrivateModeStore.getState().isPrivateMode) {
         existingHistory = viewingHistoryRef.current.find(
           item =>
             item.sourceCode === resolvedSourceCode &&
@@ -1054,15 +1058,16 @@ export default function UnifiedPlayer() {
         )
       }
 
-      if (pendingSeekRef.current && pendingSeekRef.current > 0) {
+      if (usePrivateModeStore.getState().isPrivateMode) {
+        pendingSeekRef.current = null
+        showPlayerNotice('🕶️ 当前处于无痕模式：观影不记录历史与进度')
+      } else if (pendingSeekRef.current && pendingSeekRef.current > 0) {
         art.seek = pendingSeekRef.current
         pendingSeekRef.current = null
         showPlayerNotice('已继承上一个源的播放进度')
       } else if (existingHistory && existingHistory.playbackPosition > 0) {
         art.seek = existingHistory.playbackPosition
         showPlayerNotice('已自动跳转到上次观看位置')
-      } else if (usePrivateModeStore.getState().isPrivateMode) {
-        showPlayerNotice('🕶️ 当前处于无痕模式：观影不记录历史与进度')
       }
     })
 
@@ -1146,6 +1151,12 @@ export default function UnifiedPlayer() {
     const unsubscribePrivateLease = usePrivateModeStore.subscribe((state, previous) => {
       if (state.isPrivateMode !== previous.isPrivateMode) {
         leaseRequest.invalidateIdentity()
+        if (previous.isPrivateMode && !state.isPrivateMode) {
+          pendingSeekRef.current = null
+          art.seek = 0
+          art.video.pause()
+          showPlayerNotice('已退出无痕模式，请重新开始播放')
+        }
         void leaseController.renew(true)
       }
     })
@@ -2343,7 +2354,7 @@ export default function UnifiedPlayer() {
         detailLink={detailLink}
         showRecommendations={isTmdbRoute}
         favoriteAction={
-          isCmsRoute
+          isPrivateMode ? undefined : isCmsRoute
             ? {
                 active: cmsFavoriteActive,
                 onToggle: handleToggleCmsFavorite,

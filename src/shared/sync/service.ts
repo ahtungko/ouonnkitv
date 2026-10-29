@@ -4,6 +4,7 @@ import { useFavoritesStore } from '@/features/favorites/store/favoritesStore'
 import { useViewingHistoryStore } from '@/shared/store/viewingHistoryStore'
 import { useSettingStore } from '@/shared/store/settingStore'
 import { useAuthStore } from '@/shared/store/authStore'
+import { usePrivateModeStore } from '@/shared/store/privateModeStore'
 import { syncClient } from './client'
 import {
   applyJournal,
@@ -99,7 +100,7 @@ function apply() {
 }
 
 function capture(kind: 'favorite' | 'history' | 'preference') {
-  if (!owner || applying) return
+  if (!owner || applying || (kind !== 'preference' && usePrivateModeStore.getState().isPrivateMode)) return
   try {
     const next = snapshot(kind)
     const previousKind = Object.fromEntries(Object.entries(previous).filter(([, row]) => row.kind === kind))
@@ -150,7 +151,7 @@ export async function syncNow(options?: SyncOptions): Promise<void> {
     options?.mode ??
     (options?.uploadOnly && !options?.forcePull ? 'upload' : 'full')
   const client = syncClient
-  if (!client || !owner || !accessToken) return
+  if (!client || !owner || !accessToken || usePrivateModeStore.getState().isPrivateMode) return
   if (!navigator.onLine) {
     useSyncStatus.setState({ status: '离线 · 更改已保存在本机' })
     return
@@ -210,8 +211,10 @@ export async function syncNow(options?: SyncOptions): Promise<void> {
         save()
         if (rows.length < 500) break
       }
-      apply()
-      lastFullSyncAt = Date.now()
+      if (!usePrivateModeStore.getState().isPrivateMode) {
+        apply()
+        lastFullSyncAt = Date.now()
+      }
     }
     const hasPending = Object.values(journal).some(row => row.pending)
     useSyncStatus.setState({
@@ -328,6 +331,9 @@ export function startSync(): () => void {
     useViewingHistoryStore.subscribe(() => capture('history')),
     useSettingStore.subscribe(() => capture('preference')),
   ]
+  const unsubscribePrivateMode = usePrivateModeStore.subscribe((state, previous) => {
+    if (previous.isPrivateMode && !state.isPrivateMode) void syncNow({ mode: 'full' })
+  })
   const flush = () => {
     void syncNow()
   }
@@ -393,6 +399,7 @@ export function startSync(): () => void {
     queuedRejecters = []
     resolvers.forEach(resolve => resolve())
     unsubscribeAuth()
+    unsubscribePrivateMode()
     unsubscribers.forEach(unsubscribe => unsubscribe())
     if (timer) clearTimeout(timer)
     timer = undefined

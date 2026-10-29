@@ -14,6 +14,7 @@ import type {
 } from '@/shared/types/tmdb'
 import { useFavoritesStore } from '@/features/favorites/store/favoritesStore'
 import { useViewingHistoryStore } from '@/shared/store/viewingHistoryStore'
+import { usePrivateModeStore } from '@/shared/store'
 import {
   DetailCastTab,
   DetailHeroSection,
@@ -44,6 +45,8 @@ import {
 const isSupportedMediaType = (value: string): value is TmdbMediaType => value === 'movie' || value === 'tv'
 const TMDB_SEARCH_PATH = '/search?mode=tmdb'
 
+const emptyPrivateHistory: ReturnType<typeof useViewingHistoryStore.getState>['viewingHistory'] = []
+
 export default function TmdbDetailView() {
   const navigate = useNavigate()
   const tmdbEnabled = useTmdbEnabled()
@@ -61,11 +64,12 @@ export default function TmdbDetailView() {
   const isValidId = Number.isInteger(parsedTmdbId) && parsedTmdbId > 0
   const isValidRoute = Boolean(mediaType) && isValidId
 
+  const isPrivateMode = usePrivateModeStore(state => state.isPrivateMode)
   const favorited = useFavoritesStore(state =>
-    mediaType && isValidId ? state.isTmdbFavorited(parsedTmdbId, mediaType) : false,
+    !isPrivateMode && mediaType && isValidId ? state.isTmdbFavorited(parsedTmdbId, mediaType) : false,
   )
   const toggleTmdbFavorite = useFavoritesStore(state => state.toggleTmdbFavorite)
-  const viewingHistory = useViewingHistoryStore(state => state.viewingHistory)
+  const viewingHistory = useViewingHistoryStore(state => isPrivateMode ? emptyPrivateHistory : state.viewingHistory)
 
   const { detail, loading, error } = useTmdbDetail<TmdbMovieDetail | TmdbTvDetail>(
     isValidRoute ? parsedTmdbId : undefined,
@@ -141,6 +145,7 @@ export default function TmdbDetailView() {
   const latestTmdbHistory = useMemo(() => {
     if (!mediaType || !isValidRoute) return null
 
+    if (isPrivateMode) return null
     const matchedItems = viewingHistory
       .filter(
       item =>
@@ -155,7 +160,7 @@ export default function TmdbDetailView() {
     // 1. 优先选择带有 sourceCode + vodId 的记录（可直接回到上次源）
     // 2. 其次使用最近一条 tmdb 记录（回到同集/同季）
     return matchedItems.find(item => Boolean(item.sourceCode && item.vodId)) || matchedItems[0]
-  }, [isValidRoute, mediaType, parsedTmdbId, viewingHistory])
+  }, [isValidRoute, mediaType, parsedTmdbId, viewingHistory, isPrivateMode])
 
   if (!isValidRoute) {
     return (
@@ -343,7 +348,7 @@ export default function TmdbDetailView() {
         }
         continueWatchingLabel={continueWatchingLabel}
         continueWatchingProgressLabel={continueWatchingProgressLabel}
-        onToggleFavorite={() => toggleTmdbFavorite(mediaSnapshot)}
+        onToggleFavorite={isPrivateMode ? undefined : () => toggleTmdbFavorite(mediaSnapshot)}
       />
 
       <DetailTabNav

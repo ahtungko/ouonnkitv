@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { usePrivateModeStore } from '@/shared/store/privateModeStore'
 import { devtools, persist, createJSONStorage } from 'zustand/middleware'
 import { safeLocalStorage } from '@/shared/lib/safeStorage'
 import { immer } from 'zustand/middleware/immer'
@@ -278,6 +279,7 @@ export const useFavoritesStore = create<FavoritesStore>()(
         selectedIds: new Set<string>(),
 
         setTracking: (id, tracking) => {
+          if (usePrivateModeStore.getState().isPrivateMode) return
           if (
             tracking.seasonNumber !== undefined &&
             (!Number.isSafeInteger(tracking.seasonNumber) || tracking.seasonNumber < 1)
@@ -296,6 +298,7 @@ export const useFavoritesStore = create<FavoritesStore>()(
         },
 
         setTrackingProgress: (id, completedEpisode, expectedSeasonKey) => {
+          if (usePrivateModeStore.getState().isPrivateMode) return false
           if (
             completedEpisode !== null &&
             (!Number.isSafeInteger(completedEpisode) || completedEpisode < 0)
@@ -324,6 +327,7 @@ export const useFavoritesStore = create<FavoritesStore>()(
         },
 
         setTrackingBinding: (id, binding, expectedSeasonKey, completedEpisode) => {
+          if (usePrivateModeStore.getState().isPrivateMode) return false
           const vodId = binding ? normalizeVodId(binding.vodId) : null
           if (
             !Number.isSafeInteger(completedEpisode) ||
@@ -367,6 +371,7 @@ export const useFavoritesStore = create<FavoritesStore>()(
         // === 基础 CRUD 实现 ===
 
         addTmdbFavorite: (media: TmdbMediaItem, watchStatus?: FavoriteWatchStatus) => {
+          if (usePrivateModeStore.getState().isPrivateMode) return
           set(state => {
             const existingId = generateTmdbFavoriteId(media.id, media.mediaType)
             const existingIndex = state.favorites.findIndex(f => f.id === existingId)
@@ -399,6 +404,7 @@ export const useFavoritesStore = create<FavoritesStore>()(
         },
 
         addCmsFavorite: (video: VideoItem, watchStatus?: FavoriteWatchStatus) => {
+          if (usePrivateModeStore.getState().isPrivateMode) return
           set(state => {
             const sourceCode = video.source_code || ''
             const existingId = generateCmsFavoriteId(video.vod_id, sourceCode)
@@ -431,6 +437,7 @@ export const useFavoritesStore = create<FavoritesStore>()(
         },
 
         addFavorites: (items: (TmdbMediaItem | VideoItem)[]) => {
+          if (usePrivateModeStore.getState().isPrivateMode) return
           set(state => {
             items.forEach(item => {
               if ('mediaType' in item) {
@@ -475,6 +482,7 @@ export const useFavoritesStore = create<FavoritesStore>()(
         },
 
         removeFavorite: (id: string) => {
+          if (usePrivateModeStore.getState().isPrivateMode) return
           set(state => {
             state.favorites = state.favorites.filter(f => f.id !== id)
           })
@@ -482,6 +490,7 @@ export const useFavoritesStore = create<FavoritesStore>()(
         },
 
         removeFavorites: (ids: string[]) => {
+          if (usePrivateModeStore.getState().isPrivateMode) return
           set(state => {
             const idSet = new Set(ids)
             state.favorites = state.favorites.filter(f => !idSet.has(f.id))
@@ -490,6 +499,7 @@ export const useFavoritesStore = create<FavoritesStore>()(
         },
 
         clearFavorites: () => {
+          if (usePrivateModeStore.getState().isPrivateMode) return
           set(state => {
             state.favorites = []
           })
@@ -499,6 +509,7 @@ export const useFavoritesStore = create<FavoritesStore>()(
         // === 状态管理实现 ===
 
         updateWatchStatus: (id: string, status: FavoriteWatchStatus) => {
+          if (usePrivateModeStore.getState().isPrivateMode) return
           set(state => {
             const item = state.favorites.find(f => f.id === id)
             if (item) {
@@ -510,6 +521,7 @@ export const useFavoritesStore = create<FavoritesStore>()(
         },
 
         updateWatchStatusBulk: (ids: string[], status: FavoriteWatchStatus) => {
+          if (usePrivateModeStore.getState().isPrivateMode) return
           set(state => {
             const idSet = new Set(ids)
             state.favorites.forEach(f => {
@@ -523,6 +535,7 @@ export const useFavoritesStore = create<FavoritesStore>()(
         },
 
         setRating: (id: string, rating: number) => {
+          if (usePrivateModeStore.getState().isPrivateMode) return
           set(state => {
             const item = state.favorites.find(f => f.id === id)
             if (item) {
@@ -534,6 +547,7 @@ export const useFavoritesStore = create<FavoritesStore>()(
         },
 
         setNotes: (id: string, notes: string) => {
+          if (usePrivateModeStore.getState().isPrivateMode) return
           set(state => {
             const item = state.favorites.find(f => f.id === id)
             if (item) {
@@ -545,6 +559,7 @@ export const useFavoritesStore = create<FavoritesStore>()(
         },
 
         addTag: (id: string, tag: string) => {
+          if (usePrivateModeStore.getState().isPrivateMode) return
           set(state => {
             const item = state.favorites.find(f => f.id === id)
             if (item && !item.tags.includes(tag)) {
@@ -556,6 +571,7 @@ export const useFavoritesStore = create<FavoritesStore>()(
         },
 
         removeTag: (id: string, tag: string) => {
+          if (usePrivateModeStore.getState().isPrivateMode) return
           set(state => {
             const item = state.favorites.find(f => f.id === id)
             if (item) {
@@ -589,6 +605,7 @@ export const useFavoritesStore = create<FavoritesStore>()(
         },
 
         toggleTmdbFavorite: (media: TmdbMediaItem) => {
+          if (usePrivateModeStore.getState().isPrivateMode) return
           const existingId = generateTmdbFavoriteId(media.id, media.mediaType)
           const exists = get().isTmdbFavorited(media.id, media.mediaType)
 
@@ -600,6 +617,7 @@ export const useFavoritesStore = create<FavoritesStore>()(
         },
 
         toggleCmsFavorite: (video: VideoItem) => {
+          if (usePrivateModeStore.getState().isPrivateMode) return
           const sourceCode = video.source_code || ''
           const exists = get().isCmsFavorited(video.vod_id, sourceCode)
 

@@ -1,7 +1,6 @@
 import { Navbar, NavbarBrand, NavbarContent } from '@/shared/components/ui/navbar'
 import { PROJECT } from '@/shared/config/project'
 import { OkiLogo } from '@/shared/components/icons'
-import { SidebarTrigger } from '@/shared/components/ui/sidebar'
 import { NavLink, useLocation } from 'react-router'
 import { useState } from 'react'
 import { Moon, Sun, Laptop } from 'lucide-react'
@@ -12,6 +11,7 @@ import { ThemeToggle, useThemeState } from './theme'
 import SearchBox from './SearchBox'
 import AccountMenu from './AccountMenu'
 import { PrivateModeToggle } from './PrivateModeToggle'
+import { usePrivateModeStore } from '@/shared/store'
 import { cn } from '@/shared/lib'
 import { AnnouncementCenter } from '@/features/announcements/AnnouncementCenter'
 import { useVersionStore } from '@/shared/store/versionStore'
@@ -39,6 +39,8 @@ export default function Navigation({
 
   // 在搜索页面隐藏导航栏搜索框
   const isSearchPage = location.pathname === '/search'
+  const isPrivateMode = usePrivateModeStore(state => state.isPrivateMode)
+  const visibleNavLinks = isPrivateMode ? navLinks.filter(link => link.path !== '/history' && link.path !== '/favorites') : navLinks
 
   return (
     <div
@@ -77,7 +79,6 @@ export default function Navigation({
                 : '',
             )}
           >
-            <SidebarTrigger className="md:hidden" />
             <NavLink to="/" className="flex items-center gap-2">
               <OkiLogo />
               <p className="text-foreground text-lg font-bold tracking-tight">{PROJECT.name}</p>
@@ -85,7 +86,7 @@ export default function Navigation({
 
             {/* Desktop Apple-style floating nav pills */}
             <nav className="hidden md:flex items-center gap-1 ml-3 lg:ml-6">
-              {navLinks.map(link => {
+              {visibleNavLinks.map(link => {
                 const isActive =
                   link.path === '/'
                     ? location.pathname === '/'

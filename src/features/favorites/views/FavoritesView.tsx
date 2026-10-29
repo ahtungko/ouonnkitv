@@ -9,6 +9,7 @@ import { usePortalToSidebarInset } from '@/shared/hooks/usePortalToSidebarInset'
 import { useTmdbEnabled } from '@/shared/hooks/useTmdbMode'
 import { FavoriteWatchStatus } from '../types/favorites'
 import { NoResultIcon } from '@/shared/components/icons'
+import { usePrivateModeStore } from '@/shared/store'
 import { canTrackFavorite } from '../lib/seriesTracking'
 import {
   DEFAULT_FAVORITE_SORT_VALUE,
@@ -51,8 +52,11 @@ export default function FavoritesView() {
 
   const tmdbEnabled = useTmdbEnabled()
 
+  const isPrivateMode = usePrivateModeStore(state => state.isPrivateMode)
+
   // 当前显示的收藏列表（根据 TMDB 模式和状态标签筛选）
   const displayFavorites = useMemo(() => {
+    if (isPrivateMode) return []
     let list = filteredFavorites
     if (!tmdbEnabled) {
       list = list.filter(f => f.sourceType !== 'tmdb')
@@ -61,7 +65,7 @@ export default function FavoritesView() {
       list = list.filter(f => f.watchStatus === activeTab)
     }
     return list
-  }, [filteredFavorites, activeTab, tmdbEnabled])
+  }, [filteredFavorites, activeTab, tmdbEnabled, isPrivateMode])
 
   // 清空当前 tab 的所有收藏
   const handleClearAll = useCallback(() => {

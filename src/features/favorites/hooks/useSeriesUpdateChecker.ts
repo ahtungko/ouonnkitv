@@ -10,6 +10,7 @@ import { useApiStore } from '@/shared/store/apiStore'
 import { useAuthStore } from '@/shared/store/authStore'
 import { useSettingStore } from '@/shared/store/settingStore'
 import { useViewingHistoryStore } from '@/shared/store/viewingHistoryStore'
+import { usePrivateModeStore } from '@/shared/store/privateModeStore'
 import { useFavoritesStore } from '../store/favoritesStore'
 import { useSeriesUpdatesStore } from '../store/seriesUpdatesStore'
 import { canTrackFavorite, trackingKey, trackingBindingKey } from '../lib/seriesTracking'
@@ -25,9 +26,12 @@ const fingerprint = (value: string) =>
     ),
   )
 
+const emptyFavorites: FavoriteItem[] = []
+
 export function useSeriesUpdateChecker() {
+  const isPrivateMode = usePrivateModeStore(state => state.isPrivateMode)
   const ownerId = useAuthStore(state => state.account?.id)
-  const favorites = useFavoritesStore(state => state.favorites)
+  const favorites = useFavoritesStore(state => isPrivateMode ? emptyFavorites : state.favorites)
   const sources = useApiStore(state => state.videoAPIs)
   const network = useSettingStore(state => state.network)
   const tmdbEnabled = useSettingStore(state => state.system.tmdbEnabled)
@@ -55,6 +59,7 @@ export function useSeriesUpdateChecker() {
   const networkSignature = JSON.stringify(network)
 
   useEffect(() => {
+    if (isPrivateMode) return
     if (!ownerId) return
     // 缓存只记录配置指纹，不额外保存代理地址或视频源凭据。
     const configuration = fingerprint(sourceSignature + networkSignature)
@@ -240,5 +245,5 @@ export function useSeriesUpdateChecker() {
       if (useSeriesUpdatesStore.getState().ownerId === ownerId)
         useSeriesUpdatesStore.setState({ checking: false, checkingKeys: [], checkProgress: null })
     }
-  }, [ownerId, signature, sourceSignature, networkSignature, tmdbEnabled])
+  }, [ownerId, signature, sourceSignature, networkSignature, tmdbEnabled, isPrivateMode])
 }

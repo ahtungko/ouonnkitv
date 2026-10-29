@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { syncClient } from './client'
 import { useAuthStore } from '@/shared/store/authStore'
+import { usePrivateModeStore } from '@/shared/store/privateModeStore'
 import { useSeriesUpdatesStore } from '@/features/favorites/store/seriesUpdatesStore'
 import {
   useSeriesNotificationsStore,
@@ -21,6 +22,7 @@ let lastNotificationsSyncAt = 0
 const NOTIFICATIONS_COOLDOWN_MS = 5 * 60 * 1000
 
 const identity = () => {
+  if (usePrivateModeStore.getState().isPrivateMode) return null
   const { account, session } = useAuthStore.getState()
   return account && session?.user.id === account.id
     ? { id: account.id, token: session.access_token }
@@ -216,6 +218,9 @@ export function startSeriesNotificationSync(): () => void {
     if (state.session !== previous.session || state.account?.id !== previous.account?.id)
       changeSession()
   })
+  const privateMode = usePrivateModeStore.subscribe((state, previous) => {
+    if (state.isPrivateMode !== previous.isPrivateMode) changeSession()
+  })
   const receipts = useSeriesNotificationsStore.subscribe((state, previous) => {
     if (!applying && state.accounts !== previous.accounts) {
       const owner = identity()?.id
@@ -266,6 +271,7 @@ export function startSeriesNotificationSync(): () => void {
     generation++
     busy = false
     auth()
+    privateMode()
     receipts()
     checks()
     if (timer) clearTimeout(timer)

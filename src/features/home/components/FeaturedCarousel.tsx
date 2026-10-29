@@ -23,8 +23,11 @@ import {
 import { Skeleton } from '@/shared/components/ui/skeleton'
 import { useIsMobile } from '@/shared/hooks/use-mobile'
 import { useViewingHistoryStore } from '@/shared/store/viewingHistoryStore'
+import { usePrivateModeStore } from '@/shared/store/privateModeStore'
 import type { TmdbMediaItem } from '@/shared/types/tmdb'
 import type { ViewingHistoryItem } from '@/shared/types/video'
+
+const emptyHistory: ViewingHistoryItem[] = []
 
 // 平板断点 (768px - 1024px)
 const TABLET_BREAKPOINT = 1024
@@ -87,10 +90,12 @@ export function FeaturedCarousel({
   }, [activeItem, activeKey, logos])
   const isMobile = useIsMobile()
   const isTablet = useIsTablet()
-  const viewingHistory = useViewingHistoryStore(state => state.viewingHistory)
+  const isPrivateMode = usePrivateModeStore(state => state.isPrivateMode)
+  const viewingHistory = useViewingHistoryStore(state => isPrivateMode ? emptyHistory : state.viewingHistory)
 
   const latestTmdbHistoryMap = useMemo(() => {
     const latestHistoryMap = new Map<string, ViewingHistoryItem>()
+    if (isPrivateMode) return latestHistoryMap
     const latestMappedHistoryMap = new Map<string, ViewingHistoryItem>()
 
     viewingHistory.forEach(historyItem => {
@@ -116,7 +121,7 @@ export function FeaturedCarousel({
       resultMap.set(mediaKey, latestMappedHistoryMap.get(mediaKey) || historyItem)
     })
     return resultMap
-  }, [viewingHistory])
+  }, [viewingHistory, isPrivateMode])
 
   // 根据设备类型获取 AspectRatio
   // 移动端: 16/10, 平板: 16/9, 桌面: 21/9 院线超宽巨幕

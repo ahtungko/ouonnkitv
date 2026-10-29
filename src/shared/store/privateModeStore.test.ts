@@ -12,8 +12,10 @@ import {
 } from './privateModeStore'
 import { useViewingHistoryStore } from './viewingHistoryStore'
 import { useSearchStore } from './searchStore'
+import { useTmdbMatchCacheStore } from './tmdbMatchCacheStore'
 import { useSearchHistory } from '@/shared/hooks/useSearchHistory'
 import { useSettingStore } from './settingStore'
+import { useFavoritesStore } from '@/features/favorites/store/favoritesStore'
 
 function renderHookHelper<T>(hook: () => T) {
   const result: { current: T } = {} as { current: T }
@@ -178,5 +180,68 @@ describe('usePrivateModeStore (无痕模式)', () => {
     // 历史重现
     expect(result.current.searchHistory).toHaveLength(1)
     unmount()
+  })
+
+  it('无痕模式禁止修改原收藏、进度和历史', () => {
+    useFavoritesStore.setState({ favorites: [], filteredFavorites: [] })
+    useFavoritesStore.getState().addCmsFavorite({ vod_id: 'a', vod_name: '原收藏', source_code: 's', source_name: '源' })
+    const id = useFavoritesStore.getState().favorites[0].id
+    useFavoritesStore.getState().setTracking(id, { enabled: true })
+    useSearchStore.getState().addSearchHistoryItem('原搜索')
+    const before = JSON.stringify(useFavoritesStore.getState().favorites)
+    usePrivateModeStore.getState().setPrivateMode(true)
+    useFavoritesStore.getState().removeFavorites([id])
+    useFavoritesStore.getState().clearFavorites()
+    useFavoritesStore.getState().setNotes(id, 'private')
+    useFavoritesStore.getState().setTracking(id, { enabled: false })
+    expect(useFavoritesStore.getState().setTrackingProgress(id, 3, 'cms')).toBe(false)
+    useSearchStore.getState().clearSearchHistory()
+    expect(JSON.stringify(useFavoritesStore.getState().favorites)).toBe(before)
+    expect(useSearchStore.getState().searchHistory[0].content).toBe('原搜索')
+    usePrivateModeStore.getState().setPrivateMode(false)
+    expect(JSON.stringify(useFavoritesStore.getState().favorites)).toBe(before)
+  })
+
+  it('无痕期间不读取或保存影片匹配缓存', () => {
+    const cache = useTmdbMatchCacheStore.getState()
+    const payload = { searchedKeyword: '原记录', candidates: [], movieSourceMatches: [], seasonSourceMatches: [] }
+    cache.setEntry('existing', payload)
+    const before = localStorage.getItem('ouonnki-tv-tmdb-match-cache-store')
+    usePrivateModeStore.getState().setPrivateMode(true)
+    expect(cache.getEntry('existing', 24)).toBeNull()
+    cache.setEntry('private', { ...payload, searchedKeyword: '私密' })
+    expect(localStorage.getItem('ouonnki-tv-tmdb-match-cache-store')).toBe(before)
+    usePrivateModeStore.getState().setPrivateMode(false)
+    expect(cache.getEntry('existing', 24)?.payload.searchedKeyword).toBe('原记录')
+    expect(cache.getEntry('private', 24)).toBeNull()
+  })
+
+  it('无痕模式开启时，favoritesStore 阻断添加和删除收藏', () => {
+    useFavoritesStore.setState({ favorites: [], filteredFavorites: [] })
+
+    // 1. 普通模式下正常添加
+    useFavoritesStore.getState().addCmsFavorite({
+      vod_id: 'fav-1',
+      vod_name: '收藏测试',
+      source_code: 'src',
+      source_name: '源',
+    })
+    expect(useFavoritesStore.getState().favorites).toHaveLength(1)
+
+    // 2. 开启无痕模式
+    usePrivateModeStore.getState().setPrivateMode(true)
+
+    // 尝试添加新收藏
+    useFavoritesStore.getState().addCmsFavorite({
+      vod_id: 'fav-2',
+      vod_name: '无痕尝试收藏',
+      source_code: 'src',
+      source_name: '源',
+    })
+    expect(useFavoritesStore.getState().favorites).toHaveLength(1)
+
+    // 尝试删除已有收藏
+    useFavoritesStore.getState().removeFavorite(useFavoritesStore.getState().favorites[0].id)
+    expect(useFavoritesStore.getState().favorites).toHaveLength(1)
   })
 })

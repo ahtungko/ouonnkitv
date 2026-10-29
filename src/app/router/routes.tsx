@@ -3,6 +3,7 @@ import { createBrowserRouter, RouterProvider, Navigate } from 'react-router'
 import { LoadingFallback } from './LoadingFallback'
 import { RootErrorBoundary } from './RootErrorBoundary'
 import { useAuthStore } from '@/shared/store/authStore'
+import { usePrivateModeStore } from '@/shared/store/privateModeStore'
 import { adminChildRoutes } from '@/features/auth/admin-routes'
 
 // 主布局随受保护路由加载，设置布局在进入设置页时再加载。
@@ -37,6 +38,14 @@ const GuestPartyView = lazy(() => import('@/features/player/views/GuestPartyView
 const SuspenseWrapper = ({ children }: { children: React.ReactNode }) => (
   <Suspense fallback={<LoadingFallback />}>{children}</Suspense>
 )
+
+const HistoryGuard = ({ children }: { children: React.ReactNode }) => {
+  const isPrivateMode = usePrivateModeStore(state => state.isPrivateMode)
+  if (isPrivateMode) {
+    return <Navigate to="/" replace />
+  }
+  return <>{children}</>
+}
 
 const AdminOnly = ({ children }: { children: React.ReactNode }) => {
   const isAdmin = useAuthStore(state => state.account?.role === 'admin')
@@ -127,7 +136,7 @@ const router = createBrowserRouter([
         path: 'favorites',
         element: (
           <SuspenseWrapper>
-            <FavoritesView />
+            <HistoryGuard><FavoritesView /></HistoryGuard>
           </SuspenseWrapper>
         ),
       },
@@ -135,7 +144,7 @@ const router = createBrowserRouter([
         path: 'history',
         element: (
           <SuspenseWrapper>
-            <HistoryView />
+            <HistoryGuard><HistoryView /></HistoryGuard>
           </SuspenseWrapper>
         ),
       },
@@ -143,7 +152,7 @@ const router = createBrowserRouter([
         path: 'continue-watching',
         element: (
           <SuspenseWrapper>
-            <HistoryView />
+            <HistoryGuard><HistoryView /></HistoryGuard>
           </SuspenseWrapper>
         ),
       },

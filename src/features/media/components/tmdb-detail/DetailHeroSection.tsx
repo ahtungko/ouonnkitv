@@ -34,7 +34,7 @@ interface DetailHeroSectionProps {
   onContinueWatching?: () => void
   continueWatchingLabel?: string
   continueWatchingProgressLabel?: string
-  onToggleFavorite: () => void
+  onToggleFavorite?: () => void
 }
 
 export function DetailHeroSection({
@@ -96,7 +96,7 @@ export function DetailHeroSection({
           </a>
         </Button>
       )}
-      <Button
+      {onToggleFavorite && <Button
         variant="ghost"
         className="absolute top-4 right-4 z-20 h-8 sm:h-9 gap-1.5 rounded-full px-3 bg-black/40 hover:bg-black/60 active:scale-95 text-white/90 hover:text-white backdrop-blur-xl border border-white/15 shadow-md transition-all md:hidden"
         onClick={onToggleFavorite}
@@ -111,7 +111,7 @@ export function DetailHeroSection({
           <Heart className={`size-4 transition-colors ${favorited ? 'fill-rose-500 text-rose-500' : ''}`} />
         </motion.span>
         <span className="text-xs font-medium">{favorited ? '已收藏' : '收藏'}</span>
-      </Button>
+      </Button>}
 
       <div className="relative z-10 flex min-h-[440px] flex-col justify-end gap-5 p-5 sm:min-h-[480px] sm:p-7 md:min-h-[620px] md:gap-6 md:p-10 lg:flex-row lg:items-end lg:justify-between">
         <div className="flex flex-col gap-4 md:max-w-2xl">
@@ -247,7 +247,7 @@ export function DetailHeroSection({
               <Play className="size-4.5 fill-current" />
               <span>{playNowLabel}</span>
             </Button>
-            <Button
+            {onToggleFavorite && <Button
               variant="outline"
               className="hidden h-11 sm:h-12 rounded-full border-white/25 bg-white/10 px-5 font-semibold text-white backdrop-blur-md shadow-md hover:bg-white/20 hover:text-white active:scale-95 transition-all md:inline-flex items-center gap-2"
               onClick={onToggleFavorite}
@@ -261,7 +261,7 @@ export function DetailHeroSection({
                 <Heart className={`size-4.5 transition-colors ${favorited ? 'fill-rose-500 text-rose-500' : ''}`} />
               </motion.span>
               <span>{favorited ? '已加入收藏' : '加入收藏'}</span>
-            </Button>
+            </Button>}
           </div>
         </div>
 

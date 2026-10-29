@@ -117,7 +117,7 @@ export default function SideBar({
           <SidebarGroupLabel>导航</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {items.content.map(item => (
+              {items.content.filter(item => !isPrivateMode || (item.url !== '/history' && item.url !== '/favorites')).map(item => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
                     <NavLink

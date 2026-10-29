@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { usePrivateModeStore } from './privateModeStore'
 import { devtools, persist, createJSONStorage } from 'zustand/middleware'
 import { safeLocalStorage } from '@/shared/lib/safeStorage'
 import { immer } from 'zustand/middleware/immer'
@@ -43,6 +44,7 @@ export const useTmdbMatchCacheStore = create<TmdbMatchCacheStore>()(
         entries: {},
 
         getEntry: (key: string, ttlHours: number) => {
+          if (usePrivateModeStore.getState().isPrivateMode) return null
           const entry = get().entries[key]
           if (!entry) return null
 
@@ -59,6 +61,7 @@ export const useTmdbMatchCacheStore = create<TmdbMatchCacheStore>()(
         },
 
         setEntry: (key: string, payload: TmdbMatchCachePayload) => {
+          if (usePrivateModeStore.getState().isPrivateMode) return
           set(state => {
             state.entries[key] = {
               key,
@@ -77,6 +80,7 @@ export const useTmdbMatchCacheStore = create<TmdbMatchCacheStore>()(
         },
 
         prune: (maxEntries: number) => {
+          if (usePrivateModeStore.getState().isPrivateMode) return
           const safeLimit = Math.max(1, Math.floor(maxEntries))
           const list = Object.values(get().entries)
           if (list.length <= safeLimit) return

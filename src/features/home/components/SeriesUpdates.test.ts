@@ -3,6 +3,7 @@ import { createRoot, type Root } from 'react-dom/client'
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { SeriesUpdates } from './SeriesUpdates'
+import { usePrivateModeStore } from '@/shared/store/privateModeStore'
 import { useFavoritesStore } from '@/features/favorites/store/favoritesStore'
 import { useSeriesUpdatesStore } from '@/features/favorites/store/seriesUpdatesStore'
 import { FavoriteWatchStatus, type CmsFavoriteItem } from '@/features/favorites/types/favorites'
@@ -262,4 +263,16 @@ describe('首页追更筛选', () => {
     })
     expect(host.querySelector('[aria-label="追剧更新"]')).toBeNull()
   })
+})
+
+
+it('切换无痕时隐藏并恢复追剧，不改变收藏', async () => {
+  await mount()
+  expect(host.querySelector('[aria-label="追剧更新"]')).not.toBeNull()
+  const before = JSON.stringify(useFavoritesStore.getState().favorites)
+  await act(async () => usePrivateModeStore.getState().setPrivateMode(true))
+  expect(host.querySelector('[aria-label="追剧更新"]')).toBeNull()
+  await act(async () => usePrivateModeStore.getState().setPrivateMode(false))
+  expect(host.querySelector('[aria-label="追剧更新"]')).not.toBeNull()
+  expect(JSON.stringify(useFavoritesStore.getState().favorites)).toBe(before)
 })

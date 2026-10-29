@@ -70,6 +70,7 @@ export const useViewingHistoryStore = create<ViewingHistoryStore>()(
         },
 
         removeViewingHistory: (item: ViewingHistoryItem) => {
+          if (usePrivateModeStore.getState().isPrivateMode) return
           set(state => {
             const targetSeriesKey = getHistorySeriesKey(item)
             state.viewingHistory = state.viewingHistory.filter(
@@ -79,6 +80,7 @@ export const useViewingHistoryStore = create<ViewingHistoryStore>()(
         },
 
         removeViewingHistoryItem: (item: ViewingHistoryItem) => {
+          if (usePrivateModeStore.getState().isPrivateMode) return
           set(state => {
             const targetItemKey = getHistoryItemKey(item)
             state.viewingHistory = state.viewingHistory.filter(
@@ -88,6 +90,7 @@ export const useViewingHistoryStore = create<ViewingHistoryStore>()(
         },
 
         clearViewingHistory: () => {
+          if (usePrivateModeStore.getState().isPrivateMode) return
           set(state => {
             state.viewingHistory = []
           })

@@ -8,7 +8,7 @@ import {
 import { AspectRatio } from '@/shared/components/ui/aspect-ratio'
 import { Skeleton } from '@/shared/components/ui/skeleton'
 import { NavLink } from 'react-router'
-import { useViewingHistoryStore } from '@/shared/store'
+import { useViewingHistoryStore, usePrivateModeStore } from '@/shared/store'
 import { useEffect, useMemo, useState } from 'react'
 import { useIsMobile } from '@/shared/hooks/use-mobile'
 import { useTmdbEnabled } from '@/shared/hooks/useTmdbMode'
@@ -48,6 +48,11 @@ function ContinueWatchingSkeleton() {
  * ContinueWatching - 院线级继续观看组件
  */
 export function ContinueWatching() {
+  const isPrivateMode = usePrivateModeStore(state => state.isPrivateMode)
+  return isPrivateMode ? null : <ContinueWatchingContent />
+}
+
+function ContinueWatchingContent() {
   const { viewingHistory } = useViewingHistoryStore()
   const hasHydrated = useViewingHistoryStore.persist.hasHydrated()
   const tmdbEnabled = useTmdbEnabled()

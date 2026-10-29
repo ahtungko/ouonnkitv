@@ -5,6 +5,7 @@ import { Progress } from '@/shared/components/ui/progress'
 import { Popover, PopoverContent, PopoverTrigger } from '@/shared/components/ui/popover'
 import { ScrollArea } from '@/shared/components/ui/scroll-area'
 import { useViewingHistoryStore } from '@/shared/store/viewingHistoryStore'
+import { usePrivateModeStore } from '@/shared/store'
 import dayjs from 'dayjs'
 import duration from 'dayjs/plugin/duration'
 import { NavLink } from 'react-router'
@@ -124,8 +125,11 @@ const HistoryList = ({
 }
 
 export default function RecentHistory() {
+  const isPrivateMode = usePrivateModeStore(state => state.isPrivateMode)
   const [isOpen, setIsOpen] = useState(false)
   const { viewingHistory, removeViewingHistoryItem, clearViewingHistory } = useViewingHistoryStore()
+
+  if (isPrivateMode) return null
   return (
     <>
       <Popover open={isBrowser ? undefined : isOpen} onOpenChange={isBrowser ? undefined : setIsOpen}>
