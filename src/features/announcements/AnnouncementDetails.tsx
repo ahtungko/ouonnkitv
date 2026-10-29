@@ -19,6 +19,30 @@ const styles = {
   },
 }
 
+function renderFormattedContent(text: string) {
+  const tokens = text.split(/(\*\*[^\n*]+\*\*|`[^\n`]+`)/g)
+  return tokens.map((token, index) => {
+    if (token.startsWith('**') && token.endsWith('**') && token.length > 4) {
+      return (
+        <strong key={index} className="font-semibold text-foreground">
+          {token.slice(2, -2)}
+        </strong>
+      )
+    }
+    if (token.startsWith('`') && token.endsWith('`') && token.length > 2) {
+      return (
+        <code
+          key={index}
+          className="rounded bg-muted px-1.5 py-0.5 text-xs font-mono text-foreground"
+        >
+          {token.slice(1, -1)}
+        </code>
+      )
+    }
+    return token
+  })
+}
+
 export function AnnouncementDetails({ announcement }: { announcement: Announcement }) {
   const { label, icon: Icon, color } = styles[announcement.kind]
   const formatTime = (time: string) => new Date(time).toLocaleString()
@@ -51,7 +75,7 @@ export function AnnouncementDetails({ announcement }: { announcement: Announceme
         )}
       {announcement.content.trim() && (
         <div className="text-sm leading-relaxed [overflow-wrap:anywhere] whitespace-pre-wrap">
-          {announcement.content}
+          {renderFormattedContent(announcement.content)}
         </div>
       )}
     </div>

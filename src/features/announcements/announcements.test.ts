@@ -159,6 +159,18 @@ describe('公告弹窗', () => {
     expect(document.body.querySelector('img')).toBeNull()
   })
 
+  it('正文支持加粗 **bold** 与行内代码格式，同时保持换行与防 XSS 安全', async () => {
+    mocks.read.mockResolvedValue({
+      ...announcement(),
+      content: '欢迎使用 **无痕模式** 与 `secret` 功能！\n第二行',
+    })
+    await mount()
+    const dialogEl = document.body.querySelector('[role="dialog"]')
+    expect(dialogEl?.querySelector('strong')?.textContent).toBe('无痕模式')
+    expect(dialogEl?.querySelector('code')?.textContent).toBe('secret')
+    expect(dialogEl?.textContent).toContain('第二行')
+  })
+
   it('播放期间延后新版本，退出后弹出且不提前标记已读', async () => {
     await act(async () => root.render(createElement(AnnouncementCenter, { deferred: true })))
     expect(dialog()).toBeNull()
